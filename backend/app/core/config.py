@@ -1,0 +1,46 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Central app configuration, populated from environment variables / .env."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    # App
+    PROJECT_NAME: str = "Wholesale Marketplace API"
+    API_V1_PREFIX: str = "/api/v1"
+    ENV: str = "development"
+    DEBUG: bool = True
+
+    # Database
+    DATABASE_URL: str = "postgresql://wholesale:wholesale@db:5432/wholesale"
+
+    # Redis (optional, used later for caching/queues)
+    REDIS_URL: str = "redis://redis:6379/0"
+
+    # Auth
+    SECRET_KEY: str = "change-me-in-prod"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # CORS - allow all dev origins (vanilla at 8000/vanilla, 3001, file://, etc.)
+    # For production, restrict to specific domains via .env
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:8000",
+        "http://localhost:8002",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://127.0.0.1:8000",
+        "http://127.0.0.1:8002",
+        "http://127.0.0.1:5173",
+        "null",
+    ]
+
+
+settings = Settings()

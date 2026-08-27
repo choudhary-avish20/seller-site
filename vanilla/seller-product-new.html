@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Nowy produkt — Wholesale</title><link rel="stylesheet" href="css/style.css"/></head>
+<body>
+<div id="site-header"></div>
+<div class="container" style="padding:24px 16px;max-width:720px">
+<a href="seller-products.html" style="font-size:13px;color:#4f46e5">← Wróć do produktów</a>
+<h1 style="font-size:24px;font-weight:800;margin-top:8px">Dodaj produkt</h1>
+<p style="color:#64748b;font-size:13px">Pack pricing, kategoria, stan i zdjęcia.</p>
+<div id="error" class="error" style="display:none;margin-top:12px"></div>
+<form id="form" style="margin-top:16px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
+<div class="form-group"><label class="label">Nazwa *</label><input id="name" class="input" required></div>
+<div class="form-group"><label class="label">Opis</label><textarea id="desc" class="textarea" rows="3"></textarea></div>
+<div class="form-group"><label class="label">Kategoria *</label><select id="cat" class="select" required><option value="">— Wybierz —</option></select></div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+<div class="form-group"><label class="label">Pack size *</label><input id="pack" class="input" type="number" min="1" value="1" required></div>
+<div class="form-group"><label class="label">Cena netto *</label><input id="net" class="input" type="number" step="0.01" required></div>
+<div class="form-group"><label class="label">VAT %</label><input id="vat" class="input" type="number" step="0.01" value="23"></div>
+<div class="form-group"><label class="label">Stan</label><input id="stock" class="input" type="number" value="10"></div>
+</div>
+<div class="form-group"><label class="label">Status</label><select id="status" class="select"><option value="in_stock">in_stock</option><option value="out_of_stock">out_of_stock</option></select></div>
+<div class="form-group"><label class="label">Zdjęcia — wgraj lub URL</label><input id="file" type="file" accept=".jpg,.jpeg,.png,.webp"><div id="imgs" style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"></div><div style="margin-top:8px"><input id="url" class="input" placeholder="https://... lub /uploads/..."><button type="button" class="btn" style="margin-top:8px" onclick="addUrl()">Dodaj URL</button></div></div>
+<button type="submit" class="btn btn--dark" style="width:100%;padding:12px;border-radius:999px">Utwórz produkt</button>
+</form>
+</div>
+<div id="site-footer"></div>
+<script src="js/api.js"></script><script src="js/common.js"></script>
+<script>
+let images=[];
+async function loadCats(){
+  const tree=await Api.getCategoryTree(false).catch(()=>[]);
+  injectHeader(tree); injectFooter();
+  const sel=document.getElementById('cat');
+  function addOpts(nodes, depth){
+    nodes.forEach(n=>{
+      const opt=document.createElement('option');
+      opt.value=n.id; opt.textContent='—'.repeat(depth)+' '+n.name+' (/'+n.slug+')';
+      sel.appendChild(opt);
+      if(n.children) addOpts(n.children, depth+1);
+    });
+  }
+  addOpts(tree,0);
+}
+loadCats();
+document.getElementById('file').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const res=await Api.uploadImage(f);
+    images.push(res.url); renderImgs();
+  }catch(ex){ alert(ex.message); }
+});
+function addUrl(){
+  const v=document.getElementById('url').value.trim();
+  if(v){ images.push(v); renderImgs(); document.getElementById('url').value=''; }
+}
+function renderImgs(){
+  document.getElementById('imgs').innerHTML=images.map((u,i)=>`<div style="position:relative"><img src="${getImageUrl(u)}" style="width:80px;height:80px;object-fit:cover;border-radius:12px;border:1px solid #e2e8f0"><button type="button" onclick="images.splice(${i},1);renderImgs()" style="position:absolute;top:4px;right:4px;background:#fff;border:1px solid #e2e8f0;border-radius:50%;width:20px;height:20px;font-size:12px">×</button></div>`).join('');
+}
+document.getElementById('form').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const err=document.getElementById('error'); err.style.display='none';
+  const payload={
+    name:document.getElementById('name').value,
+    description:document.getElementById('desc').value||undefined,
+    category_id:document.getElementById('cat').value,
+    pack_size:parseInt(document.getElementById('pack').value,10),
+    price_net:parseFloat(document.getElementById('net').value),
+    vat_rate:parseFloat(document.getElementById('vat').value),
+    stock_quantity:parseInt(document.getElementById('stock').value,10),
+    stock_status:document.getElementById('status').value,
+    images
+  };
+  if(!payload.category_id){ err.textContent='Kategoria wymagana'; err.style.display='block'; return; }
+  try{
+    await Api.createProduct(payload);
+    location.href='seller-products.html';
+  }catch(ex){ err.textContent=ex.message; err.style.display='block'; }
+});
+</script>
+</body></html>

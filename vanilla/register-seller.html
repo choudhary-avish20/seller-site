@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Sprzedawca — Wholesale</title><link rel="stylesheet" href="css/style.css"/></head>
+<body style="background:#f8fafc"><div id="site-header"></div>
+<div style="max-width:680px;margin:40px auto;padding:0 16px">
+<div class="card card--wide" style="margin:0 auto">
+<h1 style="font-size:22px;font-weight:800;text-align:center">Zarejestruj się jako sprzedawca</h1>
+<p style="text-align:center;font-size:13px;color:#64748b;margin-top:4px">Masz konto? <a href="login.html" style="color:#4f46e5">Zaloguj się</a></p>
+<div id="error" class="error" style="display:none;margin-top:16px"></div>
+<form id="form" style="margin-top:16px">
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:16px">
+<h3 style="font-weight:600">Dane konta</h3>
+<div class="form-group"><label class="label">Imię i nazwisko</label><input id="full" class="input" required></div>
+<div class="form-group"><label class="label">Email</label><input id="email" class="input" type="email" required></div>
+<div class="form-group"><label class="label">Hasło</label><input id="pwd" class="input" type="password" required></div>
+<div class="form-group"><label class="label">Potwierdź hasło</label><input id="pwd2" class="input" type="password" required></div>
+</div>
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px">
+<h3 style="font-weight:600">Dane firmy</h3>
+<div class="form-group"><label class="label">Nazwa firmy *</label><input id="biz" class="input" required></div>
+<div class="form-group"><label class="label">NIP</label><input id="nip" class="input"></div>
+<div class="form-group"><label class="label">Adres firmy</label><textarea id="addr" class="textarea" rows="2"></textarea></div>
+<div class="form-group"><label class="label">Telefon</label><input id="phone" class="input"></div>
+</div>
+<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:12px;padding:12px;margin-top:16px;font-size:13px;color:#92400e"><b>Uwaga:</b> Konta sprzedawców wymagają zatwierdzenia administratora.</div>
+<button type="submit" id="btn" class="btn btn--dark" style="width:100%;margin-top:16px;padding:12px;border-radius:999px">Wyślij zgłoszenie</button>
+</form>
+</div></div>
+<script src="js/api.js"></script><script src="js/auth.js"></script><script src="js/cart.js"></script><script src="js/common.js"></script>
+<script>
+injectHeader([]); injectFooter();
+document.getElementById('form').addEventListener('submit', async e=>{
+ e.preventDefault(); const err=document.getElementById('error'); err.style.display='none';
+ const full=document.getElementById('full').value, email=document.getElementById('email').value, pwd=document.getElementById('pwd').value, pwd2=document.getElementById('pwd2').value, biz=document.getElementById('biz').value;
+ if(pwd!==pwd2){err.textContent='Hasła nie są zgodne';err.style.display='block';return;}
+ if(pwd.length<8){err.textContent='Hasło min 8';err.style.display='block';return;}
+ if(!biz.trim()){err.textContent='Nazwa firmy wymagana';err.style.display='block';return;}
+ const btn=document.getElementById('btn'); btn.disabled=true; btn.textContent='Wysyłanie…';
+ try{
+   await Auth.registerSeller({email,password:pwd,full_name:full,role:'seller',seller_profile:{business_name:biz, tax_id:document.getElementById('nip').value||undefined, business_address:document.getElementById('addr').value||undefined, phone:document.getElementById('phone').value||undefined}});
+   location.href='index.html';
+ }catch(ex){ err.textContent=ex.message; err.style.display='block'; } finally{ btn.disabled=false; btn.textContent='Wyślij zgłoszenie';}
+});
+</script>
+</body></html>

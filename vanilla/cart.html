@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Koszyk — Wholesale</title><link rel="stylesheet" href="css/style.css"/></head>
+<body>
+<div id="site-header"></div>
+<div class="container" style="padding:24px 16px;max-width:900px">
+<h1 style="font-size:24px;font-weight:800">Koszyk — <span id="count">0</span> packów</h1>
+<p style="color:#64748b;font-size:13px">Ilość w packach. Kupujesz packi, nie sztuki.</p>
+<div id="cart"></div>
+<div id="summary" style="margin-top:16px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px;display:none">
+<div style="display:flex;justify-content:space-between"><span style="color:#64748b">Suma netto</span><span id="net" style="font-weight:600">0.00 zł</span></div>
+<div style="display:flex;justify-content:space-between;font-weight:800;margin-top:4px"><span>Suma brutto</span><span id="gross">0.00 zł</span></div>
+<p style="font-size:11px;color:#94a3b8;margin-top:8px">W tym VAT. COD / faktura ręczna dla MVP — brak bramki płatności.</p>
+<a href="checkout.html" class="btn btn--dark" style="display:block;text-align:center;margin-top:12px;padding:12px;border-radius:999px">Przejdź do kasy</a>
+<a href="categories.html" style="display:block;text-align:center;margin-top:8px;font-size:13px;color:#64748b">Kontynuuj zakupy</a>
+</div>
+</div>
+<div id="site-footer"></div>
+<script src="js/api.js"></script><script src="js/cart.js"></script><script src="js/common.js"></script>
+<script>
+Api.getCategoryTree(false).then(t=>injectHeader(t)).catch(()=>injectHeader([])); injectFooter();
+function render(){
+  const items=Cart.getCart();
+  document.getElementById('count').textContent=Cart.cartCount();
+  const el=document.getElementById('cart');
+  if(!items.length){
+    el.innerHTML='<div style="margin-top:16px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:32px;text-align:center"><p style="color:#64748b">Twój koszyk jest pusty.</p><a href="categories.html" class="btn btn--dark" style="margin-top:12px;display:inline-block">Przeglądaj kategorie</a></div>';
+    document.getElementById('summary').style.display='none';
+    return;
+  }
+  document.getElementById('summary').style.display='block';
+  el.innerHTML='<div style="margin-top:16px;background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden">'+items.map(it=>{
+    const net = it.variantPriceNet!=null? it.variantPriceNet : it.product.price_net;
+    const vat = it.product.vat_rate||23;
+    const gross = it.variantPriceNet!=null? +(net*(1+vat/100)).toFixed(2) : it.product.price_gross;
+    const img = it.product.images && it.product.images[0] ? getImageUrl(it.product.images[0]) : '';
+    return `<div style="padding:16px;display:flex;gap:16px;border-bottom:1px solid #f1f5f9">
+      <img src="${img}" style="width:80px;height:80px;object-fit:cover;border-radius:12px;border:1px solid #e2e8f0;background:#f8fafc">
+      <div style="flex:1"><a href="product.html?slug=${it.product.slug}" style="font-size:14px;font-weight:600">${it.product.name}</a><p style="font-size:12px;color:#64748b">Pack ${it.product.pack_size} • ${it.product.category_name||''}</p>${it.variantLabel?`<p style="font-size:12px;color:#4f46e5">${it.variantLabel}</p>`:''}<p style="font-size:13px;margin-top:4px">${gross.toFixed(2)} zł brutto <small style="color:#64748b">(${net.toFixed(2)} netto)</small> × ${it.packQuantity} = <b>${(gross*it.packQuantity).toFixed(2)} zł</b></p></div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:end"><div style="display:flex;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:999px;background:#f8fafc;padding:4px"><button onclick="Cart.updateQty('${it.product.id}','${it.variantId||''}',${it.packQuantity-1});render()" style="width:28px;height:28px;border:0;background:#fff;border-radius:50%;cursor:pointer">−</button><span style="width:24px;text-align:center;font-size:14px;font-weight:600">${it.packQuantity}</span><button onclick="Cart.updateQty('${it.product.id}','${it.variantId||''}',${it.packQuantity+1});render()" style="width:28px;height:28px;border:0;background:#fff;border-radius:50%;cursor:pointer">+</button></div><button onclick="Cart.removeFromCart('${it.product.id}','${it.variantId||''}');render()" style="font-size:12px;color:#ef4444;background:none;border:0;cursor:pointer">Usuń</button></div>
+    </div>`;
+  }).join('')+'</div>';
+  const {net,gross}=Cart.cartTotals();
+  document.getElementById('net').textContent=net.toFixed(2)+' zł';
+  document.getElementById('gross').textContent=gross.toFixed(2)+' zł';
+}
+render();
+</script>
+</body></html>

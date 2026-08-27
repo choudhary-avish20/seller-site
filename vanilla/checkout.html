@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Kasa — Wholesale</title><link rel="stylesheet" href="css/style.css"/></head>
+<body>
+<div id="site-header"></div>
+<div class="container" style="padding:24px 16px;max-width:900px">
+<h1 style="font-size:24px;font-weight:800">Kasa</h1>
+<p style="color:#64748b;font-size:13px">COD / faktura ręczna — brak bramki płatności dla MVP.</p>
+<div style="display:grid;gap:24px;margin-top:24px;grid-template-columns:1fr 1fr">
+<form id="form" style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
+<div id="error" class="error" style="display:none"></div>
+<div id="needLogin" style="display:none;background:#fef9c3;border:1px solid #fde68a;padding:12px;border-radius:12px;font-size:13px;margin-bottom:12px">Zaloguj się jako kupujący, aby złożyć zamówienie. <a href="login.html?callbackUrl=checkout.html" style="color:#4f46e5">Zaloguj →</a></div>
+<div class="form-group"><label class="label">Adres wysyłki *</label><textarea id="addr" class="textarea" rows="3" required placeholder="Ulica, miasto, kod, kraj"></textarea></div>
+<div class="form-group"><label class="label">Uwagi (opcjonalnie)</label><textarea id="notes" class="textarea" rows="2" placeholder="Uwagi do dostawy, prośba o fakturę…"></textarea></div>
+<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:12px;font-size:14px">
+<div style="display:flex;justify-content:space-between"><span>Netto</span><span id="net2">0.00 zł</span></div>
+<div style="display:flex;justify-content:space-between;font-weight:800"><span>Brutto (COD)</span><span id="gross2">0.00 zł</span></div>
+<p style="font-size:11px;color:#94a3b8;margin-top:8px">Zapłacisz przy odbiorze / faktura ręczna. Status: oczekujące.</p>
+</div>
+<button type="submit" id="btn" class="btn btn--dark" style="width:100%;padding:12px;border-radius:999px;margin-top:12px">Złóż zamówienie</button>
+</form>
+<div style="background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:16px">
+<h3 style="font-weight:600">Podsumowanie — packi</h3>
+<div id="summary" style="margin-top:12px;font-size:14px"></div>
+<a href="cart.html" style="display:block;text-align:center;margin-top:12px;font-size:13px;color:#64748b">Edytuj koszyk</a>
+</div>
+</div>
+</div>
+<div id="site-footer"></div>
+<script src="js/api.js"></script><script src="js/auth.js"></script><script src="js/cart.js"></script><script src="js/common.js"></script>
+<script>
+injectHeader([]); injectFooter();
+function renderSummary(){
+  const items=Cart.getCart();
+  document.getElementById('summary').innerHTML = items.map(it=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9"><span>${it.product.name} ${it.variantLabel? '('+it.variantLabel+')':''} × ${it.packQuantity} packów</span><span>${((it.variantPriceNet||it.product.price_gross)*it.packQuantity).toFixed(2)} zł</span></div>`).join('') || '<p style="color:#64748b">Brak produktów</p>';
+  const {net,gross}=Cart.cartTotals();
+  document.getElementById('net2').textContent=net.toFixed(2)+' zł';
+  document.getElementById('gross2').textContent=gross.toFixed(2)+' zł';
+  document.getElementById('btn').textContent=`Złóż zamówienie — ${gross.toFixed(2)} zł COD`;
+}
+renderSummary();
+const user = JSON.parse(localStorage.getItem('user')||'null');
+if(!localStorage.getItem('access_token')) document.getElementById('needLogin').style.display='block';
+else if(user && user.role!=='buyer' && user.role!=='admin') document.getElementById('needLogin').innerHTML='Tylko kupujący mogą składać zamówienia. <a href="login.html">Zaloguj jako kupujący</a>', document.getElementById('needLogin').style.display='block';
+
+document.getElementById('form').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const err=document.getElementById('error'); err.style.display='none';
+  const items=Cart.getCart();
+  if(!items.length){ err.textContent='Koszyk pusty'; err.style.display='block'; return; }
+  const addr=document.getElementById('addr').value.trim();
+  if(!addr){ err.textContent='Adres wymagany'; err.style.display='block'; return; }
+  if(!localStorage.getItem('access_token')){ location.href='login.html?callbackUrl=checkout.html'; return; }
+  const btn=document.getElementById('btn'); btn.disabled=true; btn.textContent='Składanie…';
+  try{
+    const res = await Api.createOrder({shipping_address:addr, notes:document.getElementById('notes').value||undefined, items: items.map(it=>({product_id:it.product.id, variant_id:it.variantId||null, pack_quantity:it.packQuantity}))});
+    Cart.clearCart();
+    location.href=`checkout-success.html?orderId=${res.id}`;
+  }catch(ex){ err.textContent=ex.message; err.style.display='block'; }
+  finally{ btn.disabled=false; renderSummary(); }
+});
+</script>
+</body></html>
