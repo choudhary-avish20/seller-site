@@ -34,12 +34,16 @@ uploads_dir = Path(__file__).resolve().parents[1] / "uploads"
 if uploads_dir.exists():
     app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
-# Vanilla frontend (no frameworks) — served at /vanilla
-vanilla_dir = Path(__file__).resolve().parents[2] / "vanilla"
-if vanilla_dir.exists():
-    app.mount("/vanilla", StaticFiles(directory=str(vanilla_dir), html=True), name="vanilla")
+# Frontend — plain HTML/CSS/JS (no frameworks) — matches centrumhurt screenshots, replaces Next.js+vanilla
+frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
+if frontend_dir.exists():
+    # Serve at / (homepage) and keep /vanilla alias for backward compat
+    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+else:
+    vanilla_dir = Path(__file__).resolve().parents[2] / "vanilla"
+    if vanilla_dir.exists():
+        app.mount("/vanilla", StaticFiles(directory=str(vanilla_dir), html=True), name="vanilla")
 
-
-@app.get("/")
-def root():
-    return {"message": settings.PROJECT_NAME, "status": "running"}
+    @app.get("/")
+    def root():
+        return {"message": settings.PROJECT_NAME, "status": "running"}

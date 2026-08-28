@@ -51,6 +51,30 @@ class ProductVariantResponse(BaseModel):
         from_attributes = True
 
 
+# ---------- Price Tiers ----------
+class ProductPriceTierCreate(BaseModel):
+    min_quantity: int = Field(..., ge=1, description="Min packs inclusive, e.g. 1")
+    max_quantity: Optional[int] = Field(None, ge=1, description="Max packs inclusive, null = infinity (e.g. Over 50)")
+    price_net: float = Field(..., ge=0)
+
+
+class ProductPriceTierResponse(BaseModel):
+    id: UUID
+    product_id: UUID
+    min_quantity: int
+    max_quantity: Optional[int]
+    price_net: float
+    created_at: datetime
+    updated_at: datetime
+
+    @field_serializer('id', 'product_id')
+    def ser_uuid(self, v: UUID) -> str:
+        return str(v)
+
+    class Config:
+        from_attributes = True
+
+
 # ---------- Products ----------
 class ProductBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
@@ -65,10 +89,16 @@ class ProductBase(BaseModel):
     stock_quantity: int = Field(0, ge=0)
     stock_status: StockStatus = StockStatus.in_stock
     is_active: bool = True
+    # wholesale extras
+    pack_increment: int = Field(1, ge=1, description="Per-product increment, e.g. 12 or 40 pcs")
+    cost_price: Optional[float] = Field(None, ge=0, description="Purchase cost price for staff")
+    stall_location: Optional[str] = Field(None, max_length=255, description="Hall / stall where bought")
+    counter_number: Optional[str] = Field(None, max_length=64, description="Counter number")
 
 
 class ProductCreate(ProductBase):
     variants: List[ProductVariantCreate] = Field(default_factory=list)
+    price_tiers: List[ProductPriceTierCreate] = Field(default_factory=list, description="Quantity-based tiers e.g. 1-10:10, 11-50:9.5")
 
 
 class ProductUpdate(BaseModel):
@@ -84,7 +114,12 @@ class ProductUpdate(BaseModel):
     stock_quantity: Optional[int] = Field(None, ge=0)
     stock_status: Optional[StockStatus] = None
     is_active: Optional[bool] = None
+    pack_increment: Optional[int] = Field(None, ge=1)
+    cost_price: Optional[float] = Field(None, ge=0)
+    stall_location: Optional[str] = Field(None, max_length=255)
+    counter_number: Optional[str] = Field(None, max_length=64)
     variants: Optional[List[ProductVariantCreate]] = None  # replace all if provided
+    price_tiers: Optional[List[ProductPriceTierCreate]] = None
 
 
 class ProductResponse(BaseModel):
@@ -102,6 +137,10 @@ class ProductResponse(BaseModel):
     stock_quantity: int
     stock_status: StockStatus
     is_active: bool
+    pack_increment: int
+    cost_price: Optional[float]
+    stall_location: Optional[str]
+    counter_number: Optional[str]
     created_at: datetime
     updated_at: datetime
     # denormalized
@@ -109,6 +148,7 @@ class ProductResponse(BaseModel):
     category_slug: Optional[str] = None
     seller_business_name: Optional[str] = None
     variants: List[ProductVariantResponse] = Field(default_factory=list)
+    price_tiers: List[ProductPriceTierResponse] = Field(default_factory=list)
 
     @field_serializer('id', 'seller_id', 'category_id')
     def ser_uuid(self, v: UUID) -> str:
@@ -132,9 +172,14 @@ class ProductListResponse(BaseModel):
     stock_quantity: int
     stock_status: StockStatus
     is_active: bool
+    pack_increment: int
+    cost_price: Optional[float]
+    stall_location: Optional[str]
+    counter_number: Optional[str]
     created_at: datetime
     category_name: Optional[str] = None
     category_slug: Optional[str] = None
+    price_tiers: List[ProductPriceTierResponse] = Field(default_factory=list)
 
     @field_serializer('id', 'seller_id', 'category_id')
     def ser_uuid(self, v: UUID) -> str:

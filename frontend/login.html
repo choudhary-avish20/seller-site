@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Zaloguj się — Wholesale</title><link rel="stylesheet" href="css/style.css"></head>
+<body>
+<div class="topbar"><div class="container"><div>Skontaktuj się: <b>+48 579 383 945</b></div><div><a href="index.html">Strona główna</a></div></div></div>
+<div class="container" style="max-width:420px;margin:40px auto">
+<div style="background:#fff;border:1px solid #ddd;padding:20px">
+<h1 style="font-size:16px;text-align:center">Zaloguj się</h1>
+<div id="err" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#c00;padding:8px;margin:12px 0;font-size:12px"></div>
+<form id="f">
+<label style="font-size:12px;font-weight:bold">Email</label><input id="email" type="email" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0 8px">
+<label style="font-size:12px;font-weight:bold">Hasło</label><input id="pwd" type="password" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0 8px">
+<button type="submit" style="width:100%;padding:10px;background:#333;color:#fff;border:0;font-weight:bold;cursor:pointer">Zaloguj się</button>
+</form>
+<p style="text-align:center;margin-top:12px;font-size:12px">Nie masz konta? <a href="signup.html" style="color:#06c">Zarejestruj się</a> • <a href="register-seller.html" style="color:#06c">Zostań sprzedawcą</a></p>
+</div>
+</div>
+<script src="js/app.js"></script>
+<script>
+document.getElementById('f').addEventListener('submit', async e=>{
+  e.preventDefault();
+  const err=document.getElementById('err'); err.style.display='none';
+  try{
+    const d=await Api.login(document.getElementById('email').value, document.getElementById('pwd').value);
+    localStorage.setItem('access_token', d.access_token); localStorage.setItem('refresh_token', d.refresh_token);
+    const u=await Api.getMe(); localStorage.setItem('user', JSON.stringify(u));
+    location.href='index.html';
+  }catch(ex){ err.textContent=ex.message; err.style.display='block'; }
+});
+</script>
+</body></html>

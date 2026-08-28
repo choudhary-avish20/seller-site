@@ -42,5 +42,10 @@ class Settings(BaseSettings):
         "null",
     ]
 
+    # Wholesale business settings
+    REQUIRE_LOGIN_TO_SEE_PRICES: bool = False  # if True, guests cannot see net/gross prices
+    REQUIRE_BUYER_APPROVAL: bool = False  # if True, buyers need admin approval before buying
+    ALLOW_CASH_ON_DELIVERY_ONLY: bool = True
+
 
 settings = Settings()

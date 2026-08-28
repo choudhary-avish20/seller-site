@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field, field_serializer
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
-from app.models.user import UserRole
+from app.models.user import UserRole, BuyerStatus
 from app.models.seller import SellerStatus
 
 
@@ -14,6 +14,11 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=128)
     role: UserRole = UserRole.buyer
+    # optional company info for buyers (required for COD)
+    company_name: Optional[str] = Field(None, max_length=255)
+    company_tax_id: Optional[str] = Field(None, max_length=64)
+    company_address: Optional[str] = None
+    phone: Optional[str] = Field(None, max_length=32)
 
 
 class UserLogin(BaseModel):
@@ -42,6 +47,11 @@ class UserResponse(UserBase):
     id: UUID
     role: UserRole
     is_active: bool
+    buyer_status: BuyerStatus
+    company_name: Optional[str]
+    company_tax_id: Optional[str]
+    company_address: Optional[str]
+    phone: Optional[str]
     created_at: datetime
 
     @field_serializer('id')
@@ -114,6 +124,27 @@ class SellerListResponse(BaseModel):
     full_name: str
     business_name: str
     status: SellerStatus
+    created_at: datetime
+
+    @field_serializer('id')
+    def serialize_id(self, value: UUID) -> str:
+        return str(value)
+
+    class Config:
+        from_attributes = True
+
+
+class BuyerApprovalRequest(BaseModel):
+    status: BuyerStatus
+    rejection_reason: Optional[str] = None
+
+
+class BuyerListResponse(BaseModel):
+    id: UUID
+    email: str
+    full_name: str
+    company_name: Optional[str]
+    status: BuyerStatus
     created_at: datetime
 
     @field_serializer('id')

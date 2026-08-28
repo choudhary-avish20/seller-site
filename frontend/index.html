@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wólka Kosowska online wholesale - CentrumHurt replica</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<!-- Topbar -->
+<div class="topbar"><div class="container">
+  <div>Skontaktuj się z nami: <b>+48 579 383 945</b></div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <a href="login.html" id="top-login" data-i18n="login">Zaloguj się</a>
+    <a href="contact.html">Kontakt z nami</a>
+    <span class="lang" style="position:static"><button data-lang="pl" class="active">PL</button><button data-lang="en">EN</button></span>
+  </div>
+</div></div>
+
+<div class="header"><div class="container">
+  <a href="index.html" class="logo">Centrum<span>Hurt</span>.pl</a>
+  <form class="search" id="searchForm">
+    <input id="q" data-i18n-ph="searchPh" placeholder="Szukaj — nazwa produktu, kategoria...">
+    <button type="submit" data-i18n="search">Szukaj</button>
+  </form>
+  <a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b> Produkt <span data-i18n="net">(net)</span> — <span data-cart-net>0.00 zł</span> <span data-i18n="net">net</span></a>
+</div></div>
+
+<div class="container" style="margin-top:6px;display:flex;gap:10px;font-size:11px">
+  <a href="index.html">Nowości</a> • <a href="search.html?filter=sale" data-i18n="sale">Wyprzedaż</a> • <a href="search.html" data-i18n="bestsellers">Bestsellery</a> • <a href="#">FAQ</a> • <a href="#">Koszty wysyłki</a> • <a href="#">Regulamin</a> • <a href="#" id="authLink2"></a>
+</div>
+
+<div class="container layout">
+  <aside class="sidebar">
+    <div class="sidebar-head">WHOLESALER CATEGORIES</div>
+    <div class="cat-list" id="catList"></div>
+  </aside>
+  <main class="main">
+    <h1 style="font-size:18px;margin:0 0 6px">Clothing wholesaler from Wólka Kosowska</h1>
+    <p style="font-size:11px;color:#666;margin-bottom:10px">We are a wholesaler with a very wide selection. We offer women's and men's clothing, children's clothing, underwear... <a href="#" style="font-weight:bold">Read more</a></p>
+
+    <div class="tabs">
+      <div class="tab active" data-i18n="new">NEWS</div>
+      <div class="tab">POPULAR</div>
+      <div class="tab">MOST FREQUENTLY PURCHASED</div>
+      <div class="tab">PROMOTIONS</div>
+      <div class="tab">NEWS</div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+  </main>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+async function loadCats(){
+  const tree=await Api.getCategoryTree().catch(()=>[]);
+  const el=document.getElementById('catList');
+  function row(n,depth=0){
+    const pad=depth*10;
+    let h=`<div class="cat-item" style="padding-left:${8+pad}px" onclick="this.nextElementSibling.classList.toggle('open')"><span>${n.name}</span><span class="plus">+</span></div>`;
+    if(n.children&&n.children.length){
+      h+=`<div class="sub">${n.children.map(c=>row(c,depth+1)).join('')}</div>`;
+    }
+    return h;
+  }
+  // flat list like screenshot: show all top + children as per design
+  el.innerHTML = tree.map(n=>row(n)).join('') || '<div style="padding:8px;font-size:11px;color:#888">No categories — admin at /admin</div>';
+  // also handle static list for replica fidelity if tree empty, show example categories from screenshot
+  if(!tree.length){
+    const demo=["SALE","TOYS","FANS","POOL AND BEACH ACCESSORIES","SWIMWEAR","GLASSES","MEN'S UNDERWEAR","LINGERIE","CHILDREN'S UNDERWEAR","EROTIC LINGERIE AND ACCESSORIES"];
+    el.innerHTML = demo.map(n=>`<div class="cat-item"><span>${n}</span><span class="plus">+</span></div>`).join('');
+  }
+}
+async function loadProducts(){
+  const prods=await Api.listProducts({limit:16}).catch(()=>[]);
+  const grid=document.getElementById('grid');
+  if(!prods.length){ grid.innerHTML='<p style="grid-column:1/-1;text-align:center;padding:20px;background:#fff;border:1px solid #ddd">No products</p>'; return; }
+  grid.innerHTML = prods.map(p=>{
+    const out=p.stock_status==='out_of_stock'||p.stock_quantity===0;
+    const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/300x220?text=No+image';
+    const inc = p.pack_increment||1;
+    return `<div class="card">
+      <div style="position:relative"><div class="ribbon">NEW</div><a href="product.html?slug=${p.slug}"><img src="${img}" alt="${p.name}"></a></div>
+      <h3><a href="product.html?slug=${p.slug}">${p.name}</a></h3>
+      <div class="package-bar" data-i18n="pack">in a package: ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
+      <div class="price">
+        <div>net price: <b>${Number(p.price_net).toFixed(2)} PLN</b></div>
+        <div>gross price: <b>${Number(p.price_gross).toFixed(2)} PLN</b></div>
+        ${p.price_tiers && p.price_tiers.length ? `<div style="font-size:10px;color:#06c;margin-top:4px">${p.price_tiers.map(tr=>`${tr.min_quantity}-${tr.max_quantity||'∞'}: ${Number(tr.price_net).toFixed(2)}`).join(' | ')}</div>`:''}
+      </div>
+      <div class="qty">
+        <button onclick="chg('${p.id}',-1)">−</button>
+        <input id="qty-${p.id}" value="${inc}" data-inc="${inc}" data-id="${p.id}" style="width:40px">
+        <button onclick="chg('${p.id}',1)">+</button>
+      </div>
+      <button class="add" onclick="addToCart('${p.id}')" ${out?'disabled style="opacity:.5"':''}>Add to cart</button>
+    </div>`;
+  }).join('');
+  window._prods=prods;
+}
+function chg(id,dir){
+  const inp=document.getElementById('qty-'+id);
+  const p=window._prods.find(x=>x.id===id);
+  const inc=p? (p.pack_increment||1):1;
+  let v=parseInt(inp.value||inc,10);
+  v+= dir*inc;
+  if(v<inc) v=inc;
+  // snap
+  v=Math.ceil(v/inc)*inc;
+  inp.value=v;
+}
+function addToCart(id){
+  const p=window._prods.find(x=>x.id===id);
+  const inp=document.getElementById('qty-'+id);
+  let qty=parseInt(inp.value||p.pack_increment||1,10);
+  const inc=p.pack_increment||1;
+  qty=Math.ceil(qty/inc)*inc;
+  Cart.add(p, qty);
+  alert('Added '+qty+' packs');
+}
+document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault(); const q=document.getElementById('q').value.trim(); location.href=q?'search.html?q='+encodeURIComponent(q):'search.html'});
+// auth link
+(async()=>{
+  const u=await refreshUser().catch(()=>null);
+  const a=document.getElementById('authLink2');
+  if(u){ a.textContent=u.email+' • Wyloguj'; a.href='#'; a.onclick=()=>{doLogout();return false}; }
+  else { a.textContent=t('login'); a.href='login.html'; }
+})();
+loadCats(); loadProducts();
+document.querySelectorAll('[data-lang]').forEach(b=> b.addEventListener('click',()=>{ localStorage.setItem('lang', b.dataset.lang); location.reload(); }));
+</script>
+</body>
+</html>

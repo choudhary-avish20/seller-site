@@ -12,6 +12,12 @@ class UserRole(str, enum.Enum):
     admin = "admin"
 
 
+class BuyerStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
 class User(UUIDPKMixin, TimestampMixin, Base):
     __tablename__ = "users"
 
@@ -22,6 +28,17 @@ class User(UUIDPKMixin, TimestampMixin, Base):
         Enum(UserRole, name="user_role"), default=UserRole.buyer, nullable=False
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+    # Buyer verification (for REQUIRE_BUYER_APPROVAL)
+    buyer_status: Mapped[BuyerStatus] = mapped_column(
+        Enum(BuyerStatus, name="buyer_status"), default=BuyerStatus.approved, nullable=False
+    )
+    buyer_rejection_reason: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    # Company / required info for COD (buyers must submit)
+    company_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    company_tax_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    company_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     # A user with role=seller has exactly one seller profile
     seller_profile: Mapped["SellerProfile"] = relationship(

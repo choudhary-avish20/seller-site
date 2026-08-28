@@ -34,6 +34,15 @@ class Product(UUIDPKMixin, TimestampMixin, Base):
     price_gross: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     vat_rate: Mapped[float] = mapped_column(Numeric(4, 2), default=23.00, nullable=False)
 
+    # Quantity-based tiered pricing (e.g. 1-10:10, 11-50:9.5, 50+:9)
+    # If no tiers, single price_net is used
+    pack_increment: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # e.g. 12 or 40 pcs per increment
+
+    # Stock management: where to buy after order (wholesale works by buying after order)
+    cost_price: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)  # purchase (cost) price for staff
+    stall_location: Mapped[str | None] = mapped_column(String(255), nullable=True)  # e.g. "Hall A"
+    counter_number: Mapped[str | None] = mapped_column(String(64), nullable=True)  # e.g. "Counter 12"
+
     stock_quantity: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     stock_status: Mapped[StockStatus] = mapped_column(
         Enum(StockStatus, name="stock_status"), default=StockStatus.in_stock, nullable=False
@@ -45,5 +54,8 @@ class Product(UUIDPKMixin, TimestampMixin, Base):
     category: Mapped["Category"] = relationship(back_populates="products")
     variants: Mapped[list["ProductVariant"]] = relationship(
         back_populates="product", cascade="all, delete-orphan"
+    )
+    price_tiers: Mapped[list["ProductPriceTier"]] = relationship(
+        back_populates="product", cascade="all, delete-orphan", order_by="ProductPriceTier.min_quantity"
     )
     order_items: Mapped[list["OrderItem"]] = relationship(back_populates="product")

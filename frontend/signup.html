@@ -1,0 +1,29 @@
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Rejestracja — Wholesale</title><link rel="stylesheet" href="css/style.css"></head>
+<body><div class="topbar"><div class="container"><div>Rejestracja</div><div><a href="index.html">Strona główna</a></div></div></div>
+<div class="container" style="max-width:420px;margin:40px auto">
+<div style="background:#fff;border:1px solid #ddd;padding:20px">
+<h1 style="text-align:center;font-size:16px">Utwórz konto</h1>
+<div id="err" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#c00;padding:8px;margin:12px 0;font-size:12px"></div>
+<form id="f">
+<label style="font-size:12px;font-weight:bold">Imię i nazwisko</label><input id="name" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0">
+<label style="font-size:12px;font-weight:bold">Email</label><input id="email" type="email" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0">
+<label style="font-size:12px;font-weight:bold">Hasło (min 8)</label><input id="pwd" type="password" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0">
+<label style="font-size:12px;font-weight:bold">Potwierdź hasło</label><input id="pwd2" type="password" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0">
+<button type="submit" style="width:100%;padding:10px;background:#333;color:#fff;border:0;font-weight:bold">Utwórz konto</button>
+</form>
+<p style="text-align:center;margin-top:12px;font-size:12px">Masz konto? <a href="login.html" style="color:#06c">Zaloguj się</a></p>
+<p style="text-align:center;margin-top:6px;font-size:12px;border-top:1px solid #eee;padding-top:10px">Chcesz sprzedawać? <a href="register-seller.html" style="color:#06c;font-weight:bold">Zostań sprzedawcą →</a></p>
+</div></div>
+<script src="js/app.js"></script>
+<script>
+document.getElementById('f').addEventListener('submit', async e=>{
+ e.preventDefault();
+ const err=document.getElementById('err'); err.style.display='none';
+ const n=document.getElementById('name').value.trim(), em=document.getElementById('email').value.trim(), p=document.getElementById('pwd').value, p2=document.getElementById('pwd2').value;
+ if(!n||n.length<2){err.textContent='Imię i nazwisko — minimum 2 znaki';err.style.display='block';return}
+ if(p!==p2){err.textContent='Hasła nie są zgodne';err.style.display='block';return}
+ if(p.length<8){err.textContent='Hasło min 8 znaków';err.style.display='block';return}
+ try{ await Api.signup({email:em,password:p,full_name:n,role:'buyer'}); const d=await Api.login(em,p); localStorage.setItem('access_token',d.access_token); localStorage.setItem('refresh_token',d.refresh_token); const u=await Api.getMe(); localStorage.setItem('user',JSON.stringify(u)); location.href='index.html'; }catch(ex){err.textContent=ex.message;err.style.display='block'}
+});
+</script>
+</body></html>

@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import Enum, ForeignKey, Numeric, Text
+from sqlalchemy import Enum, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -14,6 +14,10 @@ class OrderStatus(str, enum.Enum):
     shipped = "shipped"
     delivered = "delivered"
     cancelled = "cancelled"
+
+
+class PaymentMethod(str, enum.Enum):
+    cod = "cod"  # cash on delivery only for MVP
 
 
 class Order(UUIDPKMixin, TimestampMixin, Base):
@@ -32,6 +36,17 @@ class Order(UUIDPKMixin, TimestampMixin, Base):
 
     shipping_address: Mapped[str] = mapped_column(Text, nullable=False)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # Company and recipient details (required for COD — account must submit information)
+    company_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    company_tax_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    company_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recipient_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    recipient_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    recipient_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    payment_method: Mapped[PaymentMethod] = mapped_column(
+        Enum(PaymentMethod, name="payment_method"), default=PaymentMethod.cod, nullable=False
+    )
 
     buyer: Mapped["User"] = relationship(back_populates="orders")
     items: Mapped[list["OrderItem"]] = relationship(

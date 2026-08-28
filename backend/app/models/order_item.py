@@ -25,6 +25,10 @@ class OrderItem(UUIDPKMixin, TimestampMixin, Base):
     pack_size_snapshot: Mapped[int] = mapped_column(Integer, nullable=False)
     price_net_snapshot: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     price_gross_snapshot: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    # Stock management: where staff buys the goods (stall/counter) and cost price
+    cost_price_snapshot: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    stall_location_snapshot: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    counter_number_snapshot: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     pack_quantity: Mapped[int] = mapped_column(Integer, nullable=False)  # number of packs ordered
 

@@ -8,7 +8,7 @@ from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.user import User, UserRole
+from app.models.user import User, UserRole, BuyerStatus
 from app.models.seller import SellerProfile, SellerStatus
 
 
@@ -81,13 +81,25 @@ def create_user(
     password: str,
     full_name: str,
     role: UserRole = UserRole.buyer,
+    company_name: Optional[str] = None,
+    company_tax_id: Optional[str] = None,
+    company_address: Optional[str] = None,
+    phone: Optional[str] = None,
 ) -> User:
     hashed_password = get_password_hash(password)
+    buyer_status = BuyerStatus.approved
+    if role == UserRole.buyer and settings.REQUIRE_BUYER_APPROVAL:
+        buyer_status = BuyerStatus.pending
     user = User(
         email=email,
         hashed_password=hashed_password,
         full_name=full_name,
         role=role,
+        buyer_status=buyer_status,
+        company_name=company_name,
+        company_tax_id=company_tax_id,
+        company_address=company_address,
+        phone=phone,
     )
     db.add(user)
     db.flush()
