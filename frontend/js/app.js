@@ -2,7 +2,7 @@ const API = (()=>{
   let base = localStorage.getItem('API_URL') || '';
   if(!base){
     if(location.protocol==='file:') base='http://localhost:8000/api/v1';
-    else if(location.port==='8000' || location.port==='8002' || location.pathname.startsWith('/')) base = location.origin + '/api/v1';
+    else if(location.port==='8000' || location.port==='8002') base = location.origin + '/api/v1';
     else base='http://localhost:8000/api/v1';
   }
   const API_BASE = base.replace(/\/api\/v1\/?$/,'');
@@ -29,12 +29,13 @@ const API = (()=>{
     signup:(d)=>req('/auth/signup',{method:'POST',body:JSON.stringify(d)}),
     getMe:()=>req('/auth/me'),
     registerSeller:(d)=>req('/sellers/register',{method:'POST',body:JSON.stringify(d)}),
-    getCategoryTree:()=>req('/categories/tree'),
+    getCategoryTree:(p={})=>req('/categories/tree'+(p.include_inactive?'?include_inactive=true':'')),
     listProducts:(p={})=>{ const qs=new URLSearchParams(); if(p.search) qs.set('search',p.search); if(p.category_id) qs.set('category_id',p.category_id); if(p.limit) qs.set('limit',p.limit); const s=qs.toString()? '?'+qs.toString():''; return req('/products'+s); },
     getProductBySlug:(s)=>req('/products/slug/'+s),
     getCategoryBySlug:(s)=>req('/categories/by-slug/'+s),
     createOrder:(d)=>req('/orders',{method:'POST',body:JSON.stringify(d)}),
     listOrders:()=>req('/orders'),
+    updateOrderStatus:(id,status)=>req('/orders/'+id+'/status',{method:'PATCH',body:JSON.stringify({status})}),
     uploadImage:(file)=>{
       const fd=new FormData(); fd.append('file',file);
       const h={}; const {a}=getT(); if(a) h['Authorization']='Bearer '+a;
@@ -42,15 +43,6 @@ const API = (()=>{
     },
     // Seller profile
     getSellerProfile:()=>req('/sellers/me/profile'),
-    // Seller product management
-    listMyProducts:(p={})=>{
-      const qs=new URLSearchParams();
-      if(p.search) qs.set('search',p.search);
-      if(p.is_active!=null) qs.set('is_active',p.is_active);
-      if(p.include_inactive) qs.set('include_inactive','true');
-      const s=qs.toString()? '?'+qs.toString():'';
-      return req('/products/my'+s);
-    },
     createProduct:(d)=>req('/products',{method:'POST',body:JSON.stringify(d)}),
     updateProduct:(id,d)=>req('/products/'+id,{method:'PUT',body:JSON.stringify(d)}),
     deleteProduct:(id)=>req('/products/'+id,{method:'DELETE'}),
@@ -59,6 +51,10 @@ const API = (()=>{
     // Admin seller management
     getPendingSellers:()=>req('/sellers/pending'),
     approveSeller:(id,d)=>req('/sellers/'+id+'/approve',{method:'POST',body:JSON.stringify(d)}),
+    // Category CRUD (admin/seller only)
+    createCategory:(d)=>req('/categories',{method:'POST',body:JSON.stringify(d)}),
+    updateCategory:(id,d)=>req('/categories/'+id,{method:'PUT',body:JSON.stringify(d)}),
+    deleteCategory:(id)=>req('/categories/'+id,{method:'DELETE'}),
     img, base:API_BASE, raw:base
   };
 })();

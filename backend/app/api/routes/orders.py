@@ -14,21 +14,21 @@ from app.models.product import Product, StockStatus
 from app.models.product_variant import ProductVariant
 from app.models.product_price_tier import ProductPriceTier
 from app.models.user import User, UserRole
-from app.schemas.order import OrderCreate, OrderResponse
+from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 
 def _require_buyer(user: User) -> User:
-    if user.role not in (UserRole.buyer, UserRole.admin):
-        if user.role != UserRole.buyer:
-            raise HTTPException(status_code=403, detail="Only buyers can place orders")
-    if settings.REQUIRE_BUYER_APPROVAL and user.role == UserRole.buyer:
-        if getattr(user, 'buyer_status', 'approved') != 'approved':
-            # buyer_status is enum, compare string value
-            val = user.buyer_status.value if hasattr(user.buyer_status, 'value') else str(user.buyer_status)
-            if val != 'approved':
-                raise HTTPException(status_code=403, detail=f"Buyer account not approved (status: {val}). Admin must verify before buying.")
+    # All authenticated roles can place orders: buyers, sellers (store owner), and admins.
+    # Sellers/admins bypass the buyer-approval check entirely.
+    if user.role == UserRole.buyer and settings.REQUIRE_BUYER_APPROVAL:
+        val = user.buyer_status.value if hasattr(user.buyer_status, 'value') else str(user.buyer_status)
+        if val != 'approved':
+            raise HTTPException(
+                status_code=403,
+                detail=f"Buyer account not approved (status: {val}). Admin must verify before buying.",
+            )
     return user
 
 
@@ -166,28 +166,25 @@ def list_orders(
     current_user: User = Depends(get_current_user),
 ):
     q = db.query(Order)
-    if current_user.role == UserRole.admin:
+    if current_user.role in (UserRole.admin, UserRole.seller):
         orders = q.order_by(Order.created_at.desc()).all()
-    elif current_user.role == UserRole.seller:
-        from app.models.seller import SellerProfile
-        seller = db.query(SellerProfile).filter(SellerProfile.user_id == current_user.id).first()
-        if not seller:
-            return []
-        orders = (
-            db.query(Order)
-            .join(OrderItem, Order.id == OrderItem.order_id)
-            .join(Product, OrderItem.product_id == Product.id)
-            .filter(Product.seller_id == seller.id)
-            .order_by(Order.created_at.desc())
-            .distinct()
-            .all()
-        )
     else:
         orders = db.query(Order).filter(Order.buyer_id == current_user.id).order_by(Order.created_at.desc()).all()
 
+    # Collect all buyer ids and fetch in one query to avoid N+1
+    buyer_ids = list({o.buyer_id for o in orders})
+    buyers = {u.id: u for u in db.query(User).filter(User.id.in_(buyer_ids)).all()} if buyer_ids else {}
+
+    result = []
     for o in orders:
         o.items = db.query(OrderItem).filter(OrderItem.order_id == o.id).all()
-    return orders
+        resp = OrderResponse.model_validate(o)
+        buyer = buyers.get(o.buyer_id)
+        if buyer and current_user.role in (UserRole.admin, UserRole.seller):
+            resp.buyer_email = buyer.email
+            resp.buyer_full_name = buyer.full_name
+        result.append(resp)
+    return result
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
@@ -201,15 +198,43 @@ def get_order(
         raise HTTPException(status_code=404, detail="Order not found")
     if current_user.role == UserRole.buyer and order.buyer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    if current_user.role == UserRole.seller:
-        from app.models.seller import SellerProfile
-        seller = db.query(SellerProfile).filter(SellerProfile.user_id == current_user.id).first()
-        if seller:
-            has = db.query(OrderItem).join(Product, OrderItem.product_id == Product.id).filter(OrderItem.order_id == order.id, Product.seller_id == seller.id).first()
-            if not has:
-                raise HTTPException(status_code=403, detail="Not authorized")
+
     order.items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
     return order
+
+
+@router.patch("/{order_id}/status", response_model=OrderResponse)
+def update_order_status(
+    order_id: UUID,
+    payload: OrderStatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Seller/admin can set any status. Buyer can only cancel their own pending order."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if current_user.role == UserRole.buyer:
+        if order.buyer_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        if payload.status != OrderStatus.cancelled:
+            raise HTTPException(status_code=403, detail="Buyers can only cancel orders")
+        if order.status != OrderStatus.pending:
+            raise HTTPException(status_code=400, detail="Only pending orders can be cancelled")
+
+    order.status = payload.status
+    db.commit()
+    db.refresh(order)
+    order.items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+
+    # Enrich with buyer info for the response
+    resp = OrderResponse.model_validate(order)
+    buyer = db.query(User).filter(User.id == order.buyer_id).first()
+    if buyer and current_user.role in (UserRole.admin, UserRole.seller):
+        resp.buyer_email = buyer.email
+        resp.buyer_full_name = buyer.full_name
+    return resp
 
 
 @router.get("/{order_id}/print", response_class=HTMLResponse)
@@ -225,13 +250,7 @@ def print_order(
     # auth check same as get_order
     if current_user.role == UserRole.buyer and order.buyer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
-    if current_user.role == UserRole.seller:
-        from app.models.seller import SellerProfile
-        seller = db.query(SellerProfile).filter(SellerProfile.user_id == current_user.id).first()
-        if seller:
-            has = db.query(OrderItem).join(Product, OrderItem.product_id == Product.id).filter(OrderItem.order_id == order.id, Product.seller_id == seller.id).first()
-            if not has:
-                raise HTTPException(status_code=403, detail="Not authorized")
+
     items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
     buyer = db.query(User).filter(User.id == order.buyer_id).first()
     html = f"""

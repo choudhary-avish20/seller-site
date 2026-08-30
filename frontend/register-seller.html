@@ -1,198 +1,158 @@
 <!doctype html>
 <html lang="pl">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Zostań sprzedawcą — Wholesale</title>
-<link rel="stylesheet" href="css/style.css">
-<style>
-  .reg-wrap{max-width:520px;margin:40px auto}
-  .reg-box{background:#fff;border:1px solid #ddd;padding:28px 24px}
-  .reg-box h1{font-size:17px;text-align:center;margin-bottom:4px}
-  .reg-box .sub{font-size:11px;color:#666;text-align:center;margin-bottom:18px}
-  .section-label{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;color:#555;background:#f5f5f5;border:1px solid #e0e0e0;padding:6px 10px;margin:16px 0 10px}
-  .field{margin-bottom:10px}
-  .field label{display:block;font-size:12px;font-weight:bold;margin-bottom:3px}
-  .field input,.field textarea,.field select{width:100%;border:1px solid #ccc;padding:8px;font-size:13px;font-family:inherit;outline:none}
-  .field input:focus,.field textarea:focus{border-color:#0099cc}
-  .field textarea{resize:vertical;min-height:68px}
-  .field .hint{font-size:11px;color:#888;margin-top:2px}
-  .field-row{display:flex;gap:10px}
-  .field-row .field{flex:1}
-  .err{display:none;background:#fef2f2;border:1px solid #fecaca;color:#c00;padding:8px 10px;margin:12px 0;font-size:12px}
-  .ok{display:none;background:#f0fdf4;border:1px solid #86efac;color:#166534;padding:12px 10px;margin:12px 0;font-size:12px}
-  .btn-submit{width:100%;padding:11px;background:#333;color:#fff;border:0;font-weight:bold;font-size:13px;cursor:pointer;margin-top:6px}
-  .btn-submit:hover{background:#111}
-  .btn-submit:disabled{background:#999;cursor:not-allowed}
-  .footer-link{text-align:center;margin-top:14px;font-size:12px}
-  .req{color:#c00}
-  .pw-row{position:relative}
-  .pw-row input{padding-right:36px}
-  .pw-toggle{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:14px;color:#888;padding:0}
-  .steps{display:flex;gap:0;margin-bottom:22px;border:1px solid #ddd}
-  .step{flex:1;text-align:center;padding:8px 4px;font-size:11px;font-weight:bold;background:#f5f5f5;border-right:1px solid #ddd;color:#888}
-  .step:last-child{border-right:0}
-  .step.active{background:#333;color:#fff}
-  .step.done{background:#e6f4ea;color:#166534}
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Rejestracja sprzedawcy — Wholesale</title>
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .section-label {
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+      color: #666;
+      letter-spacing: .05em;
+      margin: 18px 0 8px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 4px;
+    }
+    .field { margin-bottom: 10px; }
+    .field label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 3px; }
+    .field input { width: 100%; border: 1px solid #ccc; padding: 8px; font-size: 13px; box-sizing: border-box; }
+    .field input:focus { outline: none; border-color: #333; }
+  </style>
 </head>
 <body>
+<div class="topbar">
+  <div class="container">
+    <div>Rejestracja sprzedawcy</div>
+    <div><a href="index.html">Strona główna</a></div>
+  </div>
+</div>
 
-<div class="topbar"><div class="container">
-  <div>Skontaktuj się: <b>+48 579 383 945</b></div>
-  <div><a href="index.html">Strona główna</a></div>
-</div></div>
+<div class="container" style="max-width:480px;margin:40px auto">
+  <div style="background:#fff;border:1px solid #ddd;padding:24px">
+    <h1 style="text-align:center;font-size:16px;margin-bottom:4px">Zostań sprzedawcą</h1>
+    <p style="text-align:center;font-size:12px;color:#666;margin-bottom:16px">
+      Twoje konto zostanie zweryfikowane przed aktywacją.
+    </p>
 
-<div class="container reg-wrap">
-  <div class="reg-box">
-    <h1>Zostań sprzedawcą</h1>
-    <p class="sub">Utwórz konto sprzedawcy. Po rejestracji konto zostanie zweryfikowane przez administratora.</p>
+    <div id="err" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#c00;padding:8px;margin-bottom:12px;font-size:12px"></div>
+    <div id="ok"  style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:8px;margin-bottom:12px;font-size:12px"></div>
 
-    <div class="steps">
-      <div class="step active" id="step1ind">1. Dane konta</div>
-      <div class="step" id="step2ind">2. Dane firmy</div>
-      <div class="step" id="step3ind">3. Gotowe</div>
-    </div>
+    <form id="f">
+      <!-- Account info -->
+      <div class="section-label">Dane konta</div>
 
-    <div id="err" class="err"></div>
-    <div id="ok" class="ok"></div>
-
-    <!-- Step 1: Account details -->
-    <div id="step1">
-      <div class="section-label">Dane logowania</div>
       <div class="field">
-        <label>Imię i nazwisko <span class="req">*</span></label>
-        <input id="full_name" type="text" required placeholder="Jan Kowalski" autocomplete="name">
+        <label>Imię i nazwisko</label>
+        <input id="full_name" required placeholder="Jan Kowalski">
       </div>
       <div class="field">
-        <label>Adres e-mail <span class="req">*</span></label>
-        <input id="email" type="email" required placeholder="jan@firma.pl" autocomplete="email">
+        <label>Email</label>
+        <input id="email" type="email" required placeholder="jan@firma.pl">
       </div>
       <div class="field">
-        <label>Hasło <span class="req">*</span></label>
-        <div class="pw-row">
-          <input id="pwd" type="password" required placeholder="Min. 8 znaków" autocomplete="new-password">
-          <button type="button" class="pw-toggle" onclick="togglePw('pwd',this)">👁</button>
-        </div>
-        <div class="hint">Minimum 8 znaków</div>
+        <label>Hasło (min 8 znaków)</label>
+        <input id="pwd" type="password" required>
       </div>
       <div class="field">
-        <label>Potwierdź hasło <span class="req">*</span></label>
-        <div class="pw-row">
-          <input id="pwd2" type="password" required placeholder="Powtórz hasło" autocomplete="new-password">
-          <button type="button" class="pw-toggle" onclick="togglePw('pwd2',this)">👁</button>
-        </div>
+        <label>Potwierdź hasło</label>
+        <input id="pwd2" type="password" required>
       </div>
-      <button type="button" class="btn-submit" onclick="goStep2()">Dalej →</button>
-    </div>
 
-    <!-- Step 2: Business profile -->
-    <div id="step2" style="display:none">
+      <!-- Business info -->
       <div class="section-label">Dane firmy</div>
+
       <div class="field">
-        <label>Nazwa firmy <span class="req">*</span></label>
-        <input id="business_name" type="text" required placeholder="ABC Hurt Sp. z o.o.">
+        <label>Nazwa firmy</label>
+        <input id="business_name" required placeholder="ABC Wholesale Sp. z o.o.">
       </div>
-      <div class="field-row">
-        <div class="field">
-          <label>NIP / VAT ID</label>
-          <input id="tax_id" type="text" placeholder="1234567890" maxlength="64">
-        </div>
-        <div class="field">
-          <label>Telefon kontaktowy</label>
-          <input id="phone" type="tel" placeholder="+48 500 000 000" maxlength="32">
-        </div>
+      <div class="field">
+        <label>NIP</label>
+        <input id="tax_id" placeholder="1234567890">
       </div>
       <div class="field">
         <label>Adres firmy</label>
-        <textarea id="business_address" placeholder="ul. Przykładowa 1, 00-000 Warszawa"></textarea>
+        <input id="business_address" placeholder="ul. Handlowa 1, 00-001 Warszawa">
       </div>
-      <div style="display:flex;gap:8px;margin-top:4px">
-        <button type="button" class="btn-submit" style="background:#888;flex:0 0 auto;width:auto;padding:11px 18px" onclick="goStep1()">← Wstecz</button>
-        <button type="button" class="btn-submit" id="submitBtn" onclick="submitRegistration()">Zarejestruj się</button>
+      <div class="field">
+        <label>Telefon</label>
+        <input id="phone" type="tel" placeholder="+48 123 456 789">
       </div>
-    </div>
 
-    <!-- Step 3: Success -->
-    <div id="step3" style="display:none;text-align:center;padding:20px 0">
-      <div style="font-size:40px;margin-bottom:12px">✅</div>
-      <h2 style="font-size:15px;margin-bottom:8px">Rejestracja zakończona!</h2>
-      <p style="font-size:12px;color:#444;margin-bottom:16px">
-        Twoje konto sprzedawcy zostało utworzone i oczekuje na weryfikację przez administratora.<br>
-        Gdy konto zostanie zatwierdzone, możesz się zalogować i zarządzać produktami.
-      </p>
-      <a href="login.html" style="display:inline-block;padding:10px 22px;background:#333;color:#fff;font-size:13px;font-weight:bold">Przejdź do logowania</a>
-    </div>
+      <button type="submit" style="width:100%;padding:10px;background:#333;color:#fff;border:0;font-weight:bold;font-size:13px;margin-top:8px;cursor:pointer">
+        Wyślij wniosek
+      </button>
+    </form>
 
-    <p class="footer-link" id="loginLink">Masz już konto? <a href="login.html" style="color:#06c">Zaloguj się</a></p>
+    <p style="text-align:center;margin-top:14px;font-size:12px">
+      Masz już konto? <a href="login.html" style="color:#06c">Zaloguj się</a>
+    </p>
+    <p style="text-align:center;margin-top:4px;font-size:12px">
+      Kupujesz, nie sprzedajesz? <a href="signup.html" style="color:#06c">Zarejestruj się jako kupujący</a>
+    </p>
   </div>
 </div>
 
 <script src="js/app.js"></script>
 <script>
-function showErr(msg){ const e=document.getElementById('err'); e.textContent=msg; e.style.display='block'; window.scrollTo(0,e.getBoundingClientRect().top+window.scrollY-20); }
-function hideErr(){ document.getElementById('err').style.display='none'; }
+document.getElementById('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const err = document.getElementById('err');
+  const ok  = document.getElementById('ok');
+  err.style.display = 'none';
+  ok.style.display  = 'none';
 
-function togglePw(id, btn){
-  const inp=document.getElementById(id);
-  if(inp.type==='password'){ inp.type='text'; btn.textContent='🙈'; }
-  else { inp.type='password'; btn.textContent='👁'; }
-}
+  const full_name        = document.getElementById('full_name').value.trim();
+  const email            = document.getElementById('email').value.trim();
+  const pwd              = document.getElementById('pwd').value;
+  const pwd2             = document.getElementById('pwd2').value;
+  const business_name    = document.getElementById('business_name').value.trim();
+  const tax_id           = document.getElementById('tax_id').value.trim();
+  const business_address = document.getElementById('business_address').value.trim();
+  const phone            = document.getElementById('phone').value.trim();
 
-function setStep(n){
-  [1,2,3].forEach(i=>{
-    document.getElementById('step'+i).style.display = i===n ? 'block':'none';
-    const ind=document.getElementById('step'+i+'ind');
-    ind.className='step'+(i<n?' done':i===n?' active':'');
-  });
-  if(n===3){ document.getElementById('loginLink').style.display='none'; }
-}
+  // Client-side validation
+  if (full_name.length < 2) { showErr('Imię i nazwisko — minimum 2 znaki'); return; }
+  if (pwd !== pwd2)          { showErr('Hasła nie są zgodne'); return; }
+  if (pwd.length < 8)        { showErr('Hasło min 8 znaków'); return; }
+  if (business_name.length < 2) { showErr('Podaj nazwę firmy'); return; }
 
-function goStep1(){ hideErr(); setStep(1); }
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true;
+  btn.textContent = 'Wysyłanie…';
 
-function goStep2(){
-  hideErr();
-  const name=document.getElementById('full_name').value.trim();
-  const email=document.getElementById('email').value.trim();
-  const pwd=document.getElementById('pwd').value;
-  const pwd2=document.getElementById('pwd2').value;
-  if(!name || name.length<2){ showErr('Imię i nazwisko — minimum 2 znaki.'); return; }
-  if(!email){ showErr('Podaj adres e-mail.'); return; }
-  if(pwd.length<8){ showErr('Hasło musi mieć co najmniej 8 znaków.'); return; }
-  if(pwd!==pwd2){ showErr('Hasła nie są zgodne.'); return; }
-  setStep(2);
-}
+  try {
+    await Api.registerSeller({
+      email,
+      password: pwd,
+      full_name,
+      // role is omitted — the /sellers/register endpoint always creates sellers server-side
+      seller_profile: {
+        business_name,
+        // Send null (not undefined) for optional fields so JSON.stringify includes them explicitly
+        tax_id:           tax_id           || null,
+        business_address: business_address || null,
+        phone:            phone            || null,
+      }
+    });
 
-async function submitRegistration(){
-  hideErr();
-  const btn=document.getElementById('submitBtn');
-  const business_name=document.getElementById('business_name').value.trim();
-  if(!business_name){ showErr('Nazwa firmy jest wymagana.'); return; }
-
-  const payload={
-    email: document.getElementById('email').value.trim(),
-    password: document.getElementById('pwd').value,
-    full_name: document.getElementById('full_name').value.trim(),
-    role: 'seller',
-    seller_profile:{
-      business_name,
-      tax_id: document.getElementById('tax_id').value.trim()||null,
-      phone: document.getElementById('phone').value.trim()||null,
-      business_address: document.getElementById('business_address').value.trim()||null,
-    }
-  };
-
-  btn.disabled=true; btn.textContent='Rejestracja…';
-  try{
-    await Api.registerSeller(payload);
-    setStep(3);
-  }catch(ex){
-    showErr(ex.message||'Błąd rejestracji. Spróbuj ponownie.');
-    setStep(2);
-  }finally{
-    btn.disabled=false; btn.textContent='Zarejestruj się';
+    ok.textContent = 'Wniosek wysłany! Po weryfikacji przez administratora otrzymasz dostęp do konta.';
+    ok.style.display = 'block';
+    document.getElementById('f').reset();
+  } catch (ex) {
+    showErr(ex.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Wyślij wniosek';
   }
-}
+
+  function showErr(msg) {
+    err.textContent = msg;
+    err.style.display = 'block';
+  }
+});
 </script>
 </body>
 </html>

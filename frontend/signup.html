@@ -23,7 +23,13 @@ document.getElementById('f').addEventListener('submit', async e=>{
  if(!n||n.length<2){err.textContent='Imię i nazwisko — minimum 2 znaki';err.style.display='block';return}
  if(p!==p2){err.textContent='Hasła nie są zgodne';err.style.display='block';return}
  if(p.length<8){err.textContent='Hasło min 8 znaków';err.style.display='block';return}
- try{ await Api.signup({email:em,password:p,full_name:n,role:'buyer'}); const d=await Api.login(em,p); localStorage.setItem('access_token',d.access_token); localStorage.setItem('refresh_token',d.refresh_token); const u=await Api.getMe(); localStorage.setItem('user',JSON.stringify(u)); location.href='index.html'; }catch(ex){err.textContent=ex.message;err.style.display='block'}
+ try{
+   await Api.signup({email:em,password:p,full_name:n,role:'buyer'});
+   // Api.login() stores tokens internally — no need to re-set them manually
+   await Api.login(em,p);
+   const u=await Api.getMe(); localStorage.setItem('user',JSON.stringify(u));
+   location.href='index.html';
+ }catch(ex){err.textContent=ex.message;err.style.display='block'}
 });
 </script>
 </body></html>

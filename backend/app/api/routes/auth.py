@@ -14,6 +14,7 @@ from app.core.auth import (
     get_user_by_email,
 )
 from app.models.user import User, UserRole, BuyerStatus
+from app.models.seller import SellerProfile, SellerStatus
 from app.schemas.auth import (
     UserCreate,
     UserLogin,
@@ -35,17 +36,23 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered",
         )
-    if user_data.role == UserRole.seller:
+    # Bug #3 fix: ignore any role the client sends — this endpoint always creates buyers.
+    # Self-assigning admin or seller via this route is not allowed.
+    if user_data.role in (UserRole.seller, UserRole.admin):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Seller registration requires business info. Use /auth/register-seller endpoint.",
+            detail=(
+                "Seller registration requires business info. Use /sellers/register endpoint."
+                if user_data.role == UserRole.seller
+                else "Cannot self-register as admin."
+            ),
         )
     user = create_user(
         db=db,
         email=user_data.email,
         password=user_data.password,
         full_name=user_data.full_name,
-        role=user_data.role,
+        role=UserRole.buyer,          # always force buyer regardless of payload
         company_name=user_data.company_name,
         company_tax_id=user_data.company_tax_id,
         company_address=user_data.company_address,
@@ -75,6 +82,20 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
             raise HTTPException(status_code=403, detail="Buyer account pending approval")
         if user.buyer_status == BuyerStatus.rejected:
             raise HTTPException(status_code=403, detail=f"Buyer account rejected: {user.buyer_rejection_reason or ''}")
+    # Bug #2 fix: gate sellers on their SellerProfile approval status.
+    # is_active is only set to False on rejection, but pending sellers must also be blocked.
+    if user.role == UserRole.seller:
+        profile = db.query(SellerProfile).filter(SellerProfile.user_id == user.id).first()
+        if not profile or profile.status == SellerStatus.pending:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Seller account pending approval",
+            )
+        if profile.status == SellerStatus.rejected:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Seller account rejected: {profile.rejection_reason or ''}",
+            )
     access_token, refresh_token = create_tokens(user)
     return Token(access_token=access_token, refresh_token=refresh_token)
 

@@ -124,7 +124,8 @@ tr:hover td{background:#fafafa}
   <div class="dash-sidebar">
     <div class="logo-area">Centrum<span>Hurt</span> <br><span style="font-size:10px;color:#aaa;font-weight:normal">Panel sprzedawcy</span></div>
     <div class="nav-item active" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
-    <div class="nav-item" data-view="profile" onclick="switchView('profile')"><span class="icon">🏢</span> Profil firmy</div>
+    <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
+    <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia</div>
     <div style="border-top:1px solid #444;margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px">
       <div class="nav-item" onclick="doLogout()"><span class="icon">🚪</span> Wyloguj</div>
     </div>
@@ -250,6 +251,43 @@ tr:hover td{background:#fafafa}
   </div>
 </div>
 
+<!-- Category add/edit modal -->
+<div class="modal-bg" id="catModal">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-head">
+      <span id="catModalTitle">Dodaj kategorię</span>
+      <button onclick="closeCatModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-err" id="catModalErr"></div>
+      <div class="f-row">
+        <label>Nazwa <span class="req">*</span></label>
+        <input id="cf_name" placeholder="np. Odzież damska">
+      </div>
+      <div class="f-row">
+        <label>Slug (URL)</label>
+        <input id="cf_slug" placeholder="auto (z nazwy)">
+        <div class="hint">Zostaw puste — wygeneruje się automatycznie</div>
+      </div>
+      <div class="f-row">
+        <label>Kategoria nadrzędna</label>
+        <select id="cf_parent"></select>
+      </div>
+      <div class="f-row">
+        <label>Status</label>
+        <select id="cf_active">
+          <option value="true">Aktywna (widoczna)</option>
+          <option value="false">Nieaktywna (ukryta)</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-ghost" onclick="closeCatModal()">Anuluj</button>
+      <button class="btn btn-primary" id="catSaveBtn" onclick="saveCat()">💾 Zapisz</button>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm delete modal -->
 <div class="modal-bg" id="confirmModal">
   <div class="modal" style="max-width:400px">
@@ -265,9 +303,9 @@ tr:hover td{background:#fafafa}
 <script src="js/app.js"></script>
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
-let sellerProfile = null;
 let products = [];
 let categories = [];
+let orders = [];
 let editingProductId = null;
 let pendingImages = []; // {url, file?, uploading?}
 let currentView = 'products';
@@ -279,13 +317,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   let user;
   try { user = await Api.getMe(); } catch { location.href = 'login.html'; return; }
-  if (user.role !== 'seller') { location.href = 'index.html'; return; }
+  if (user.role !== 'admin' && user.role !== 'seller') { location.href = 'index.html'; return; }
 
   localStorage.setItem('user', JSON.stringify(user));
   document.getElementById('topUser').textContent = user.full_name;
 
-  try { sellerProfile = await Api.getSellerProfile(); } catch { /* pending — no profile yet */ }
-  categories = await Api.getCategoryTree().catch(() => []);
+  categories = await Api.getCategoryTree({include_inactive:true}).catch(() => []);
 
   switchView('products');
 });
@@ -297,7 +334,8 @@ function switchView(view) {
     el.classList.toggle('active', el.dataset.view === view);
   });
   if (view === 'products') renderProductsView();
-  else if (view === 'profile') renderProfileView();
+  else if (view === 'categories') renderCategoriesView();
+  else if (view === 'orders') renderOrdersView();
 }
 
 // ── Products view ──────────────────────────────────────────────────────────
@@ -305,16 +343,7 @@ async function renderProductsView() {
   const main = document.getElementById('mainContent');
   main.innerHTML = '<div class="empty">Ładowanie produktów…</div>';
 
-  if (sellerProfile && sellerProfile.status !== 'approved') {
-    main.innerHTML = statusBanner(sellerProfile.status, sellerProfile.rejection_reason);
-    return;
-  }
-  if (!sellerProfile) {
-    main.innerHTML = `<div class="alert alert-warn">Profil sprzedawcy nie istnieje. Skontaktuj się z administratorem.</div>`;
-    return;
-  }
-
-  try { products = await Api.listMyProducts({ include_inactive: true }); }
+  try { products = await Api.listProducts({ include_inactive: true }); }
   catch (e) { main.innerHTML = `<div class="alert alert-warn">Błąd ładowania produktów: ${e.message}</div>`; return; }
 
   const stats = calcStats(products);
@@ -430,54 +459,483 @@ function filterProducts() {
   }).join('');
 }
 
-function statusBanner(status, reason) {
-  if (status === 'pending') {
-    return `<div class="alert alert-warn" style="margin-top:20px">
-      <b>Konto oczekuje na weryfikację</b><br>
-      Twoje konto sprzedawcy jest w trakcie weryfikacji przez administratora. Gdy zostanie zatwierdzone, możesz dodawać produkty.
-    </div>`;
-  }
-  if (status === 'rejected') {
-    return `<div class="alert" style="background:#fef2f2;border-color:#fecaca;color:#b91c1c;margin-top:20px">
-      <b>Konto odrzucone</b><br>
-      Twoje konto zostało odrzucone. ${reason ? 'Powód: ' + esc(reason) : ''}<br>
-      Skontaktuj się z administratorem, aby uzyskać więcej informacji.
-    </div>`;
-  }
-  return '';
-}
-
-// ── Profile view ───────────────────────────────────────────────────────────
-function renderProfileView() {
+// ── Categories view ───────────────────────────────────────────────────────
+async function renderCategoriesView() {
   const main = document.getElementById('mainContent');
-  const sp = sellerProfile;
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-
-  let statusBadge = '';
-  if (sp) {
-    if (sp.status === 'approved') statusBadge = '<span class="badge badge-approved">Zatwierdzony</span>';
-    else if (sp.status === 'pending') statusBadge = '<span class="badge badge-pending">Oczekuje</span>';
-    else statusBadge = '<span class="badge badge-rejected">Odrzucony</span>';
+  main.innerHTML = '<div class="empty">Ładowanie kategorii…</div>';
+  try {
+    categories = await Api.getCategoryTree({ include_inactive: true });
+  } catch(e) {
+    main.innerHTML = `<div class="alert alert-warn">Błąd: ${e.message}</div>`; return;
   }
+
+  const total   = countNodes(categories);
+  const active  = countNodes(categories, n => n.is_active);
+  const roots   = categories.length;
 
   main.innerHTML = `
-    <div class="page-title">🏢 Profil firmy</div>
-    <div class="profile-box">
-      <h3>Dane konta</h3>
-      <div class="profile-row"><div class="lbl">Imię i nazwisko:</div><div>${esc(user.full_name || '—')}</div></div>
-      <div class="profile-row"><div class="lbl">Email:</div><div>${esc(user.email || '—')}</div></div>
+    <div class="page-title">📂 Kategorie</div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="val">${total}</div><div class="lbl">Wszystkie kategorie</div></div>
+      <div class="stat-card"><div class="val">${active}</div><div class="lbl">Aktywne</div></div>
+      <div class="stat-card"><div class="val">${roots}</div><div class="lbl">Główne (bez rodzica)</div></div>
     </div>
-    ${sp ? `
-    <div class="profile-box">
-      <h3>Profil sprzedawcy &nbsp; ${statusBadge}</h3>
-      <div class="profile-row"><div class="lbl">Nazwa firmy:</div><div>${esc(sp.business_name)}</div></div>
-      <div class="profile-row"><div class="lbl">NIP / VAT ID:</div><div>${esc(sp.tax_id || '—')}</div></div>
-      <div class="profile-row"><div class="lbl">Telefon:</div><div>${esc(sp.phone || '—')}</div></div>
-      <div class="profile-row"><div class="lbl">Adres firmy:</div><div>${esc(sp.business_address || '—')}</div></div>
-      ${sp.rejection_reason ? `<div class="profile-row"><div class="lbl">Powód odrzucenia:</div><div style="color:#dc2626">${esc(sp.rejection_reason)}</div></div>` : ''}
-      <div class="profile-row"><div class="lbl">Data rejestracji:</div><div>${fmtDate(sp.created_at)}</div></div>
-    </div>` : `<div class="alert alert-warn">Profil sprzedawcy nie istnieje. Skontaktuj się z administratorem.</div>`}
-  `;
+    <div class="sec-head">
+      <h2>Drzewo kategorii</h2>
+      <button class="btn btn-primary" onclick="openCatModal()">＋ Dodaj kategorię</button>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr>
+          <th>Nazwa</th>
+          <th>Slug</th>
+          <th>Rodzic</th>
+          <th>Status</th>
+          <th>Akcje</th>
+        </tr></thead>
+        <tbody id="catTbody"></tbody>
+      </table>
+    </div>`;
+
+  renderCatRows();
+}
+
+function countNodes(nodes, predicate) {
+  let n = 0;
+  nodes.forEach(node => {
+    if (!predicate || predicate(node)) n++;
+    if (node.children && node.children.length) n += countNodes(node.children, predicate);
+  });
+  return n;
+}
+
+function renderCatRows() {
+  const tbody = document.getElementById('catTbody');
+  if (!tbody) return;
+  const rows = [];
+  function walk(nodes, depth) {
+    nodes.forEach(n => {
+      const indent = '\u00A0'.repeat(depth * 4);
+      const parentName = depth === 0 ? '—' : findCatName(n.parent_id, categories);
+      rows.push(`
+        <tr>
+          <td><span style="color:#aaa">${indent}</span><b>${esc(n.name)}</b></td>
+          <td style="font-size:11px;color:#888;font-family:monospace">${esc(n.slug)}</td>
+          <td style="font-size:11px;color:#666">${esc(parentName)}</td>
+          <td>${n.is_active
+            ? '<span class="badge badge-active">Aktywna</span>'
+            : '<span class="badge badge-inactive">Nieaktywna</span>'}</td>
+          <td>
+            <div class="actions">
+              <button class="btn btn-ghost btn-sm" onclick="openCatModal('${n.id}')">✏️ Edytuj</button>
+              <button class="btn btn-ghost btn-sm" onclick="openAddSubcatModal('${n.id}')">＋ Podkat.</button>
+              <button class="btn btn-danger btn-sm" onclick="confirmDeleteCat('${n.id}','${esc(n.name)}')">🗑</button>
+            </div>
+          </td>
+        </tr>`);
+      if (n.children && n.children.length) walk(n.children, depth + 1);
+    });
+  }
+  walk(categories, 0);
+  tbody.innerHTML = rows.length ? rows.join('') : `<tr><td colspan="5" class="empty">Brak kategorii</td></tr>`;
+}
+
+function findCatName(id, nodes) {
+  if (!id) return '—';
+  for (const n of nodes) {
+    if (String(n.id) === String(id)) return n.name;
+    if (n.children && n.children.length) {
+      const found = findCatName(id, n.children);
+      if (found !== '—') return found;
+    }
+  }
+  return '—';
+}
+
+// ── Category modal ─────────────────────────────────────────────────────────
+let editingCatId = null;
+
+function openCatModal(id) {
+  editingCatId = id || null;
+  const modal = document.getElementById('catModal');
+  const err   = document.getElementById('catModalErr');
+  err.style.display = 'none';
+
+  // Populate parent select (all categories except itself and its descendants)
+  const sel = document.getElementById('cf_parent');
+  sel.innerHTML = '<option value="">— brak (kategoria główna) —</option>';
+  function addCatOpts(nodes, depth, excludeId) {
+    nodes.forEach(n => {
+      if (String(n.id) === String(excludeId)) return; // skip self & subtree
+      const opt = document.createElement('option');
+      opt.value = n.id;
+      opt.textContent = '\u00A0'.repeat(depth * 3) + n.name;
+      sel.appendChild(opt);
+      if (n.children && n.children.length) addCatOpts(n.children, depth + 1, excludeId);
+    });
+  }
+  addCatOpts(categories, 0, editingCatId);
+
+  if (editingCatId) {
+    // Edit mode — find existing data
+    const cat = findCatById(editingCatId, categories);
+    document.getElementById('catModalTitle').textContent = 'Edytuj kategorię';
+    document.getElementById('cf_name').value   = cat ? cat.name  : '';
+    document.getElementById('cf_slug').value   = cat ? cat.slug  : '';
+    document.getElementById('cf_active').value = cat ? (cat.is_active ? 'true' : 'false') : 'true';
+    if (cat && cat.parent_id) sel.value = String(cat.parent_id);
+  } else {
+    document.getElementById('catModalTitle').textContent = 'Dodaj kategorię';
+    document.getElementById('cf_name').value   = '';
+    document.getElementById('cf_slug').value   = '';
+    document.getElementById('cf_active').value = 'true';
+  }
+
+  modal.classList.add('open');
+}
+
+function openAddSubcatModal(parentId) {
+  openCatModal(null);
+  // pre-select parent after modal opens
+  document.getElementById('cf_parent').value = parentId;
+}
+
+function closeCatModal() {
+  document.getElementById('catModal').classList.remove('open');
+  editingCatId = null;
+}
+
+function findCatById(id, nodes) {
+  for (const n of nodes) {
+    if (String(n.id) === String(id)) return n;
+    if (n.children && n.children.length) {
+      const found = findCatById(id, n.children);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+async function saveCat() {
+  const err  = document.getElementById('catModalErr');
+  err.style.display = 'none';
+
+  const name     = document.getElementById('cf_name').value.trim();
+  const slugVal  = document.getElementById('cf_slug').value.trim();
+  const parentId = document.getElementById('cf_parent').value || null;
+  const isActive = document.getElementById('cf_active').value === 'true';
+
+  if (!name) { err.textContent = 'Nazwa kategorii jest wymagana.'; err.style.display = 'block'; return; }
+
+  const payload = {
+    name,
+    slug: slugVal || undefined,
+    parent_id: parentId || null,
+    is_active: isActive,
+  };
+
+  const btn = document.getElementById('catSaveBtn');
+  btn.disabled = true; btn.textContent = 'Zapisywanie…';
+  try {
+    if (editingCatId) {
+      await Api.updateCategory(editingCatId, payload);
+    } else {
+      await Api.createCategory(payload);
+    }
+    closeCatModal();
+    // Refresh categories and re-render
+    categories = await Api.getCategoryTree({ include_inactive: true });
+    renderCatRows();
+    // update stat cards
+    const total  = countNodes(categories);
+    const active = countNodes(categories, n => n.is_active);
+    const roots  = categories.length;
+    const vals = document.querySelectorAll('#mainContent .stat-card .val');
+    if (vals[0]) vals[0].textContent = total;
+    if (vals[1]) vals[1].textContent = active;
+    if (vals[2]) vals[2].textContent = roots;
+  } catch(e) {
+    err.textContent = e.message || 'Błąd zapisu kategorii.';
+    err.style.display = 'block';
+  } finally {
+    btn.disabled = false; btn.textContent = '💾 Zapisz';
+  }
+}
+
+function confirmDeleteCat(id, name) {
+  const confirmDiv = document.getElementById('confirmMsg');
+  confirmDiv.innerHTML = `
+    <span style="color:#dc2626;font-weight:bold">Uwaga!</span> Operacja jest nieodwracalna.<br><br>
+    Czy na pewno chcesz usunąć kategorię <b>„${esc(name)}"</b>?<br>
+    <span style="font-size:11px;color:#888">Kategorie z podkategoriami lub przypisanymi produktami nie mogą być usunięte.</span>`;
+
+  const okBtn = document.getElementById('confirmOk');
+  okBtn.textContent = 'Usuń';
+  okBtn.className = 'btn btn-danger';
+  okBtn.onclick = async () => {
+    try {
+      await Api.deleteCategory(id);
+      document.getElementById('confirmModal').classList.remove('open');
+      categories = await Api.getCategoryTree({ include_inactive: true });
+      renderCatRows();
+    } catch(e) {
+      alert('Błąd usuwania: ' + e.message);
+    }
+  };
+  document.getElementById('confirmModal').classList.add('open');
+}
+
+// ── Orders view ───────────────────────────────────────────────────────────
+async function renderOrdersView() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<div class="empty">Ładowanie zamówień…</div>';
+  try {
+    orders = await Api.listOrders();
+  } catch(e) {
+    main.innerHTML = `<div class="alert alert-warn">Błąd: ${e.message}</div>`; return;
+  }
+
+  const pending = orders.filter(o => o.status === 'pending').length;
+  const totalNet = orders.reduce((s, o) => s + parseFloat(o.total_net || 0), 0);
+
+  main.innerHTML = `
+    <div class="page-title">🛒 Zamówienia</div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="val">${orders.length}</div><div class="lbl">Wszystkie</div></div>
+      <div class="stat-card"><div class="val">${pending}</div><div class="lbl">Oczekujące</div><div class="trend">do realizacji</div></div>
+      <div class="stat-card"><div class="val">${fmtPrice(totalNet)} zł</div><div class="lbl">Łączna wartość netto</div></div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:90px">Nr / Data</th>
+            <th>Odbiorca</th>
+            <th>📞 Telefon</th>
+            <th>📍 Adres dostawy</th>
+            <th>Netto</th>
+            <th>Brutto</th>
+            <th>Status</th>
+            <th>Akcje</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTbody"></tbody>
+      </table>
+    </div>`;
+
+  renderOrderRows();
+}
+
+function renderOrderRows() {
+  const tbody = document.getElementById('ordersTbody');
+  if (!tbody) return;
+  if (!orders.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">Brak zamówień</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = orders.map(o => {
+    const d    = new Date(o.created_at).toLocaleString('pl-PL', {dateStyle:'short', timeStyle:'short'});
+    const name = esc(o.recipient_name || o.company_name || '—');
+    const phone = esc(o.recipient_phone || '—');
+    const addr = esc(o.shipping_address || o.recipient_address || '—');
+
+    const statusBadge = o.status === 'pending'
+      ? `<span class="badge badge-pending">Oczekujące</span>`
+      : o.status === 'confirmed'
+      ? `<span class="badge badge-approved">Potwierdzone</span>`
+      : o.status === 'shipped'
+      ? `<span class="badge badge-stock">Wysłane</span>`
+      : o.status === 'cancelled'
+      ? `<span class="badge badge-inactive">Anulowane</span>`
+      : `<span class="badge" style="background:#e2e8f0;color:#0f172a">${esc(o.status)}</span>`;
+
+    // ── items breakdown for expanded panel ──────────────────────────────
+    const itemRows = (o.items || []).map(it => {
+      const lineNet   = (parseFloat(it.price_net_snapshot)   * it.pack_quantity).toFixed(2);
+      const lineGross = (parseFloat(it.price_gross_snapshot) * it.pack_quantity).toFixed(2);
+      return `
+        <tr>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee">${esc(it.product_name_snapshot)}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:center">${it.pack_size_snapshot}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:center">${it.pack_quantity}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:right">${fmtPrice(it.price_net_snapshot)} zł</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:right">${fmtPrice(it.price_gross_snapshot)} zł</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:right"><b>${lineNet} zł</b></td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:right;color:#888">${lineGross} zł</td>
+        </tr>`;
+    }).join('');
+
+    return `
+      <tr style="cursor:pointer" onclick="toggleOrderDetail('${o.id}')" title="Kliknij, aby rozwinąć">
+        <td>
+          <b style="font-family:monospace;font-size:11px">${esc(o.id.split('-')[0].toUpperCase())}</b><br>
+          <span style="font-size:10px;color:#888">${d}</span>
+        </td>
+        <td>
+          <b>${name}</b>
+          ${o.company_name && o.recipient_name ? `<br><span style="font-size:10px;color:#888">${esc(o.company_name)}</span>` : ''}
+        </td>
+        <td><a href="tel:${esc(o.recipient_phone||'')}" style="color:#0099cc;font-weight:bold" onclick="event.stopPropagation()">${phone}</a></td>
+        <td style="max-width:200px;word-break:break-word;font-size:11px">${addr}</td>
+        <td><b>${fmtPrice(o.total_net)} zł</b></td>
+        <td>${fmtPrice(o.total_gross)} zł</td>
+        <td>${statusBadge}</td>
+        <td onclick="event.stopPropagation()">
+          <div class="actions">
+            ${o.status !== 'delivered' && o.status !== 'cancelled'
+              ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.id}','delivered')">✅ Zrealizowane</button>`
+              : ''}
+            ${o.status !== 'cancelled' && o.status !== 'delivered'
+              ? `<button class="btn btn-danger btn-sm" onclick="setOrderStatus('${o.id}','cancelled')">✕ Anuluj</button>`
+              : ''}
+          </div>
+        </td>
+      </tr>
+      <tr id="detail-${o.id}" style="display:none">
+        <td colspan="8" style="padding:0;background:#f8fafc;border-top:2px solid #0099cc">
+          <div style="padding:16px 18px;display:flex;gap:20px;flex-wrap:wrap">
+
+            <!-- LEFT: account + delivery info ──────────────────────────── -->
+            <div style="flex:1;min-width:240px">
+
+              <div style="font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;color:#555;margin-bottom:8px">👤 Zamawiający</div>
+              <table style="font-size:12px;border-collapse:collapse;width:100%">
+                <tr>
+                  <td style="color:#888;padding:3px 10px 3px 0;white-space:nowrap">Konto:</td>
+                  <td>${o.buyer_full_name ? `<b>${esc(o.buyer_full_name)}</b>` : '<span style="color:#aaa">—</span>'}</td>
+                </tr>
+                <tr>
+                  <td style="color:#888;padding:3px 10px 3px 0;white-space:nowrap">E-mail:</td>
+                  <td>${o.buyer_email
+                    ? `<a href="mailto:${esc(o.buyer_email)}" style="color:#0099cc">${esc(o.buyer_email)}</a>`
+                    : '<span style="color:#aaa">—</span>'}</td>
+                </tr>
+              </table>
+
+              <div style="font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;color:#555;margin:14px 0 8px">📍 Dostawa</div>
+              <table style="font-size:12px;border-collapse:collapse;width:100%">
+                <tr>
+                  <td style="color:#888;padding:3px 10px 3px 0;white-space:nowrap">Odbiorca:</td>
+                  <td><b>${esc(o.recipient_name || '—')}</b></td>
+                </tr>
+                <tr>
+                  <td style="color:#888;padding:3px 10px 3px 0;white-space:nowrap">Telefon:</td>
+                  <td><a href="tel:${esc(o.recipient_phone||'')}" style="color:#0099cc;font-weight:bold">${esc(o.recipient_phone || '—')}</a></td>
+                </tr>
+                <tr>
+                  <td style="color:#888;padding:3px 10px 3px 0;white-space:nowrap;vertical-align:top">Adres:</td>
+                  <td style="word-break:break-word">${esc(o.shipping_address || '—')}</td>
+                </tr>
+                ${o.recipient_address && o.recipient_address !== o.shipping_address ? `
+                <tr>
+                  <td style="color:#888;padding:3px 10px 3px 0;white-space:nowrap;vertical-align:top">Adres odbioru:</td>
+                  <td style="word-break:break-word">${esc(o.recipient_address)}</td>
+                </tr>` : ''}
+              </table>
+
+              ${o.company_name ? `
+              <div style="font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;color:#555;margin:14px 0 8px">🏢 Firma</div>
+              <table style="font-size:12px;border-collapse:collapse;width:100%">
+                <tr><td style="color:#888;padding:3px 10px 3px 0;white-space:nowrap">Nazwa:</td><td>${esc(o.company_name)}</td></tr>
+                ${o.company_tax_id ? `<tr><td style="color:#888;padding:3px 10px 3px 0">NIP:</td><td>${esc(o.company_tax_id)}</td></tr>` : ''}
+                ${o.company_address ? `<tr><td style="color:#888;padding:3px 10px 3px 0;vertical-align:top">Adres firmy:</td><td style="word-break:break-word">${esc(o.company_address)}</td></tr>` : ''}
+              </table>` : ''}
+
+              <div style="margin-top:14px;font-size:12px">
+                <span style="color:#888">Płatność:</span>
+                <span style="font-weight:bold;background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:2px 8px;font-size:11px;margin-left:4px">💵 Za pobraniem (COD)</span>
+              </div>
+
+              ${o.notes ? `
+              <div style="margin-top:12px;background:#fffde7;border:1px solid #fde68a;padding:8px 10px;font-size:12px">
+                <b>📝 Uwagi:</b> ${esc(o.notes)}
+              </div>` : ''}
+            </div>
+
+            <!-- RIGHT: items table ───────────────────────────────────────── -->
+            <div style="flex:2;min-width:320px">
+              <div style="font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.05em;color:#555;margin-bottom:8px">📦 Zamówione produkty</div>
+              <table style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead>
+                  <tr style="background:#f0f0f0">
+                    <th style="padding:6px 10px;text-align:left;font-size:11px">Produkt</th>
+                    <th style="padding:6px 10px;text-align:center;font-size:11px">Pack</th>
+                    <th style="padding:6px 10px;text-align:center;font-size:11px">Szt. (paczek)</th>
+                    <th style="padding:6px 10px;text-align:right;font-size:11px">Cena netto</th>
+                    <th style="padding:6px 10px;text-align:right;font-size:11px">Cena brutto</th>
+                    <th style="padding:6px 10px;text-align:right;font-size:11px">Razem netto</th>
+                    <th style="padding:6px 10px;text-align:right;font-size:11px;color:#aaa">Razem brutto</th>
+                  </tr>
+                </thead>
+                <tbody>${itemRows}</tbody>
+                <tfoot>
+                  <tr style="background:#f9f9f9;font-weight:bold;border-top:2px solid #ddd">
+                    <td colspan="5" style="padding:6px 10px;font-size:12px">Łącznie</td>
+                    <td style="padding:6px 10px;text-align:right">${fmtPrice(o.total_net)} zł</td>
+                    <td style="padding:6px 10px;text-align:right;color:#888">${fmtPrice(o.total_gross)} zł</td>
+                  </tr>
+                </tfoot>
+              </table>
+
+              <div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">
+                <span style="font-size:11px;color:#888">Nr zamówienia: <code>${esc(o.id)}</code></span>
+                ${o.status !== 'delivered' && o.status !== 'cancelled'
+                  ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.id}','delivered')">✅ Zrealizowane</button>`
+                  : ''}
+                ${o.status !== 'cancelled' && o.status !== 'delivered'
+                  ? `<button class="btn btn-danger btn-sm" onclick="setOrderStatus('${o.id}','cancelled')">✕ Anuluj</button>`
+                  : ''}
+              </div>
+            </div>
+
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function toggleOrderDetail(id) {
+  const row = document.getElementById('detail-' + id);
+  if (!row) return;
+  const opening = row.style.display === 'none';
+  // collapse any other open rows first
+  document.querySelectorAll('[id^="detail-"]').forEach(r => r.style.display = 'none');
+  if (opening) row.style.display = 'table-row';
+}
+
+async function setOrderStatus(id, newStatus) {
+  const labels = { delivered: 'Zrealizowane', cancelled: 'Anulowane' };
+  const confirmMsg = newStatus === 'delivered'
+    ? 'Oznaczyć zamówienie jako zrealizowane?'
+    : 'Anulować to zamówienie? Operacja jest nieodwracalna.';
+
+  const confirmDiv = document.getElementById('confirmMsg');
+  confirmDiv.textContent = confirmMsg;
+  const okBtn = document.getElementById('confirmOk');
+  okBtn.textContent = labels[newStatus] || newStatus;
+  okBtn.className = newStatus === 'cancelled' ? 'btn btn-danger' : 'btn btn-primary';
+  okBtn.onclick = async () => {
+    document.getElementById('confirmModal').classList.remove('open');
+    try {
+      const updated = await Api.updateOrderStatus(id, newStatus);
+      // patch the in-memory list so re-render is instant
+      const idx = orders.findIndex(o => o.id === id);
+      if (idx >= 0) orders[idx] = { ...orders[idx], ...updated, items: orders[idx].items };
+      renderOrderRows();
+      // keep the detail row open for the updated order
+      const row = document.getElementById('detail-' + id);
+      if (row) row.style.display = 'table-row';
+      // refresh stat cards
+      const pending = orders.filter(o => o.status === 'pending').length;
+      const totalNet = orders.reduce((s, o) => s + parseFloat(o.total_net || 0), 0);
+      const vals = document.querySelectorAll('#mainContent .stat-card .val');
+      if (vals[1]) vals[1].textContent = pending;
+      if (vals[2]) vals[2].textContent = fmtPrice(totalNet) + ' zł';
+    } catch(e) {
+      alert('Błąd zmiany statusu: ' + e.message);
+    }
+  };
+  document.getElementById('confirmModal').classList.add('open');
 }
 
 // ── Add/Edit modal ─────────────────────────────────────────────────────────

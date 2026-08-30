@@ -12,11 +12,9 @@ class Settings(BaseSettings):
     ENV: str = "development"
     DEBUG: bool = True
 
-    # Database
-    DATABASE_URL: str = "postgresql://wholesale:wholesale@db:5432/wholesale"
-
-    # Redis (optional, used later for caching/queues)
-    REDIS_URL: str = "redis://redis:6379/0"
+    # Database — SQLite default for local dev (no services needed)
+    # Override with a PostgreSQL URL in .env for production.
+    DATABASE_URL: str = "sqlite:///./wholesale.db"
 
     # Auth
     SECRET_KEY: str = "change-me-in-prod"
@@ -24,8 +22,8 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
-    # CORS - allow all dev origins (vanilla at 8000/vanilla, 3001, file://, etc.)
-    # For production, restrict to specific domains via .env
+    # CORS - allow all dev origins (vanilla at 8000/vanilla, 3001, etc.)
+    # For production, restrict to specific domains via .env; never include "null".
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
@@ -39,7 +37,7 @@ class Settings(BaseSettings):
         "http://127.0.0.1:8000",
         "http://127.0.0.1:8002",
         "http://127.0.0.1:5173",
-        "null",
+        # "null" intentionally omitted — it allows file:// origins which is a security risk
     ]
 
     # Wholesale business settings

@@ -124,7 +124,6 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(BaseModel):
     id: UUID
-    seller_id: UUID
     category_id: UUID
     name: str
     slug: str
@@ -146,11 +145,10 @@ class ProductResponse(BaseModel):
     # denormalized
     category_name: Optional[str] = None
     category_slug: Optional[str] = None
-    seller_business_name: Optional[str] = None
     variants: List[ProductVariantResponse] = Field(default_factory=list)
     price_tiers: List[ProductPriceTierResponse] = Field(default_factory=list)
 
-    @field_serializer('id', 'seller_id', 'category_id')
+    @field_serializer('id', 'category_id')
     def ser_uuid(self, v: UUID) -> str:
         return str(v)
 
@@ -160,7 +158,6 @@ class ProductResponse(BaseModel):
 
 class ProductListResponse(BaseModel):
     id: UUID
-    seller_id: UUID
     category_id: UUID
     name: str
     slug: str
@@ -181,7 +178,7 @@ class ProductListResponse(BaseModel):
     category_slug: Optional[str] = None
     price_tiers: List[ProductPriceTierResponse] = Field(default_factory=list)
 
-    @field_serializer('id', 'seller_id', 'category_id')
+    @field_serializer('id', 'category_id')
     def ser_uuid(self, v: UUID) -> str:
         return str(v)
 

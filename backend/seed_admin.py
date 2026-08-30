@@ -6,30 +6,39 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.db.session import SessionLocal
 from app.core.auth import get_password_hash
 from app.models.user import User, UserRole
+from app.models.seller import SellerProfile, SellerStatus
 
 
 def seed_admin():
     db = SessionLocal()
     try:
-        admin_email = os.getenv("ADMIN_EMAIL", "admin@wholesale.com")
-        admin_password = os.getenv("ADMIN_PASSWORD", "admin12345")
-        admin_name = os.getenv("ADMIN_NAME", "Platform Admin")
+        seller_email = os.getenv("ADMIN_EMAIL", "seller@example.com")
+        seller_password = os.getenv("ADMIN_PASSWORD", "seller123")
+        seller_name = os.getenv("ADMIN_NAME", "Store Owner")
 
-        existing = db.query(User).filter(User.email == admin_email).first()
+        existing = db.query(User).filter(User.email == seller_email).first()
         if existing:
-            print(f"Admin user already exists: {admin_email}")
+            print(f"Seller account already exists: {seller_email}")
             return
 
-        admin = User(
-            email=admin_email,
-            hashed_password=get_password_hash(admin_password),
-            full_name=admin_name,
-            role=UserRole.admin,
+        user = User(
+            email=seller_email,
+            hashed_password=get_password_hash(seller_password),
+            full_name=seller_name,
+            role=UserRole.seller,
             is_active=True,
         )
-        db.add(admin)
+        db.add(user)
+        db.flush()
+
+        profile = SellerProfile(
+            user_id=user.id,
+            business_name=seller_name,
+            status=SellerStatus.approved,
+        )
+        db.add(profile)
         db.commit()
-        print(f"Admin user created: {admin_email} / {admin_password}")
+        print(f"Seller account created: {seller_email} / {seller_password}")
     finally:
         db.close()
 

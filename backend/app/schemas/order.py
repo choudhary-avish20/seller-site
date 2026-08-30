@@ -13,6 +13,10 @@ class OrderItemCreate(BaseModel):
     pack_quantity: int = Field(..., ge=1, description="Number of packs")
 
 
+class OrderStatusUpdate(BaseModel):
+    status: OrderStatus
+
+
 class OrderCreate(BaseModel):
     items: List[OrderItemCreate] = Field(..., min_length=1)
     shipping_address: str = Field(..., min_length=5, max_length=1000)
@@ -68,6 +72,9 @@ class OrderResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     items: List[OrderItemResponse] = Field(default_factory=list)
+    # Denormalised buyer info — populated by admin/seller list endpoint
+    buyer_email: Optional[str] = None
+    buyer_full_name: Optional[str] = None
 
     @field_serializer('id', 'buyer_id')
     def ser(self, v: UUID) -> str:

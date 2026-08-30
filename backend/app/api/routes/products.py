@@ -14,7 +14,6 @@ from app.models.product import Product, StockStatus
 from app.models.product_variant import ProductVariant
 from app.models.product_price_tier import ProductPriceTier
 from app.models.category import Category
-from app.models.seller import SellerProfile, SellerStatus
 from app.models.user import User, UserRole
 from app.schemas.product import (
     ProductCreate,
@@ -28,15 +27,9 @@ from app.schemas.product import (
 router = APIRouter(prefix="/products", tags=["products"])
 
 
-def _get_approved_seller(db: Session, user: User) -> SellerProfile:
-    if user.role != UserRole.seller:
-        raise HTTPException(status_code=403, detail="Only sellers can manage products")
-    seller = db.query(SellerProfile).filter(SellerProfile.user_id == user.id).first()
-    if not seller:
-        raise HTTPException(status_code=404, detail="Seller profile not found")
-    if seller.status != SellerStatus.approved:
-        raise HTTPException(status_code=403, detail="Seller not approved; cannot manage products")
-    return seller
+def _require_admin(user: User):
+    if user.role not in (UserRole.admin, UserRole.seller):
+        raise HTTPException(status_code=403, detail="Only the store owner can manage products")
 
 
 def _ensure_product_slug_unique(db: Session, slug: str, exclude_id: Optional[UUID] = None):
@@ -104,16 +97,22 @@ def _validate_tiers(tiers):
 
 def _to_product_response(product: Product, db: Session, hide_prices: bool = False) -> ProductResponse:
     cat = db.query(Category).filter(Category.id == product.category_id).first()
-    seller = db.query(SellerProfile).filter(SellerProfile.id == product.seller_id).first()
     images_list = _parse_images(product.images)
-    variants = db.query(ProductVariant).filter(ProductVariant.product_id == product.id).all()
-    tiers = db.query(ProductPriceTier).filter(ProductPriceTier.product_id == product.id).order_by(ProductPriceTier.min_quantity).all()
-    # hide prices if required
+    tiers = (
+        db.query(ProductPriceTier)
+        .filter(ProductPriceTier.product_id == product.id)
+        .order_by(ProductPriceTier.min_quantity)
+        .all()
+    )
+    variants = (
+        db.query(ProductVariant)
+        .filter(ProductVariant.product_id == product.id)
+        .all()
+    )
     price_net = 0 if hide_prices else float(product.price_net)
     price_gross = 0 if hide_prices else float(product.price_gross)
     return ProductResponse(
         id=product.id,
-        seller_id=product.seller_id,
         category_id=product.category_id,
         name=product.name,
         slug=product.slug,
@@ -127,14 +126,13 @@ def _to_product_response(product: Product, db: Session, hide_prices: bool = Fals
         stock_status=product.stock_status,
         is_active=product.is_active,
         pack_increment=product.pack_increment,
-        cost_price=float(product.cost_price) if product.cost_price is not None else None,
+        cost_price=float(product.cost_price) if product.cost_price is not None and not hide_prices else None,
         stall_location=product.stall_location,
         counter_number=product.counter_number,
         created_at=product.created_at,
         updated_at=product.updated_at,
         category_name=cat.name if cat else None,
         category_slug=cat.slug if cat else None,
-        seller_business_name=seller.business_name if seller else None,
         variants=variants,
         price_tiers=tiers if not hide_prices else [],
     )
@@ -148,7 +146,6 @@ def _to_list_response(product: Product, db: Session, hide_prices: bool = False) 
     price_gross = 0 if hide_prices else float(product.price_gross)
     return ProductListResponse(
         id=product.id,
-        seller_id=product.seller_id,
         category_id=product.category_id,
         name=product.name,
         slug=product.slug,
@@ -205,7 +202,6 @@ def list_products(
     db: Session = Depends(get_db),
     category_id: Optional[UUID] = Query(None),
     search: Optional[str] = Query(None),
-    seller_id: Optional[UUID] = Query(None),
     include_inactive: bool = Query(False),
     is_active: Optional[bool] = Query(None),
     page: int = Query(1, ge=1),
@@ -219,8 +215,6 @@ def list_products(
         q = q.filter(Product.is_active == is_active)
     if category_id:
         q = q.filter(Product.category_id == category_id)
-    if seller_id:
-        q = q.filter(Product.seller_id == seller_id)
     if search:
         term = f"%{search}%"
         q = q.outerjoin(Category, Product.category_id == Category.id).filter(
@@ -235,16 +229,6 @@ def list_products(
     offset = (page - 1) * limit
     products = q.offset(offset).limit(limit).all()
     return [_to_list_response(p, db, hide_prices=hide) for p in products]
-
-
-@router.get("/my", response_model=List[ProductListResponse])
-def list_my_products(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    seller = _get_approved_seller(db, current_user)
-    products = db.query(Product).filter(Product.seller_id == seller.id).order_by(Product.created_at.desc()).all()
-    return [_to_list_response(p, db, hide_prices=False) for p in products]
 
 
 @router.get("/slug/{slug}", response_model=ProductResponse)
@@ -272,7 +256,7 @@ def create_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    seller = _get_approved_seller(db, current_user)
+    _require_admin(current_user)
     cat = db.query(Category).filter(Category.id == payload.category_id).first()
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -286,7 +270,6 @@ def create_product(
     images_json = _serialize_images(payload.images or [])
     _validate_tiers(payload.price_tiers)
     product = Product(
-        seller_id=seller.id,
         category_id=payload.category_id,
         name=payload.name.strip(),
         slug=slug,
@@ -338,12 +321,10 @@ def update_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    seller = _get_approved_seller(db, current_user)
+    _require_admin(current_user)
     prod = db.query(Product).filter(Product.id == product_id).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
-    if prod.seller_id != seller.id and current_user.role != UserRole.admin:
-        raise HTTPException(status_code=403, detail="Not owner of product")
     if payload.name is not None:
         prod.name = payload.name.strip()
     if payload.slug is not None:
@@ -425,12 +406,10 @@ def delete_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    seller = _get_approved_seller(db, current_user)
+    _require_admin(current_user)
     prod = db.query(Product).filter(Product.id == product_id).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
-    if prod.seller_id != seller.id and current_user.role != UserRole.admin:
-        raise HTTPException(status_code=403, detail="Not owner")
     db.delete(prod)
     db.commit()
     return None
@@ -443,12 +422,10 @@ def toggle_stock(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    seller = _get_approved_seller(db, current_user)
+    _require_admin(current_user)
     prod = db.query(Product).filter(Product.id == product_id).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
-    if prod.seller_id != seller.id:
-        raise HTTPException(status_code=403, detail="Not owner")
     if payload.stock_status is not None:
         prod.stock_status = payload.stock_status
     if payload.stock_quantity is not None:
@@ -464,12 +441,10 @@ def archive_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    seller = _get_approved_seller(db, current_user)
+    _require_admin(current_user)
     prod = db.query(Product).filter(Product.id == product_id).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
-    if prod.seller_id != seller.id:
-        raise HTTPException(status_code=403, detail="Not owner")
     prod.is_active = not prod.is_active
     db.commit()
     db.refresh(prod)

@@ -40,8 +40,5 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     company_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
-    # A user with role=seller has exactly one seller profile
-    seller_profile: Mapped["SellerProfile"] = relationship(
-        back_populates="user", uselist=False, cascade="all, delete-orphan"
-    )
     orders: Mapped[list["Order"]] = relationship(back_populates="buyer")
+    seller_profile: Mapped["SellerProfile | None"] = relationship(back_populates="user", uselist=False)  # type: ignore[name-defined]

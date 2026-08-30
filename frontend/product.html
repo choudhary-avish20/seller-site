@@ -57,7 +57,7 @@ async function load(){
     const inc=p.pack_increment||1;
     document.getElementById('info').innerHTML=`
       <h1 style="font-size:16px">${p.name}</h1>
-      <div class="meta">Code: <b>${p.sku||p.slug}</b> — ${p.seller_business_name||''}</div>
+      <div class="meta">Code: <b>${p.sku||p.slug}</b></div>
       <div class="meta">Condition: New product</div>
       <div class="meta">Date posted: ${new Date(p.created_at).toLocaleDateString()} ${new Date(p.created_at).toLocaleTimeString()}</div>
       ${hide? `<div style="background:#fffbeb;border:1px solid #fde68a;padding:12px;margin:10px 0;font-size:12px">Prices visible after login — <a href="login.html" style="color:#0066cc">Zaloguj się</a> / <a href="signup.html" style="color:#0066cc">Register</a></div>` : `

@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.user import User, UserRole, BuyerStatus
-from app.models.seller import SellerProfile, SellerStatus
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -105,58 +104,3 @@ def create_user(
     db.flush()
     return user
 
-
-def create_seller_profile(
-    db: Session,
-    user_id: UUID,
-    business_name: str,
-    tax_id: Optional[str] = None,
-    business_address: Optional[str] = None,
-    phone: Optional[str] = None,
-) -> SellerProfile:
-    seller_profile = SellerProfile(
-        user_id=user_id,
-        business_name=business_name,
-        tax_id=tax_id,
-        business_address=business_address,
-        phone=phone,
-        status=SellerStatus.pending,
-    )
-    db.add(seller_profile)
-    return seller_profile
-
-
-def get_seller_profile(db: Session, user_id: UUID) -> Optional[SellerProfile]:
-    return db.query(SellerProfile).filter(SellerProfile.user_id == user_id).first()
-
-
-def get_pending_sellers(db: Session) -> list[SellerProfile]:
-    return (
-        db.query(SellerProfile)
-        .filter(SellerProfile.status == SellerStatus.pending)
-        .all()
-    )
-
-
-def approve_seller(
-    db: Session, seller_id: UUID, admin_id: UUID, rejection_reason: Optional[str] = None
-) -> Optional[SellerProfile]:
-    seller = db.query(SellerProfile).filter(SellerProfile.id == seller_id).first()
-    if not seller:
-        return None
-    seller.status = SellerStatus.approved
-    seller.rejection_reason = None
-    db.flush()
-    return seller
-
-
-def reject_seller(
-    db: Session, seller_id: UUID, admin_id: UUID, rejection_reason: str
-) -> Optional[SellerProfile]:
-    seller = db.query(SellerProfile).filter(SellerProfile.id == seller_id).first()
-    if not seller:
-        return None
-    seller.status = SellerStatus.rejected
-    seller.rejection_reason = rejection_reason
-    db.flush()
-    return seller

@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kasa — Wholesale</title>
+<link rel="stylesheet" href="css/style.css">
+<style>
+.co-wrap{display:flex;gap:20px;align-items:flex-start;padding:16px 0;flex-wrap:wrap}
+.co-form{flex:1;min-width:300px}
+.co-summary{width:340px;flex-shrink:0}
+@media(max-width:700px){.co-summary{width:100%}}
+
+/* section box */
+.co-box{background:#fff;border:1px solid #ddd;margin-bottom:14px}
+.co-box-head{background:#333;color:#fff;padding:10px 14px;font-size:13px;font-weight:bold;display:flex;align-items:center;gap:8px}
+.co-box-body{padding:14px}
+
+/* form */
+.f-row{margin-bottom:11px}
+.f-row label{display:block;font-size:12px;font-weight:bold;margin-bottom:3px;color:#333}
+.f-row input,.f-row textarea,.f-row select{width:100%;border:1px solid #ccc;padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
+.f-row input:focus,.f-row textarea:focus{border-color:#0099cc}
+.f-row textarea{resize:vertical;min-height:72px}
+.f-cols{display:flex;gap:10px}
+.f-cols .f-row{flex:1}
+.req{color:#c00}
+.hint{font-size:11px;color:#888;margin-top:2px}
+
+/* error */
+.err-box{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c;padding:9px 12px;font-size:12px;margin-bottom:12px;display:none}
+
+/* order items */
+.oi-row{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid #eee;align-items:center}
+.oi-row:last-child{border-bottom:0}
+.oi-img{width:48px;height:48px;object-fit:contain;border:1px solid #eee;flex-shrink:0;background:#fafafa}
+.oi-img-ph{width:48px;height:48px;background:#f0f0f0;border:1px solid #eee;display:flex;align-items:center;justify-content:center;font-size:20px;color:#bbb;flex-shrink:0}
+.oi-name{font-weight:bold;font-size:12px}
+.oi-sub{font-size:11px;color:#777}
+.oi-price{margin-left:auto;text-align:right;font-size:12px;white-space:nowrap}
+
+/* totals */
+.total-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px}
+.total-row.grand{font-weight:bold;font-size:15px;border-top:2px solid #333;margin-top:6px;padding-top:8px}
+
+/* COD badge */
+.cod-badge{background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:10px 12px;font-size:12px;display:flex;gap:8px;align-items:flex-start;margin-bottom:14px}
+.cod-badge .ico{font-size:16px;flex-shrink:0}
+
+/* place order btn */
+.btn-place{display:block;width:100%;padding:13px;background:#333;color:#fff;font-size:14px;font-weight:bold;border:none;cursor:pointer;text-align:center;letter-spacing:.02em}
+.btn-place:hover{background:#000}
+.btn-place:disabled{opacity:.5;cursor:not-allowed}
+
+/* success screen */
+.success-screen{display:none;text-align:center;padding:40px 20px}
+.success-screen .icon{font-size:56px;margin-bottom:12px}
+.success-screen h2{font-size:22px;font-weight:bold;margin-bottom:8px}
+.success-screen p{font-size:13px;color:#555;margin-bottom:6px}
+.success-screen a{display:inline-block;margin-top:16px;padding:10px 24px;background:#333;color:#fff;font-weight:bold;font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="topbar"><div class="container">
+  <div>Skontaktuj się: <b>+48 579 383 945</b></div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <span id="topUser" style="font-size:11px;color:#555"></span>
+    <a href="index.html">Sklep</a>
+  </div>
+</div></div>
+
+<div class="header"><div class="container">
+  <a href="index.html" class="logo">Centrum<span>Hurt</span>.pl</a>
+  <div style="flex:1"></div>
+  <a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b></a>
+</div></div>
+
+<div class="container">
+  <div style="padding:10px 0;font-size:12px;color:#888">
+    <a href="index.html">Sklep</a> &rsaquo; <a href="cart.html">Koszyk</a> &rsaquo; <b style="color:#333">Zamówienie</b>
+  </div>
+
+  <!-- Success screen (shown after order placed) -->
+  <div class="success-screen" id="successScreen">
+    <div class="icon">✅</div>
+    <h2>Zamówienie złożone!</h2>
+    <p>Dziękujemy. Skontaktujemy się z Tobą w celu potwierdzenia i ustalenia dostawy.</p>
+    <p style="font-size:12px;color:#888">Nr zamówienia: <b id="successOrderId"></b></p>
+    <a href="index.html">Wróć do sklepu</a>
+  </div>
+
+  <!-- Checkout layout -->
+  <div class="co-wrap" id="coWrap">
+
+    <!-- LEFT: form -->
+    <div class="co-form">
+      <h1 style="font-size:17px;font-weight:bold;margin-bottom:14px">📦 Dane dostawy</h1>
+
+      <div class="err-box" id="errBox"></div>
+
+      <div class="co-box">
+        <div class="co-box-head">👤 Odbiorca</div>
+        <div class="co-box-body">
+          <div class="f-cols">
+            <div class="f-row">
+              <label>Imię i nazwisko <span class="req">*</span></label>
+              <input id="f_name" placeholder="Jan Kowalski" autocomplete="name">
+            </div>
+            <div class="f-row">
+              <label>Telefon <span class="req">*</span></label>
+              <input id="f_phone" type="tel" placeholder="+48 000 000 000" autocomplete="tel">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="co-box">
+        <div class="co-box-head">📍 Adres dostawy</div>
+        <div class="co-box-body">
+          <div class="f-row">
+            <label>Ulica i numer <span class="req">*</span></label>
+            <input id="f_street" placeholder="ul. Przykładowa 12/3" autocomplete="address-line1">
+          </div>
+          <div class="f-cols">
+            <div class="f-row">
+              <label>Kod pocztowy <span class="req">*</span></label>
+              <input id="f_zip" placeholder="00-000" maxlength="10" autocomplete="postal-code">
+            </div>
+            <div class="f-row">
+              <label>Miasto <span class="req">*</span></label>
+              <input id="f_city" placeholder="Warszawa" autocomplete="address-level2">
+            </div>
+          </div>
+          <div class="f-row">
+            <label>Uwagi do zamówienia</label>
+            <textarea id="f_notes" placeholder="Dodatkowe informacje dla sprzedawcy (opcjonalne)…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="cod-badge">
+        <span class="ico">💵</span>
+        <span><b>Płatność przy odbiorze (COD)</b><br>Jedyna dostępna forma płatności. Zapłacisz gotówką przy odbiorze paczki.</span>
+      </div>
+
+      <button class="btn-place" id="placeBtn" onclick="placeOrder()">Złóż zamówienie →</button>
+    </div>
+
+    <!-- RIGHT: summary -->
+    <div class="co-summary">
+      <div class="co-box">
+        <div class="co-box-head">🛒 Twoje zamówienie</div>
+        <div class="co-box-body">
+          <div id="summaryItems"></div>
+          <div style="margin-top:10px">
+            <div class="total-row"><span>Suma netto</span><span id="sumNet">—</span></div>
+            <div class="total-row grand"><span>Do zapłaty brutto</span><span id="sumGross">—</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:#888;line-height:1.6;padding:0 2px">
+        Składając zamówienie akceptujesz warunki sprzedaży. Zamówienie jest wiążące po potwierdzeniu przez sprzedawcę.
+      </div>
+    </div>
+
+  </div><!-- /co-wrap -->
+</div>
+
+<script src="js/app.js"></script>
+<script>
+// ── Boot ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  renderHeaderCart();
+
+  const items = Cart.get();
+  if (!items.length) {
+    // Empty cart — redirect back
+    location.href = 'cart.html';
+    return;
+  }
+
+  // Pre-fill name/phone from logged-in user if available
+  const tok = localStorage.getItem('access_token');
+  if (tok) {
+    try {
+      const me = await Api.getMe();
+      document.getElementById('topUser').textContent = me.full_name;
+      if (me.full_name) document.getElementById('f_name').value = me.full_name;
+      if (me.phone)     document.getElementById('f_phone').value = me.phone;
+    } catch { /* not logged in, that's fine */ }
+  }
+
+  renderSummary(items);
+});
+
+// ── Summary ───────────────────────────────────────────────────────────────
+function renderSummary(items) {
+  const wrap = document.getElementById('summaryItems');
+  wrap.innerHTML = items.map(it => {
+    const net   = it.variantPriceNet != null ? it.variantPriceNet : it.product.price_net;
+    const vat   = it.product.vat_rate || 23;
+    const gross = +(net * (1 + vat / 100)).toFixed(2);
+    const img   = it.product.images && it.product.images[0]
+      ? `<img class="oi-img" src="${Api.img(it.product.images[0])}" alt="" loading="lazy">`
+      : `<div class="oi-img-ph">📷</div>`;
+    return `
+      <div class="oi-row">
+        ${img}
+        <div style="flex:1;min-width:0">
+          <div class="oi-name">${esc(it.product.name)}</div>
+          <div class="oi-sub">× ${it.packQuantity} paczek</div>
+        </div>
+        <div class="oi-price">
+          <b>${(gross * it.packQuantity).toFixed(2)} zł</b><br>
+          <span style="color:#888">${(net * it.packQuantity).toFixed(2)} netto</span>
+        </div>
+      </div>`;
+  }).join('');
+
+  const t = Cart.totals();
+  document.getElementById('sumNet').textContent   = t.net.toFixed(2)   + ' zł';
+  document.getElementById('sumGross').textContent = t.gross.toFixed(2) + ' zł';
+}
+
+// ── Place order ────────────────────────────────────────────────────────────
+async function placeOrder() {
+  hideErr();
+
+  // Auth check
+  const tok = localStorage.getItem('access_token');
+  if (!tok) {
+    showErr('Musisz być zalogowany, aby złożyć zamówienie. <a href="login.html" style="color:#b91c1c;font-weight:bold">Zaloguj się</a>');
+    return;
+  }
+
+  // Field validation
+  const name   = document.getElementById('f_name').value.trim();
+  const phone  = document.getElementById('f_phone').value.trim();
+  const street = document.getElementById('f_street').value.trim();
+  const zip    = document.getElementById('f_zip').value.trim();
+  const city   = document.getElementById('f_city').value.trim();
+  const notes  = document.getElementById('f_notes').value.trim();
+
+  if (!name)   { showErr('Podaj imię i nazwisko odbiorcy.'); focus('f_name'); return; }
+  if (!phone)  { showErr('Podaj numer telefonu.'); focus('f_phone'); return; }
+  if (!street) { showErr('Podaj ulicę i numer.'); focus('f_street'); return; }
+  if (!zip)    { showErr('Podaj kod pocztowy.'); focus('f_zip'); return; }
+  if (!city)   { showErr('Podaj miasto.'); focus('f_city'); return; }
+
+  const shippingAddress = `${street}, ${zip} ${city}`;
+
+  const items = Cart.get();
+  if (!items.length) { showErr('Koszyk jest pusty.'); return; }
+
+  const payload = {
+    items: items.map(it => ({
+      product_id:   it.product.id,
+      variant_id:   it.variantId || null,
+      pack_quantity: it.packQuantity,
+    })),
+    shipping_address: shippingAddress,
+    recipient_name:   name,
+    recipient_phone:  phone,
+    recipient_address: shippingAddress,
+    notes: notes || null,
+    payment_method: 'cod',
+  };
+
+  const btn = document.getElementById('placeBtn');
+  btn.disabled = true;
+  btn.textContent = 'Składanie zamówienia…';
+
+  try {
+    const order = await Api.createOrder(payload);
+    Cart.save([]); // clear cart
+    showSuccess(order.id);
+  } catch (e) {
+    showErr(e.message || 'Nie udało się złożyć zamówienia. Spróbuj ponownie.');
+    btn.disabled = false;
+    btn.textContent = 'Złóż zamówienie →';
+  }
+}
+
+// ── UI helpers ─────────────────────────────────────────────────────────────
+function showErr(msg) {
+  const el = document.getElementById('errBox');
+  el.innerHTML = msg;
+  el.style.display = 'block';
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function hideErr() { document.getElementById('errBox').style.display = 'none'; }
+function focus(id) { setTimeout(() => document.getElementById(id)?.focus(), 50); }
+
+function showSuccess(orderId) {
+  document.getElementById('coWrap').style.display = 'none';
+  const sc = document.getElementById('successScreen');
+  sc.style.display = 'block';
+  document.getElementById('successOrderId').textContent = orderId.split('-')[0].toUpperCase();
+  sc.scrollIntoView({ behavior: 'smooth' });
+}
+
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>

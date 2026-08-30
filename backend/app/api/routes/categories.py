@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user, require_admin
+from app.api.dependencies import get_current_user, require_admin, require_seller_or_admin
 from app.db.session import get_db
 from app.models.category import Category
 from app.models.user import User
@@ -165,7 +165,7 @@ def get_category(category_id: UUID, db: Session = Depends(get_db)):
 def create_category(
     payload: CategoryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_seller_or_admin),
 ):
     slug = payload.slug.strip() if payload.slug else slugify(payload.name)
     if not slug:
@@ -190,7 +190,7 @@ def update_category(
     category_id: UUID,
     payload: CategoryUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_seller_or_admin),
 ):
     cat = db.query(Category).filter(Category.id == category_id).first()
     if not cat:
@@ -230,7 +230,7 @@ def update_category(
 def delete_category(
     category_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_seller_or_admin),
 ):
     cat = db.query(Category).filter(Category.id == category_id).first()
     if not cat:

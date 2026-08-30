@@ -1,10 +1,16 @@
 from datetime import datetime
 from typing import Optional, List, ForwardRef
 from uuid import UUID
+import enum
 
 from pydantic import BaseModel, Field, field_serializer
 
-from app.models.category_request import CategoryRequestStatus
+
+# ---------- Category request status (defined here; model created when feature is fully implemented) ----------
+class CategoryRequestStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
 
 
 # ---------- helpers ----------

@@ -16,9 +16,6 @@ class StockStatus(str, enum.Enum):
 class Product(UUIDPKMixin, TimestampMixin, Base):
     __tablename__ = "products"
 
-    seller_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("seller_profiles.id", ondelete="CASCADE"), nullable=False, index=True
-    )
     category_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False, index=True
     )
@@ -50,7 +47,6 @@ class Product(UUIDPKMixin, TimestampMixin, Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)  # archived if False
 
-    seller: Mapped["SellerProfile"] = relationship(back_populates="products")
     category: Mapped["Category"] = relationship(back_populates="products")
     variants: Mapped[list["ProductVariant"]] = relationship(
         back_populates="product", cascade="all, delete-orphan"
