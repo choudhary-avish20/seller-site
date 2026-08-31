@@ -6,3 +6,4 @@ from app.models.product_variant import ProductVariant  # noqa: F401
 from app.models.product_price_tier import ProductPriceTier  # noqa: F401
 from app.models.order import Order  # noqa: F401
 from app.models.order_item import OrderItem  # noqa: F401
+from app.models.email_verification_token import EmailVerificationToken  # noqa: F401

@@ -40,5 +40,9 @@ class User(UUIDPKMixin, TimestampMixin, Base):
     company_address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
+    # Email verification
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     orders: Mapped[list["Order"]] = relationship(back_populates="buyer")
     seller_profile: Mapped["SellerProfile | None"] = relationship(back_populates="user", uselist=False)  # type: ignore[name-defined]
+    verification_tokens: Mapped[list["EmailVerificationToken"]] = relationship(back_populates="user", cascade="all, delete-orphan")  # type: ignore[name-defined]

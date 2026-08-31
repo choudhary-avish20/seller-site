@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.core.config import settings
+from app.core.auth import create_verification_token
 from app.db.session import get_db
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.order_item import OrderItem
@@ -15,6 +16,7 @@ from app.models.product_variant import ProductVariant
 from app.models.product_price_tier import ProductPriceTier
 from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
+from app.services.email import send_verification_email, send_order_confirmation_email
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -46,12 +48,29 @@ def _tiered_price(product: Product, quantity: int, db: Session) -> float:
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
-def create_order(
+async def create_order(
     payload: OrderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     _require_buyer(current_user)
+
+    # Check email verification - only enforce for buyer users (admin/seller bypass)
+    if current_user.role == UserRole.buyer and not current_user.email_verified:
+        try:
+            # Auto-resend verification email
+            verification_token = create_verification_token(db, current_user)
+            await send_verification_email(current_user.email, current_user.full_name, verification_token)
+            db.commit()
+        except Exception as e:
+            # Log error but don't fail the verification check
+            import logging
+            logging.getLogger(__name__).error(f"Failed to resend verification email to {current_user.email}: {e}")
+        
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address. A new verification link has been sent.",
+        )
 
     if settings.ALLOW_CASH_ON_DELIVERY_ONLY and payload.payment_method != PaymentMethod.cod:
         raise HTTPException(status_code=400, detail="Only cash on delivery (COD) is allowed")
@@ -157,6 +176,15 @@ def create_order(
     db.commit()
     db.refresh(order)
     order.items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+    
+    # Send order confirmation email (fire-and-forget, don't block response on email failure)
+    try:
+        await send_order_confirmation_email(current_user.email, current_user.full_name, order)
+    except Exception as e:
+        # Log the error but don't fail the order creation
+        import logging
+        logging.getLogger(__name__).error(f"Failed to send order confirmation email to {current_user.email}: {e}")
+    
     return order
 
 

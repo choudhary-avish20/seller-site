@@ -1,14 +1,15 @@
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
-import hashlib
-import secrets
 
 from jose import jwt, JWTError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.user import User, UserRole, BuyerStatus
+from app.models.email_verification_token import EmailVerificationToken
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -103,4 +104,75 @@ def create_user(
     db.add(user)
     db.flush()
     return user
+
+
+def create_verification_token(db: Session, user: User) -> str:
+    """Create a new email verification token for user and return the raw token."""
+    # Generate a cryptographically secure random token
+    raw_token = secrets.token_urlsafe(32)
+    
+    # Hash the token before storing (SHA-256)
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    
+    # Set expiration to 24 hours from now
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    
+    # Create the token record
+    verification_token = EmailVerificationToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=expires_at
+    )
+    
+    db.add(verification_token)
+    db.flush()
+    
+    return raw_token
+
+
+def verify_email_token(db: Session, raw_token: str) -> Optional[User]:
+    """Verify an email verification token and mark user as verified if valid."""
+    # Hash the provided token to compare with stored hash
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    
+    # Find the token record
+    token = db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.token_hash == token_hash,
+        EmailVerificationToken.used_at.is_(None)  # Not already used
+    ).first()
+    
+    if not token:
+        return None
+    
+    # Check if token is expired (handle timezone-naive datetime from SQLite)
+    now = datetime.now(timezone.utc)
+    token_expires = token.expires_at
+    if not token_expires.tzinfo:
+        # If token expires_at is timezone-naive, treat it as UTC
+        token_expires = token_expires.replace(tzinfo=timezone.utc)
+    
+    if token_expires < now:
+        return None
+    
+    # Get the user
+    user = db.query(User).filter(User.id == token.user_id).first()
+    if not user:
+        return None
+    
+    # Mark token as used and user as verified
+    token.used_at = now
+    user.email_verified = True
+    
+    db.flush()
+    return user
+
+
+def invalidate_user_verification_tokens(db: Session, user_id: UUID) -> None:
+    """Mark all existing verification tokens for a user as used."""
+    now = datetime.now(timezone.utc)
+    db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.user_id == user_id,
+        EmailVerificationToken.used_at.is_(None)
+    ).update({"used_at": now})
+    db.flush()
 
