@@ -1,9 +1,6 @@
 import logging
-from typing import List, Optional
-from pathlib import Path
-from datetime import datetime
+from typing import List
 
-from fastapi import BackgroundTasks
 from fastapi_mail import FastMail, MessageSchema, ConnectionConfig, MessageType
 from pydantic import EmailStr
 
@@ -11,15 +8,36 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# ── Shared HTML wrapper ────────────────────────────────────────────────────
+
+def _html_wrap(title: str, body_html: str, accent: str = "#0099cc") -> str:
+    return f"""<!DOCTYPE html>
+<html lang="pl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif">
+<div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #ddd">
+  <div style="background:{accent};padding:14px 20px">
+    <span style="color:#fff;font-size:16px;font-weight:bold">CentrumHurt.pl</span>
+  </div>
+  <div style="padding:24px 20px;font-size:13px;color:#333;line-height:1.6">
+    <h2 style="margin:0 0 16px;font-size:16px;color:#222">{title}</h2>
+    {body_html}
+  </div>
+  <div style="background:#f5f5f5;border-top:1px solid #ddd;padding:10px 20px;font-size:11px;color:#888">
+    CentrumHurt.pl &bull; Wólka Kosowska &bull; +48 579 383 945
+  </div>
+</div>
+</body>
+</html>"""
+
 
 class EmailService:
-    """Email service with SMTP and console fallback backends."""
-    
+    """Email service — SMTP when MAIL_USERNAME is set, console fallback for dev."""
+
     def __init__(self):
         self.use_console = not bool(settings.MAIL_USERNAME.strip())
-        
+
         if not self.use_console:
-            # Configure FastMail for SMTP
             self.conf = ConnectionConfig(
                 MAIL_USERNAME=settings.MAIL_USERNAME,
                 MAIL_PASSWORD=settings.MAIL_PASSWORD,
@@ -30,327 +48,332 @@ class EmailService:
                 MAIL_STARTTLS=settings.MAIL_TLS,
                 MAIL_SSL_TLS=settings.MAIL_SSL,
                 USE_CREDENTIALS=True,
-                VALIDATE_CERTS=True
+                VALIDATE_CERTS=True,
             )
             self.fastmail = FastMail(self.conf)
         else:
-            logger.info("Email service initialized in console mode (MAIL_USERNAME not configured)")
-    
-    async def send_verification_email(
-        self, 
-        to_email: EmailStr, 
-        full_name: str, 
-        verification_url: str
-    ) -> bool:
-        """Send email verification email with verification link."""
-        subject = "Verify your email address"
-        
-        # Plain text version
-        text_body = f"""
-Hello {full_name},
+            logger.info("Email service: tryb konsolowy (MAIL_USERNAME nie ustawiony)")
 
-Welcome to Wholesale Marketplace! Please verify your email address by clicking the link below:
+    # ── Public methods ─────────────────────────────────────────────────────
+
+    async def send_verification_email(
+        self,
+        to_email: EmailStr,
+        full_name: str,
+        verification_url: str,
+    ) -> bool:
+        subject = "Potwierdź swój adres e-mail — CentrumHurt.pl"
+
+        text_body = f"""Witaj {full_name},
+
+Dziękujemy za rejestrację w CentrumHurt.pl!
+Kliknij poniższy link, aby potwierdzić swój adres e-mail:
 
 {verification_url}
 
-This link will expire in 24 hours.
+Link jest ważny przez 24 godziny.
 
-If you didn't create an account, please ignore this email.
+Jeśli nie zakładałeś(-aś) konta, zignoruj tę wiadomość.
 
-Best regards,
-Wholesale Marketplace Team
-        """.strip()
-        
-        # HTML version
-        html_body = f"""
-        <html>
-        <head></head>
-        <body>
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #0f172a;">Welcome to Wholesale Marketplace!</h2>
-                
-                <p>Hello {full_name},</p>
-                
-                <p>Thank you for creating an account with us. Please verify your email address to complete your registration.</p>
-                
-                <div style="text-align: center; margin: 30px 0;">
-                    <a href="{verification_url}" 
-                       style="background-color: #0099cc; color: white; padding: 12px 30px; 
-                              text-decoration: none; border-radius: 5px; font-weight: bold;">
-                        Verify Email Address
-                    </a>
-                </div>
-                
-                <p>This link will expire in 24 hours.</p>
-                
-                <p>If you didn't create an account, please ignore this email.</p>
-                
-                <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-                <p style="color: #666; font-size: 12px;">
-                    Best regards,<br>
-                    Wholesale Marketplace Team
-                </p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return await self._send_email(
-            to_email=to_email,
-            subject=subject,
-            text_body=text_body,
-            html_body=html_body
+Pozdrawiamy,
+Zespół CentrumHurt.pl"""
+
+        body_html = f"""
+<p>Witaj <strong>{full_name}</strong>,</p>
+<p>Dziękujemy za rejestrację w CentrumHurt.pl! Kliknij przycisk poniżej, aby potwierdzić swój adres e-mail.</p>
+<div style="text-align:center;margin:28px 0">
+  <a href="{verification_url}"
+     style="background:#0099cc;color:#fff;padding:12px 28px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block">
+    Potwierdź adres e-mail
+  </a>
+</div>
+<p style="font-size:12px;color:#666">Link jest ważny przez <strong>24 godziny</strong>.<br>
+Jeśli nie zakładałeś(-aś) konta, zignoruj tę wiadomość.</p>"""
+
+        return await self._send(
+            to_email, subject, text_body,
+            _html_wrap("Potwierdź swój adres e-mail", body_html),
         )
-    
+
     async def send_order_confirmation(
-        self, 
-        to_email: EmailStr, 
-        full_name: str, 
-        order: "Order"  # Forward reference to avoid circular import
+        self,
+        to_email: EmailStr,
+        full_name: str,
+        order,
     ) -> bool:
-        """Send order confirmation email with order details."""
-        subject = f"Order Confirmation #{str(order.id)[:8]}"
-        
-        # Build items list for email
-        items_text = []
-        items_html = []
-        
+        order_short = str(order.id)[:8].upper()
+        subject = f"Potwierdzenie zamówienia #{order_short} — CentrumHurt.pl"
+
+        # Build rows
+        rows_text = []
+        rows_html = []
         for item in order.items:
-            line_total = float(item.price_net_snapshot) * item.pack_quantity
-            items_text.append(
-                f"• {item.product_name_snapshot} (pack of {item.pack_size_snapshot}) "
-                f"x{item.pack_quantity} = ${line_total:.2f}"
+            line_net = float(item.price_net_snapshot) * item.pack_quantity
+            rows_text.append(
+                f"  • {item.product_name_snapshot} "
+                f"(pak {item.pack_size_snapshot} szt.) "
+                f"× {item.pack_quantity} = {line_net:.2f} zł netto"
             )
-            items_html.append(
+            rows_html.append(
                 f"<tr>"
-                f"<td>{item.product_name_snapshot}</td>"
-                f"<td>Pack of {item.pack_size_snapshot}</td>"
-                f"<td>{item.pack_quantity}</td>"
-                f"<td>${float(item.price_net_snapshot):.2f}</td>"
-                f"<td>${line_total:.2f}</td>"
+                f"<td style='padding:7px 10px;border-bottom:1px solid #eee'>{item.product_name_snapshot}</td>"
+                f"<td style='padding:7px 10px;border-bottom:1px solid #eee;text-align:center'>{item.pack_size_snapshot}</td>"
+                f"<td style='padding:7px 10px;border-bottom:1px solid #eee;text-align:center'>{item.pack_quantity}</td>"
+                f"<td style='padding:7px 10px;border-bottom:1px solid #eee;text-align:right'>{float(item.price_net_snapshot):.2f} zł</td>"
+                f"<td style='padding:7px 10px;border-bottom:1px solid #eee;text-align:right'><strong>{line_net:.2f} zł</strong></td>"
                 f"</tr>"
             )
-        
-        # Plain text version
-        text_body = f"""
-Order Confirmation
 
-Hello {full_name},
+        items_text = "\n".join(rows_text)
+        items_html = "".join(rows_html)
 
-Thank you for your order! Here are the details:
+        text_body = f"""Potwierdzenie zamówienia #{order_short}
 
-Order ID: {str(order.id)[:8]}
-Date: {order.created_at.strftime('%Y-%m-%d %H:%M')}
-Status: {order.status.value.title()}
+Witaj {full_name},
 
-Items:
-{chr(10).join(items_text)}
+Twoje zamówienie zostało przyjęte. Szczegóły poniżej.
 
-Total (Net): ${float(order.total_net):.2f}
-Total (Gross): ${float(order.total_gross):.2f}
+Nr zamówienia : {order_short}
+Data          : {order.created_at.strftime('%d.%m.%Y %H:%M')}
+Status        : Przyjęte
 
-Payment Method: {order.payment_method.value.upper()}
-Shipping Address:
-{order.shipping_address}
+Zamówione produkty:
+{items_text}
 
-Company: {order.company_name or 'N/A'}
-Recipient: {order.recipient_name or 'N/A'}
-Phone: {order.recipient_phone or 'N/A'}
+Razem netto : {float(order.total_net):.2f} zł
+Razem brutto: {float(order.total_gross):.2f} zł
 
-We'll process your order and keep you updated on its status.
+Płatność     : Za pobraniem (COD)
+Adres dostawy: {order.shipping_address}
+Firma        : {order.company_name or '—'}
+Odbiorca     : {order.recipient_name or '—'}
+Telefon      : {order.recipient_phone or '—'}
 
-Best regards,
-Wholesale Marketplace Team
-        """.strip()
-        
-        # HTML version
-        html_body = f"""
-        <html>
-        <head></head>
-        <body>
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #0f172a;">Order Confirmation</h2>
-                
-                <p>Hello {full_name},</p>
-                
-                <p>Thank you for your order! Here are the details:</p>
-                
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p><strong>Order ID:</strong> {str(order.id)[:8]}</p>
-                    <p><strong>Date:</strong> {order.created_at.strftime('%Y-%m-%d %H:%M')}</p>
-                    <p><strong>Status:</strong> {order.status.value.title()}</p>
-                </div>
-                
-                <h3>Items Ordered:</h3>
-                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                    <tr style="background: #f1f5f9;">
-                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Product</th>
-                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Pack Size</th>
-                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Quantity</th>
-                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Unit Price</th>
-                        <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Total</th>
-                    </tr>
-                    {''.join(items_html)}
-                </table>
-                
-                <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
-                    <p><strong>Total (Net):</strong> ${float(order.total_net):.2f}</p>
-                    <p><strong>Total (Gross):</strong> ${float(order.total_gross):.2f}</p>
-                </div>
-                
-                <h3>Delivery Information:</h3>
-                <p><strong>Payment Method:</strong> {order.payment_method.value.upper()}</p>
-                <p><strong>Shipping Address:</strong><br>{order.shipping_address.replace(chr(10), '<br>')}</p>
-                <p><strong>Company:</strong> {order.company_name or 'N/A'}</p>
-                <p><strong>Recipient:</strong> {order.recipient_name or 'N/A'}</p>
-                <p><strong>Phone:</strong> {order.recipient_phone or 'N/A'}</p>
-                
-                <p style="margin-top: 30px;">We'll process your order and keep you updated on its status.</p>
-                
-                <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-                <p style="color: #666; font-size: 12px;">
-                    Best regards,<br>
-                    Wholesale Marketplace Team
-                </p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return await self._send_email(
-            to_email=to_email,
-            subject=subject,
-            text_body=text_body,
-            html_body=html_body
+Skontaktujemy się w razie pytań.
+
+Pozdrawiamy,
+Zespół CentrumHurt.pl"""
+
+        body_html = f"""
+<p>Witaj <strong>{full_name}</strong>,</p>
+<p>Twoje zamówienie zostało przyjęte. Szczegóły poniżej.</p>
+
+<table style="width:100%;border-collapse:collapse;font-size:12px;margin:16px 0">
+  <tr style="background:#f0f0f0">
+    <th style="padding:7px 10px;text-align:left">Nr zamówienia</th>
+    <th style="padding:7px 10px;text-align:left">Data</th>
+    <th style="padding:7px 10px;text-align:left">Status</th>
+  </tr>
+  <tr>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee;font-family:monospace">{order_short}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee">{order.created_at.strftime('%d.%m.%Y %H:%M')}</td>
+    <td style="padding:7px 10px;border-bottom:1px solid #eee">
+      <span style="background:#dcfce7;color:#166534;padding:2px 8px;font-size:11px;font-weight:bold">Przyjęte</span>
+    </td>
+  </tr>
+</table>
+
+<h3 style="font-size:13px;margin:20px 0 8px">Zamówione produkty</h3>
+<table style="width:100%;border-collapse:collapse;font-size:12px">
+  <tr style="background:#f0f0f0">
+    <th style="padding:7px 10px;text-align:left">Produkt</th>
+    <th style="padding:7px 10px;text-align:center">Pak</th>
+    <th style="padding:7px 10px;text-align:center">Ilość</th>
+    <th style="padding:7px 10px;text-align:right">Cena netto</th>
+    <th style="padding:7px 10px;text-align:right">Razem</th>
+  </tr>
+  {items_html}
+</table>
+
+<table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0">
+  <tr>
+    <td style="padding:6px 10px;font-weight:bold">Razem netto</td>
+    <td style="padding:6px 10px;text-align:right;font-weight:bold">{float(order.total_net):.2f} zł</td>
+  </tr>
+  <tr style="background:#f5f5f5">
+    <td style="padding:6px 10px">Razem brutto</td>
+    <td style="padding:6px 10px;text-align:right">{float(order.total_gross):.2f} zł</td>
+  </tr>
+</table>
+
+<h3 style="font-size:13px;margin:20px 0 8px">Dane dostawy</h3>
+<table style="font-size:12px;border-collapse:collapse;width:100%">
+  <tr><td style="color:#666;padding:3px 10px 3px 0;white-space:nowrap">Płatność:</td><td><strong>Za pobraniem (COD)</strong></td></tr>
+  <tr><td style="color:#666;padding:3px 10px 3px 0;white-space:nowrap">Adres:</td><td>{order.shipping_address.replace(chr(10), ', ')}</td></tr>
+  <tr><td style="color:#666;padding:3px 10px 3px 0;white-space:nowrap">Firma:</td><td>{order.company_name or '—'}</td></tr>
+  <tr><td style="color:#666;padding:3px 10px 3px 0;white-space:nowrap">Odbiorca:</td><td>{order.recipient_name or '—'}</td></tr>
+  <tr><td style="color:#666;padding:3px 10px 3px 0;white-space:nowrap">Telefon:</td><td>{order.recipient_phone or '—'}</td></tr>
+</table>
+
+<p style="margin-top:20px;font-size:12px;color:#555">Skontaktujemy się w razie pytań.</p>"""
+
+        return await self._send(
+            to_email, subject, text_body,
+            _html_wrap(f"Potwierdzenie zamówienia #{order_short}", body_html),
         )
-    
+
+    async def send_order_status_email(
+        self,
+        to_email: EmailStr,
+        full_name: str,
+        order_id: str,
+        new_status: str,
+    ) -> bool:
+        """Notify buyer when seller changes order status to 'delivered' or 'cancelled'."""
+        order_short = order_id[:8].upper()
+
+        status_labels = {
+            "delivered": ("Zamówienie zrealizowane", "#166534", "#dcfce7"),
+            "cancelled": ("Zamówienie anulowane",    "#991b1b", "#fef2f2"),
+            "confirmed": ("Zamówienie potwierdzone", "#1e40af", "#dbeafe"),
+            "shipped":   ("Zamówienie wysłane",      "#92400e", "#fef3c7"),
+        }
+        label, text_color, bg_color = status_labels.get(
+            new_status, ("Zmiana statusu zamówienia", "#333", "#f5f5f5")
+        )
+
+        subject = f"{label} #{order_short} — CentrumHurt.pl"
+
+        status_notes = {
+            "delivered": "Twoje zamówienie zostało oznaczone jako zrealizowane. Jeśli masz jakiekolwiek pytania, skontaktuj się z nami.",
+            "cancelled": "Twoje zamówienie zostało anulowane. Jeśli uważasz, że to pomyłka, skontaktuj się z nami pod numerem +48 579 383 945.",
+            "confirmed": "Twoje zamówienie zostało potwierdzone i jest w trakcie realizacji.",
+            "shipped":   "Twoje zamówienie zostało wysłane. Wkrótce do Ciebie dotrze.",
+        }
+        note = status_notes.get(new_status, "Status Twojego zamówienia uległ zmianie.")
+
+        text_body = f"""{label} #{order_short}
+
+Witaj {full_name},
+
+{note}
+
+Nr zamówienia: {order_short}
+
+W razie pytań zadzwoń: +48 579 383 945
+
+Pozdrawiamy,
+Zespół CentrumHurt.pl"""
+
+        body_html = f"""
+<p>Witaj <strong>{full_name}</strong>,</p>
+<p>{note}</p>
+
+<div style="background:{bg_color};border-left:4px solid {text_color};padding:12px 16px;margin:20px 0;font-size:13px">
+  Nr zamówienia: <strong style="font-family:monospace">{order_short}</strong><br>
+  Nowy status: <strong style="color:{text_color}">{label}</strong>
+</div>
+
+<p style="font-size:12px;color:#555">W razie pytań zadzwoń: <strong>+48 579 383 945</strong></p>"""
+
+        return await self._send(
+            to_email, subject, text_body,
+            _html_wrap(label, body_html, text_color),
+        )
+
     async def send_product_archived_notice(
-        self, 
-        to_email: EmailStr, 
-        full_name: str, 
-        order_id: str, 
-        product_names: List[str]
+        self,
+        to_email: EmailStr,
+        full_name: str,
+        order_id: str,
+        product_names: List[str],
     ) -> bool:
-        """Send notification when products in buyer's order are archived."""
-        subject = f"Product Update for Order #{order_id[:8]}"
-        
-        products_list = "\n".join(f"• {name}" for name in product_names)
-        products_html = "".join(f"<li>{name}</li>" for name in product_names)
-        
-        # Plain text version
-        text_body = f"""
-Product Update Notification
+        order_short = order_id[:8].upper()
+        subject = f"Informacja o zamówieniu #{order_short} — CentrumHurt.pl"
 
-Hello {full_name},
+        products_text = "\n".join(f"  • {n}" for n in product_names)
+        products_html = "".join(f"<li>{n}</li>" for n in product_names)
 
-We're writing to inform you about an update to your order #{order_id[:8]}.
+        text_body = f"""Informacja o zamówieniu #{order_short}
 
-The following product(s) in your order have been archived and are no longer available:
+Witaj {full_name},
 
-{products_list}
+Informujemy, że następujące produkty z Twojego zamówienia #{order_short} zostały wycofane ze sprzedaży:
 
-If your order status is still pending or confirmed, please contact us to discuss alternatives or modifications to your order.
+{products_text}
 
-We apologize for any inconvenience this may cause.
+Jeśli Twoje zamówienie jest w toku (oczekujące lub potwierdzone), skontaktuj się z nami, abyśmy mogli omówić dostępne opcje.
 
-Best regards,
-Wholesale Marketplace Team
-        """.strip()
-        
-        # HTML version
-        html_body = f"""
-        <html>
-        <head></head>
-        <body>
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #dc2626;">Product Update Notification</h2>
-                
-                <p>Hello {full_name},</p>
-                
-                <p>We're writing to inform you about an update to your order <strong>#{order_id[:8]}</strong>.</p>
-                
-                <div style="background: #fef2f2; border-left: 4px solid #dc2626; padding: 15px; margin: 20px 0;">
-                    <p><strong>The following product(s) in your order have been archived and are no longer available:</strong></p>
-                    <ul>
-                        {products_html}
-                    </ul>
-                </div>
-                
-                <p>If your order status is still pending or confirmed, please contact us to discuss alternatives or modifications to your order.</p>
-                
-                <p>We apologize for any inconvenience this may cause.</p>
-                
-                <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-                <p style="color: #666; font-size: 12px;">
-                    Best regards,<br>
-                    Wholesale Marketplace Team
-                </p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return await self._send_email(
-            to_email=to_email,
-            subject=subject,
-            text_body=text_body,
-            html_body=html_body
+Przepraszamy za utrudnienia.
+
+Pozdrawiamy,
+Zespół CentrumHurt.pl"""
+
+        body_html = f"""
+<p>Witaj <strong>{full_name}</strong>,</p>
+<p>Informujemy, że następujące produkty z Twojego zamówienia <strong>#{order_short}</strong> zostały wycofane ze sprzedaży:</p>
+
+<div style="background:#fef2f2;border-left:4px solid #dc2626;padding:12px 16px;margin:16px 0">
+  <ul style="margin:0;padding-left:18px">
+    {products_html}
+  </ul>
+</div>
+
+<p>Jeśli Twoje zamówienie jest w toku, skontaktuj się z nami pod numerem <strong>+48 579 383 945</strong>, abyśmy mogli omówić dostępne opcje.</p>
+<p style="font-size:12px;color:#555">Przepraszamy za utrudnienia.</p>"""
+
+        return await self._send(
+            to_email, subject, text_body,
+            _html_wrap(f"Informacja o zamówieniu #{order_short}", body_html, "#dc2626"),
         )
-    
-    async def _send_email(
-        self, 
-        to_email: EmailStr, 
-        subject: str, 
-        text_body: str, 
-        html_body: str
+
+    # ── Internal ───────────────────────────────────────────────────────────
+
+    async def _send(
+        self,
+        to_email: EmailStr,
+        subject: str,
+        text_body: str,
+        html_body: str,
     ) -> bool:
-        """Internal method to send email via SMTP or log to console."""
         try:
             if self.use_console:
-                # Console backend for development
-                logger.info(f"""
-================== EMAIL (CONSOLE MODE) ==================
-To: {to_email}
-Subject: {subject}
----
-{text_body}
-===========================================================
-                """)
-                return True
-            else:
-                # SMTP backend for production
-                message = MessageSchema(
-                    subject=subject,
-                    recipients=[to_email],
-                    body=text_body,
-                    html=html_body,
-                    subtype=MessageType.html
+                logger.info(
+                    "\n================== EMAIL (TRYB KONSOLOWY) ==================\n"
+                    f"Do     : {to_email}\n"
+                    f"Temat  : {subject}\n"
+                    "------------------------------------------------------------\n"
+                    f"{text_body}\n"
+                    "============================================================"
                 )
-                
-                await self.fastmail.send_message(message)
-                logger.info(f"Email sent successfully to {to_email}: {subject}")
                 return True
-                
+
+            message = MessageSchema(
+                subject=subject,
+                recipients=[to_email],
+                body=text_body,
+                html=html_body,
+                subtype=MessageType.html,
+            )
+            await self.fastmail.send_message(message)
+            logger.info(f"E-mail wysłany do {to_email}: {subject}")
+            return True
+
         except Exception as e:
-            logger.error(f"Failed to send email to {to_email}: {str(e)}")
+            logger.error(f"Błąd wysyłki e-mail do {to_email}: {e}")
             return False
 
 
-# Global email service instance
+# ── Module-level helpers ───────────────────────────────────────────────────
+
 email_service = EmailService()
 
 
 async def send_verification_email(to_email: EmailStr, full_name: str, token: str) -> bool:
-    """Helper function to send verification email with token URL."""
-    verification_url = f"{settings.FRONTEND_BASE_URL}/verify-email?token={token}"
+    """Send email-verification link. Token is embedded in the frontend URL."""
+    verification_url = f"{settings.FRONTEND_BASE_URL}/verify-email.html?token={token}"
     return await email_service.send_verification_email(to_email, full_name, verification_url)
 
 
 async def send_order_confirmation_email(to_email: EmailStr, full_name: str, order) -> bool:
-    """Helper function to send order confirmation email."""
     return await email_service.send_order_confirmation(to_email, full_name, order)
 
 
-async def send_product_archived_email(to_email: EmailStr, full_name: str, order_id: str, product_names: List[str]) -> bool:
-    """Helper function to send product archived notification email."""
+async def send_order_status_email(to_email: EmailStr, full_name: str, order_id: str, new_status: str) -> bool:
+    return await email_service.send_order_status_email(to_email, full_name, order_id, new_status)
+
+
+async def send_product_archived_email(
+    to_email: EmailStr, full_name: str, order_id: str, product_names: List[str]
+) -> bool:
     return await email_service.send_product_archived_notice(to_email, full_name, order_id, product_names)

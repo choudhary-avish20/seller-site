@@ -16,7 +16,7 @@ from app.models.product_variant import ProductVariant
 from app.models.product_price_tier import ProductPriceTier
 from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
-from app.services.email import send_verification_email, send_order_confirmation_email
+from app.services.email import send_verification_email, send_order_confirmation_email, send_order_status_email
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -232,7 +232,7 @@ def get_order(
 
 
 @router.patch("/{order_id}/status", response_model=OrderResponse)
-def update_order_status(
+async def update_order_status(
     order_id: UUID,
     payload: OrderStatusUpdate,
     db: Session = Depends(get_db),
@@ -251,6 +251,7 @@ def update_order_status(
         if order.status != OrderStatus.pending:
             raise HTTPException(status_code=400, detail="Only pending orders can be cancelled")
 
+    old_status = order.status
     order.status = payload.status
     db.commit()
     db.refresh(order)
@@ -262,6 +263,23 @@ def update_order_status(
     if buyer and current_user.role in (UserRole.admin, UserRole.seller):
         resp.buyer_email = buyer.email
         resp.buyer_full_name = buyer.full_name
+
+    # Send status-change email to the buyer when seller marks delivered or cancelled
+    notify_statuses = {OrderStatus.delivered, OrderStatus.cancelled, OrderStatus.confirmed, OrderStatus.shipped}
+    if buyer and old_status != order.status and order.status in notify_statuses:
+        try:
+            await send_order_status_email(
+                buyer.email,
+                buyer.full_name,
+                str(order.id),
+                order.status.value,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                f"Błąd wysyłki e-mail o statusie zamówienia do {buyer.email}: {e}"
+            )
+
     return resp
 
 

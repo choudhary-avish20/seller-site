@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_admin
@@ -28,7 +29,6 @@ from app.schemas.auth import (
     UserResponse,
     BuyerApprovalRequest,
     BuyerListResponse,
-    EmailVerifyResponse,
     ResendVerificationResponse,
     PasswordChangeRequest,
     MessageResponse,
@@ -158,21 +158,22 @@ def change_password(
     return MessageResponse(message="Password updated successfully")
 
 
-@router.get("/verify-email", response_model=EmailVerifyResponse)
+@router.get("/verify-email")
 def verify_email(token: str = Query(...), db: Session = Depends(get_db)):
-    """Verify email address using verification token."""
+    """Consume a verification token and redirect the browser to the frontend result page."""
     user = verify_email_token(db, token)
-    
+    frontend_base = settings.FRONTEND_BASE_URL.rstrip("/")
+
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired verification token",
+        return RedirectResponse(
+            url=f"{frontend_base}/verify-email.html?status=invalid",
+            status_code=302,
         )
-    
+
     db.commit()
-    return EmailVerifyResponse(
-        message="Email verified successfully",
-        user=user
+    return RedirectResponse(
+        url=f"{frontend_base}/verify-email.html?status=ok",
+        status_code=302,
     )
 
 
