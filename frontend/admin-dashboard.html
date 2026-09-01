@@ -3,14 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Panel sprzedawcy — Wholesale</title>
+<title>Panel sprzedawcy — WolkaGo</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/favicon-180.png">
 <link rel="stylesheet" href="css/style.css">
 <style>
 /* ── Layout ── */
 .dash-wrap{display:flex;gap:0;min-height:calc(100vh - 90px)}
 .dash-sidebar{width:200px;flex-shrink:0;background:#2b2b2b;color:#ccc}
-.dash-sidebar .logo-area{padding:16px 14px;border-bottom:1px solid #444;font-size:13px;font-weight:bold;color:#fff}
-.dash-sidebar .logo-area span{color:#0099cc}
+.dash-sidebar .logo-area{padding:14px;border-bottom:1px solid #444}
+.dash-sidebar .logo-area img{height:26px;display:block}
+.dash-sidebar .logo-area .sub{font-size:10px;color:#aaa;font-weight:normal;margin-top:4px}
 .nav-item{display:flex;align-items:center;gap:8px;padding:11px 14px;font-size:12px;cursor:pointer;border-left:3px solid transparent;transition:background .15s}
 .nav-item:hover{background:#3a3a3a}
 .nav-item.active{background:#3a3a3a;border-left-color:#0099cc;color:#fff;font-weight:bold}
@@ -122,7 +125,7 @@ tr:hover td{background:#fafafa}
 <div class="dash-wrap">
   <!-- Sidebar -->
   <div class="dash-sidebar">
-    <div class="logo-area">Centrum<span>Hurt</span> <br><span style="font-size:10px;color:#aaa;font-weight:normal">Panel sprzedawcy</span></div>
+    <div class="logo-area"><img src="assets/wolkago-logo-light.png" alt="WolkaGo"><div class="sub">Panel sprzedawcy</div></div>
     <div class="nav-item active" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
     <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
     <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia</div>

@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # App
-    PROJECT_NAME: str = "Wholesale Marketplace API"
+    PROJECT_NAME: str = "WolkaGo API"
     API_V1_PREFIX: str = "/api/v1"
     ENV: str = "development"
     DEBUG: bool = True
