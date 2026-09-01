@@ -31,7 +31,6 @@ function render(){
  }).join('');
  const t=Cart.totals(); document.getElementById('net').textContent=t.net.toFixed(2)+' zł'; document.getElementById('gross').textContent=t.gross.toFixed(2)+' zł';
 }
-Cart.update = (id,vid,qty)=>{ if(qty<1) Cart.remove(id,vid); else { let items=Cart.get(); const inc=items.find(x=>x.product.id===id && (x.variantId||'')===(vid||''))?.product.pack_increment||1; qty=Math.ceil(qty/inc)*inc; items=items.map(x=> x.product.id===id && (x.variantId||'')===(vid||'')? {...x,packQuantity:qty}:x); localStorage.setItem(Cart.key, JSON.stringify(items)); } render(); };
 render();
 </script>
 </body></html>

@@ -13,7 +13,7 @@
   <div style="display:flex;gap:12px;align-items:center">
     <a href="login.html" id="top-login" data-i18n="login">Zaloguj się</a>
     <a href="contact.html">Kontakt z nami</a>
-    <span class="lang" style="position:static"><button data-lang="pl" class="active">PL</button><button data-lang="en">EN</button></span>
+    <span class="lang" style="position:static"></span>
   </div>
 </div></div>
 
@@ -47,6 +47,7 @@
       <div class="tab">NEWS</div>
     </div>
 
+    <div id="catHeading" style="font-size:13px;font-weight:bold;color:#333;margin-bottom:8px;min-height:18px"></div>
     <div class="grid" id="grid"></div>
   </main>
 </div>
@@ -56,26 +57,82 @@
 async function loadCats(){
   const tree=await Api.getCategoryTree().catch(()=>[]);
   const el=document.getElementById('catList');
-  function row(n,depth=0){
-    const pad=depth*10;
-    let h=`<div class="cat-item" style="padding-left:${8+pad}px" onclick="this.nextElementSibling.classList.toggle('open')"><span>${n.name}</span><span class="plus">+</span></div>`;
-    if(n.children&&n.children.length){
-      h+=`<div class="sub">${n.children.map(c=>row(c,depth+1)).join('')}</div>`;
+
+  function row(n, depth=0){
+    const pad = depth * 10;
+    const hasChildren = n.children && n.children.length;
+    let h = `<div class="cat-item" style="padding-left:${8+pad}px"
+      onclick="selectCat('${n.id}', '${n.name.replace(/'/g,"\\'")}', event, ${hasChildren})"
+      data-cat-id="${n.id}"
+      id="cat-${n.id}">
+        <span>${n.name}</span>
+        ${hasChildren ? `<span class="plus" data-toggle>+</span>` : ''}
+      </div>`;
+    if(hasChildren){
+      h += `<div class="sub">${n.children.map(c=>row(c, depth+1)).join('')}</div>`;
     }
     return h;
   }
-  // flat list like screenshot: show all top + children as per design
-  el.innerHTML = tree.map(n=>row(n)).join('') || '<div style="padding:8px;font-size:11px;color:#888">No categories — admin at /admin</div>';
-  // also handle static list for replica fidelity if tree empty, show example categories from screenshot
-  if(!tree.length){
-    const demo=["SALE","TOYS","FANS","POOL AND BEACH ACCESSORIES","SWIMWEAR","GLASSES","MEN'S UNDERWEAR","LINGERIE","CHILDREN'S UNDERWEAR","EROTIC LINGERIE AND ACCESSORIES"];
-    el.innerHTML = demo.map(n=>`<div class="cat-item"><span>${n}</span><span class="plus">+</span></div>`).join('');
-  }
+
+  el.innerHTML = `<div class="cat-item" id="cat-all" onclick="selectCat(null,'Wszystkie',event,false)" style="font-style:italic;color:#0099cc;border-bottom:2px solid #0099cc">
+    <span>Wszystkie produkty</span>
+  </div>` + (tree.map(n=>row(n)).join('') || '<div style="padding:8px;font-size:11px;color:#888">No categories — admin at /admin</div>');
 }
-async function loadProducts(){
-  const prods=await Api.listProducts({limit:16}).catch(()=>[]);
+
+function selectCat(id, name, event, hasChildren){
+  // If the click was on the +/− toggle, only expand — don't filter
+  if(event && event.target.dataset.toggle !== undefined){
+    const sub = event.currentTarget.nextElementSibling;
+    if(sub && sub.classList.contains('sub')){
+      sub.classList.toggle('open');
+      event.target.textContent = sub.classList.contains('open') ? '−' : '+';
+    }
+    return;
+  }
+
+  // If has children: expand AND filter simultaneously
+  if(hasChildren){
+    const sub = event.currentTarget.nextElementSibling;
+    if(sub && sub.classList.contains('sub')){
+      sub.classList.toggle('open');
+      const toggle = event.currentTarget.querySelector('[data-toggle]');
+      if(toggle) toggle.textContent = sub.classList.contains('open') ? '−' : '+';
+    }
+  }
+
+  // Highlight active
+  document.querySelectorAll('.cat-item').forEach(el=>{
+    el.style.background='';
+    el.style.borderLeft='3px solid transparent';
+    el.style.color='';
+    el.style.fontWeight='';
+  });
+  const active = id ? document.getElementById('cat-'+id) : document.getElementById('cat-all');
+  if(active){
+    active.style.background='#e8f4fb';
+    active.style.borderLeft='3px solid #0099cc';
+    active.style.color='#0099cc';
+    active.style.fontWeight='bold';
+  }
+
+  // Update heading and load products
+  const heading = document.getElementById('catHeading');
+  if(heading) heading.textContent = name;
+
+  loadProducts(id);
+}
+async function loadProducts(categoryId){
   const grid=document.getElementById('grid');
-  if(!prods.length){ grid.innerHTML='<p style="grid-column:1/-1;text-align:center;padding:20px;background:#fff;border:1px solid #ddd">No products</p>'; return; }
+  grid.innerHTML='<p style="grid-column:1/-1;text-align:center;padding:20px;color:#888">Ładowanie…</p>';
+
+  const params = {limit:32};
+  if(categoryId) params.category_id = categoryId;
+  const prods=await Api.listProducts(params).catch(()=>[]);
+
+  if(!prods.length){
+    grid.innerHTML='<p style="grid-column:1/-1;text-align:center;padding:40px;background:#fff;border:1px solid #ddd;color:#888">Brak produktów w tej kategorii.</p>';
+    return;
+  }
   grid.innerHTML = prods.map(p=>{
     const out=p.stock_status==='out_of_stock'||p.stock_quantity===0;
     const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/300x220?text=No+image';
@@ -127,8 +184,18 @@ document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDef
   if(u){ a.textContent=u.email+' • Wyloguj'; a.href='#'; a.onclick=()=>{doLogout();return false}; }
   else { a.textContent=t('login'); a.href='login.html'; }
 })();
-loadCats(); loadProducts();
-document.querySelectorAll('[data-lang]').forEach(b=> b.addEventListener('click',()=>{ localStorage.setItem('lang', b.dataset.lang); location.reload(); }));
+loadCats().then(()=>{
+  // Highlight "all" on initial load
+  const allEl = document.getElementById('cat-all');
+  if(allEl){
+    allEl.style.background='#e8f4fb';
+    allEl.style.borderLeft='3px solid #0099cc';
+    allEl.style.color='#0099cc';
+    allEl.style.fontWeight='bold';
+  }
+});
+loadProducts();
+
 </script>
 </body>
 </html>

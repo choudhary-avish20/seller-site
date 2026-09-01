@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Panel — Logowanie</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="container">
+    <div>Panel administracyjny</div>
+    <div><a href="index.html">Wróć do sklepu</a></div>
+  </div>
+</div>
+
+<div class="container" style="max-width:420px;margin:60px auto">
+  <div style="background:#fff;border:1px solid #ddd;padding:28px 24px">
+
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-size:28px;margin-bottom:4px">🔒</div>
+      <h1 style="font-size:15px;font-weight:bold;color:#333">Logowanie — Panel sprzedawcy</h1>
+      <p style="font-size:11px;color:#999;margin-top:4px">Dostęp tylko dla właściciela sklepu</p>
+    </div>
+
+    <!-- Error / info banners -->
+    <div id="err" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#c00;padding:8px 10px;margin:0 0 12px;font-size:12px;line-height:1.5"></div>
+    <div id="info" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;padding:8px 10px;margin:0 0 12px;font-size:12px"></div>
+
+    <!-- Login form -->
+    <form id="loginForm">
+      <label style="font-size:12px;font-weight:bold;display:block;margin-bottom:3px">Email</label>
+      <input id="email" type="email" required autocomplete="username"
+             style="width:100%;border:1px solid #ccc;padding:8px;margin-bottom:10px;font-size:13px;outline:none">
+
+      <label style="font-size:12px;font-weight:bold;display:block;margin-bottom:3px">Hasło</label>
+      <input id="pwd" type="password" required autocomplete="current-password"
+             style="width:100%;border:1px solid #ccc;padding:8px;margin-bottom:14px;font-size:13px;outline:none">
+
+      <button id="submitBtn" type="submit"
+              style="width:100%;padding:10px;background:#2b2b2b;color:#fff;border:0;font-weight:bold;cursor:pointer;font-size:13px">
+        Zaloguj się
+      </button>
+    </form>
+
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+(async function init() {
+  // If already logged in as seller/admin, go straight to the dashboard
+  const tok = localStorage.getItem('access_token');
+  if (tok) {
+    try {
+      const u = await Api.getMe();
+      if (u.role === 'seller' || u.role === 'admin') {
+        location.href = 'admin-dashboard.html';
+        return;
+      }
+      // Logged in as buyer — clear tokens and show notice
+      clearSession();
+      showInfo('Wylogowano z konta klienta. Zaloguj się jako właściciel sklepu.');
+    } catch {
+      // Token is stale — clear it silently
+      clearSession();
+    }
+  }
+})();
+
+function clearSession() {
+  localStorage.removeItem('access_token');
+  localStorage.removeItem('refresh_token');
+  localStorage.removeItem('user');
+}
+
+function showErr(msg) {
+  const el = document.getElementById('err');
+  el.textContent = msg;
+  el.style.display = 'block';
+  document.getElementById('info').style.display = 'none';
+}
+
+function showInfo(msg) {
+  const el = document.getElementById('info');
+  el.textContent = msg;
+  el.style.display = 'block';
+  document.getElementById('err').style.display = 'none';
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  document.getElementById('err').style.display = 'none';
+  document.getElementById('info').style.display = 'none';
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Logowanie…';
+
+  const email = document.getElementById('email').value.trim();
+  const pwd   = document.getElementById('pwd').value;
+
+  try {
+    // Step 1: authenticate
+    await Api.login(email, pwd);
+
+    // Step 2: check role — buyers are rejected here, before reaching the dashboard
+    const user = await Api.getMe();
+
+    if (user.role !== 'seller' && user.role !== 'admin') {
+      // Not staff — clear tokens immediately so the session doesn't persist
+      clearSession();
+      showErr('Ten panel jest przeznaczony wyłącznie dla właściciela sklepu.\nJeśli chcesz się zalogować jako klient, skorzystaj ze strony logowania.');
+      btn.disabled = false;
+      btn.textContent = 'Zaloguj się';
+      return;
+    }
+
+    // Step 3: store user and proceed to dashboard
+    localStorage.setItem('user', JSON.stringify(user));
+    location.href = 'admin-dashboard.html';
+
+  } catch (ex) {
+    showErr(ex.message || 'Błąd logowania. Sprawdź dane i spróbuj ponownie.');
+    btn.disabled = false;
+    btn.textContent = 'Zaloguj się';
+  }
+});
+</script>
+</body>
+</html>

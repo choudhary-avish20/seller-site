@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weryfikacja e-mail — CentrumHurt.pl</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><div class="container">
+  <div>Skontaktuj się: <b>+48 579 383 945</b></div>
+  <div><a href="index.html">Strona główna</a></div>
+</div></div>
+
+<div class="container" style="max-width:460px;margin:60px auto">
+  <div style="background:#fff;border:1px solid #ddd;padding:32px 24px;text-align:center">
+
+    <!-- Spinner shown while processing -->
+    <div id="loading">
+      <div style="font-size:32px;margin-bottom:12px">⏳</div>
+      <p style="font-size:13px;color:#666">Weryfikacja adresu e-mail…</p>
+    </div>
+
+    <!-- Success state -->
+    <div id="success" style="display:none">
+      <div style="font-size:48px;margin-bottom:12px">✅</div>
+      <h1 style="font-size:18px;font-weight:bold;color:#166534;margin-bottom:8px">Adres e-mail potwierdzony!</h1>
+      <p style="font-size:13px;color:#555;margin-bottom:20px">Twoje konto jest teraz aktywne. Możesz się zalogować i składać zamówienia.</p>
+      <a href="login.html"
+         style="display:inline-block;padding:10px 28px;background:#0099cc;color:#fff;font-weight:bold;text-decoration:none;font-size:13px">
+        Zaloguj się
+      </a>
+    </div>
+
+    <!-- Already verified state -->
+    <div id="already" style="display:none">
+      <div style="font-size:48px;margin-bottom:12px">✅</div>
+      <h1 style="font-size:18px;font-weight:bold;color:#1e40af;margin-bottom:8px">E-mail już potwierdzony</h1>
+      <p style="font-size:13px;color:#555;margin-bottom:20px">Ten adres e-mail został już wcześniej zweryfikowany.</p>
+      <a href="index.html"
+         style="display:inline-block;padding:10px 28px;background:#0099cc;color:#fff;font-weight:bold;text-decoration:none;font-size:13px">
+        Przejdź do sklepu
+      </a>
+    </div>
+
+    <!-- Error / invalid token state -->
+    <div id="error" style="display:none">
+      <div style="font-size:48px;margin-bottom:12px">❌</div>
+      <h1 style="font-size:18px;font-weight:bold;color:#991b1b;margin-bottom:8px">Link nieważny lub wygasły</h1>
+      <p style="font-size:13px;color:#555;margin-bottom:20px">Link weryfikacyjny wygasł lub jest nieprawidłowy. Poproś o wysłanie nowego linku.</p>
+      <button id="resendBtn"
+              style="padding:10px 24px;background:#333;color:#fff;border:0;font-weight:bold;cursor:pointer;font-size:13px;margin-bottom:10px"
+              onclick="resend()">
+        Wyślij nowy link
+      </button>
+      <br>
+      <a href="index.html" style="font-size:12px;color:#666">Wróć do sklepu</a>
+    </div>
+
+    <!-- Resend success -->
+    <div id="resent" style="display:none">
+      <div style="font-size:48px;margin-bottom:12px">📧</div>
+      <h1 style="font-size:18px;font-weight:bold;color:#1e40af;margin-bottom:8px">Link wysłany</h1>
+      <p style="font-size:13px;color:#555;margin-bottom:20px">Nowy link weryfikacyjny został wysłany na Twój adres e-mail. Sprawdź skrzynkę.</p>
+      <a href="index.html" style="font-size:12px;color:#666">Wróć do sklepu</a>
+    </div>
+
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+function show(id) {
+  ['loading','success','already','error','resent'].forEach(s => {
+    document.getElementById(s).style.display = s === id ? 'block' : 'none';
+  });
+}
+
+(async function init() {
+  const params = new URLSearchParams(location.search);
+  const status = params.get('status');  // set by the backend redirect
+  const token  = params.get('token');   // set when linking directly (fallback)
+
+  // Case 1: backend already processed the token and redirected here with ?status=ok|invalid
+  if (status === 'ok') {
+    show('success');
+    return;
+  }
+  if (status === 'invalid') {
+    show('error');
+    return;
+  }
+
+  // Case 2: token is in the URL (e.g. someone copy-pasted a direct API link)
+  // Call the API directly and handle the JSON response
+  if (token) {
+    try {
+      const res = await fetch(
+        (localStorage.getItem('API_URL') || 'http://localhost:8000/api/v1') +
+        '/auth/verify-email?token=' + encodeURIComponent(token)
+      );
+      if (res.ok) {
+        show('success');
+      } else {
+        const data = await res.json().catch(() => ({}));
+        if (data.detail && data.detail.toLowerCase().includes('already')) {
+          show('already');
+        } else {
+          show('error');
+        }
+      }
+    } catch {
+      show('error');
+    }
+    return;
+  }
+
+  // No token and no status — show error
+  show('error');
+})();
+
+async function resend() {
+  const tok = localStorage.getItem('access_token');
+  if (!tok) {
+    // Not logged in — redirect to login so they can log in and resend from there
+    location.href = 'login.html';
+    return;
+  }
+  const btn = document.getElementById('resendBtn');
+  btn.disabled = true;
+  btn.textContent = 'Wysyłanie…';
+  try {
+    const base = localStorage.getItem('API_URL') || 'http://localhost:8000/api/v1';
+    const res = await fetch(base + '/auth/resend-verification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
+    });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      throw new Error(d.detail || 'Błąd wysyłki');
+    }
+    show('resent');
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = 'Wyślij nowy link';
+    alert(e.message || 'Błąd wysyłki. Spróbuj ponownie.');
+  }
+}
+</script>
+</body>
+</html>

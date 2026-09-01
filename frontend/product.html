@@ -6,7 +6,7 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-<div class="topbar"><div class="container"><div>B2B only</div><div><span class="lang"><button data-lang="pl" class="active">PL</button><button data-lang="en">EN</button></span> <a href="login.html">Zaloguj</a></div></div></div>
+<div class="topbar"><div class="container"><div>B2B only</div><div><a href="login.html">Zaloguj</a></div></div></div>
 <div class="header"><div class="container"><a href="index.html" class="logo">Centrum<span>Hurt</span>.pl</a>
 <form class="search" id="searchForm"><input id="q" placeholder="Szukaj..."><button>Szukaj</button></form>
 <a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b></a></div></div>
@@ -119,7 +119,7 @@ async function load(){
 }
 document.getElementById('imgBox')?.addEventListener('click',()=>{ const s=document.getElementById('mainImg').src; if(s){ document.getElementById('zoomImg').src=s; document.getElementById('zoom').style.display='flex'; }});
 load();
-document.querySelectorAll('[data-lang]').forEach(b=> b.addEventListener('click',()=>{ localStorage.setItem('lang', b.dataset.lang); location.reload(); }));
+
 </script>
 </body>
 </html>
