@@ -45,5 +45,18 @@ class Settings(BaseSettings):
     REQUIRE_BUYER_APPROVAL: bool = False  # if True, buyers need admin approval before buying
     ALLOW_CASH_ON_DELIVERY_ONLY: bool = True
 
+    # Email settings
+    MAIL_USERNAME: str = ""  # SMTP username - if empty, use console backend for dev
+    MAIL_PASSWORD: str = ""  # SMTP password
+    MAIL_FROM: str = "noreply@wolkago.pl"  # From email address
+    MAIL_FROM_NAME: str = "WolkaGo"  # From name
+    MAIL_SERVER: str = "smtp.gmail.com"  # SMTP server
+    MAIL_PORT: int = 587  # SMTP port
+    MAIL_TLS: bool = True  # Use TLS
+    MAIL_SSL: bool = False  # Use SSL (alternative to TLS)
+    
+    # Frontend URL for email links
+    FRONTEND_BASE_URL: str = "http://localhost:8000"
+
 
 settings = Settings()

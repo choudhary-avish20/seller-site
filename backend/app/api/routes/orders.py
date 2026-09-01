@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.core.config import settings
+from app.core.auth import create_verification_token
 from app.db.session import get_db
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.order_item import OrderItem
@@ -15,6 +16,7 @@ from app.models.product_variant import ProductVariant
 from app.models.product_price_tier import ProductPriceTier
 from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
+from app.services.email import send_verification_email, send_order_confirmation_email, send_order_status_email
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -46,12 +48,29 @@ def _tiered_price(product: Product, quantity: int, db: Session) -> float:
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
-def create_order(
+async def create_order(
     payload: OrderCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     _require_buyer(current_user)
+
+    # Check email verification - only enforce for buyer users (admin/seller bypass)
+    if current_user.role == UserRole.buyer and not current_user.email_verified:
+        try:
+            # Auto-resend verification email
+            verification_token = create_verification_token(db, current_user)
+            await send_verification_email(current_user.email, current_user.full_name, verification_token)
+            db.commit()
+        except Exception as e:
+            # Log error but don't fail the verification check
+            import logging
+            logging.getLogger(__name__).error(f"Failed to resend verification email to {current_user.email}: {e}")
+        
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address. A new verification link has been sent.",
+        )
 
     if settings.ALLOW_CASH_ON_DELIVERY_ONLY and payload.payment_method != PaymentMethod.cod:
         raise HTTPException(status_code=400, detail="Only cash on delivery (COD) is allowed")
@@ -157,6 +176,15 @@ def create_order(
     db.commit()
     db.refresh(order)
     order.items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+    
+    # Send order confirmation email (fire-and-forget, don't block response on email failure)
+    try:
+        await send_order_confirmation_email(current_user.email, current_user.full_name, order)
+    except Exception as e:
+        # Log the error but don't fail the order creation
+        import logging
+        logging.getLogger(__name__).error(f"Failed to send order confirmation email to {current_user.email}: {e}")
+    
     return order
 
 
@@ -204,7 +232,7 @@ def get_order(
 
 
 @router.patch("/{order_id}/status", response_model=OrderResponse)
-def update_order_status(
+async def update_order_status(
     order_id: UUID,
     payload: OrderStatusUpdate,
     db: Session = Depends(get_db),
@@ -223,6 +251,7 @@ def update_order_status(
         if order.status != OrderStatus.pending:
             raise HTTPException(status_code=400, detail="Only pending orders can be cancelled")
 
+    old_status = order.status
     order.status = payload.status
     db.commit()
     db.refresh(order)
@@ -234,6 +263,23 @@ def update_order_status(
     if buyer and current_user.role in (UserRole.admin, UserRole.seller):
         resp.buyer_email = buyer.email
         resp.buyer_full_name = buyer.full_name
+
+    # Send status-change email to the buyer when seller marks delivered or cancelled
+    notify_statuses = {OrderStatus.delivered, OrderStatus.cancelled, OrderStatus.confirmed, OrderStatus.shipped}
+    if buyer and old_status != order.status and order.status in notify_statuses:
+        try:
+            await send_order_status_email(
+                buyer.email,
+                buyer.full_name,
+                str(order.id),
+                order.status.value,
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(
+                f"Błąd wysyłki e-mail o statusie zamówienia do {buyer.email}: {e}"
+            )
+
     return resp
 
 

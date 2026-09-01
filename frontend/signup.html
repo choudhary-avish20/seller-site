@@ -8,32 +8,61 @@
 <div style="background:#fff;border:1px solid #ddd;padding:20px">
 <h1 style="text-align:center;font-size:16px">Utwórz konto</h1>
 <div id="err" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#c00;padding:8px;margin:12px 0;font-size:12px"></div>
+
+<!-- Registration form -->
 <form id="f">
-<label style="font-size:12px;font-weight:bold">Imię i nazwisko</label><input id="name" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0">
-<label style="font-size:12px;font-weight:bold">Email</label><input id="email" type="email" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0">
-<label style="font-size:12px;font-weight:bold">Hasło (min 8)</label><input id="pwd" type="password" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0">
-<label style="font-size:12px;font-weight:bold">Potwierdź hasło</label><input id="pwd2" type="password" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0">
-<button type="submit" style="width:100%;padding:10px;background:#333;color:#fff;border:0;font-weight:bold">Utwórz konto</button>
+<label style="font-size:12px;font-weight:bold">Imię i nazwisko</label><input id="name" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0 8px;box-sizing:border-box">
+<label style="font-size:12px;font-weight:bold">Email</label><input id="email" type="email" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0 8px;box-sizing:border-box">
+<label style="font-size:12px;font-weight:bold">Hasło (min 8)</label><input id="pwd" type="password" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0 8px;box-sizing:border-box">
+<label style="font-size:12px;font-weight:bold">Potwierdź hasło</label><input id="pwd2" type="password" required style="width:100%;border:1px solid #ccc;padding:8px;margin:4px 0 10px;box-sizing:border-box">
+<button type="submit" style="width:100%;padding:10px;background:#333;color:#fff;border:0;font-weight:bold;cursor:pointer">Utwórz konto</button>
 </form>
-<p style="text-align:center;margin-top:12px;font-size:12px">Masz konto? <a href="login.html" style="color:#06c">Zaloguj się</a></p>
-<p style="text-align:center;margin-top:6px;font-size:12px;border-top:1px solid #eee;padding-top:10px">Chcesz sprzedawać? <a href="register-seller.html" style="color:#06c;font-weight:bold">Zostań sprzedawcą →</a></p>
+
+<!-- Shown after successful registration — hides the form -->
+<div id="check-email" style="display:none;text-align:center;padding:8px 0">
+  <div style="font-size:40px;margin-bottom:10px">📧</div>
+  <h2 style="font-size:15px;font-weight:bold;color:#166534;margin-bottom:8px">Sprawdź skrzynkę e-mail</h2>
+  <p style="font-size:12px;color:#555;line-height:1.5;margin-bottom:14px">
+    Wysłaliśmy link aktywacyjny na adres <strong id="regEmail"></strong>.<br>
+    Kliknij w link, aby aktywować konto.
+  </p>
+  <p style="font-size:11px;color:#888">Nie dostałeś wiadomości? Sprawdź folder spam.<br>
+    Możesz też <a href="login.html" style="color:#06c">zalogować się</a> — wyślemy nowy link automatycznie przy próbie złożenia zamówienia.</p>
+</div>
+
+<p style="text-align:center;margin-top:12px;font-size:12px" id="loginLink">Masz konto? <a href="login.html" style="color:#06c">Zaloguj się</a></p>
+<p style="text-align:center;margin-top:6px;font-size:12px;border-top:1px solid #eee;padding-top:10px" id="sellerLink">Chcesz sprzedawać? <a href="register-seller.html" style="color:#06c;font-weight:bold">Zostań sprzedawcą →</a></p>
 </div></div>
 <script src="js/app.js"></script>
 <script>
-document.getElementById('f').addEventListener('submit', async e=>{
- e.preventDefault();
- const err=document.getElementById('err'); err.style.display='none';
- const n=document.getElementById('name').value.trim(), em=document.getElementById('email').value.trim(), p=document.getElementById('pwd').value, p2=document.getElementById('pwd2').value;
- if(!n||n.length<2){err.textContent='Imię i nazwisko — minimum 2 znaki';err.style.display='block';return}
- if(p!==p2){err.textContent='Hasła nie są zgodne';err.style.display='block';return}
- if(p.length<8){err.textContent='Hasło min 8 znaków';err.style.display='block';return}
- try{
-   await Api.signup({email:em,password:p,full_name:n,role:'buyer'});
-   // Api.login() stores tokens internally — no need to re-set them manually
-   await Api.login(em,p);
-   const u=await Api.getMe(); localStorage.setItem('user',JSON.stringify(u));
-   location.href='index.html';
- }catch(ex){err.textContent=ex.message;err.style.display='block'}
+document.getElementById('f').addEventListener('submit', async e => {
+  e.preventDefault();
+  const err = document.getElementById('err');
+  err.style.display = 'none';
+  const n  = document.getElementById('name').value.trim();
+  const em = document.getElementById('email').value.trim();
+  const p  = document.getElementById('pwd').value;
+  const p2 = document.getElementById('pwd2').value;
+  if (!n || n.length < 2) { err.textContent = 'Imię i nazwisko — minimum 2 znaki'; err.style.display = 'block'; return; }
+  if (p !== p2)            { err.textContent = 'Hasła nie są zgodne';               err.style.display = 'block'; return; }
+  if (p.length < 8)        { err.textContent = 'Hasło min 8 znaków';                err.style.display = 'block'; return; }
+
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true; btn.textContent = 'Tworzenie konta…';
+  try {
+    await Api.signup({ email: em, password: p, full_name: n, role: 'buyer' });
+    // Show "check email" banner — do NOT auto-login, user must verify first
+    document.getElementById('f').style.display = 'none';
+    document.getElementById('loginLink').style.display = 'none';
+    document.getElementById('sellerLink').style.display = 'none';
+    document.getElementById('regEmail').textContent = em;
+    document.getElementById('check-email').style.display = 'block';
+  } catch (ex) {
+    err.textContent = ex.message;
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Utwórz konto';
+  }
 });
 </script>
 </body></html>

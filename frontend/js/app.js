@@ -19,7 +19,7 @@ const API = (()=>{
     const {a}=getT(); if(a) h['Authorization']='Bearer '+a;
     let res=await fetch(base+path,Object.assign({},opts,{headers:h}));
     if(res.status===401 && getT().r){ if(await refresh()){ h['Authorization']='Bearer '+getT().a; res=await fetch(base+path,Object.assign({},opts,{headers:h}))}}
-    if(!res.ok){ const e=await res.json().catch(()=>({detail:res.statusText})); throw new Error(e.detail||'Error '+res.status)}
+    if(!res.ok){ const e=await res.json().catch(()=>({detail:res.statusText})); const err=new Error(e.detail||'Error '+res.status); err.status=res.status; throw err}
     if(res.status===204) return {}; const ct=res.headers.get('content-type')||''; if(ct.includes('text/html')) return res.text(); return res.json();
   }
   function img(u){ if(!u) return ''; if(u.startsWith('http')) return u; if(u.startsWith('/')) return API_BASE+u; return u; }
@@ -30,7 +30,7 @@ const API = (()=>{
     getMe:()=>req('/auth/me'),
     registerSeller:(d)=>req('/sellers/register',{method:'POST',body:JSON.stringify(d)}),
     getCategoryTree:(p={})=>req('/categories/tree'+(p.include_inactive?'?include_inactive=true':'')),
-    listProducts:(p={})=>{ const qs=new URLSearchParams(); if(p.search) qs.set('search',p.search); if(p.category_id) qs.set('category_id',p.category_id); if(p.limit) qs.set('limit',p.limit); const s=qs.toString()? '?'+qs.toString():''; return req('/products'+s); },
+    listProducts:(p={})=>{ const qs=new URLSearchParams(); if(p.search) qs.set('search',p.search); if(p.category_id) qs.set('category_id',p.category_id); if(p.limit) qs.set('limit',p.limit); if(p.include_inactive) qs.set('include_inactive','true'); const s=qs.toString()? '?'+qs.toString():''; return req('/products'+s); },
     getProductBySlug:(s)=>req('/products/slug/'+s),
     getCategoryBySlug:(s)=>req('/categories/by-slug/'+s),
     createOrder:(d)=>req('/orders',{method:'POST',body:JSON.stringify(d)}),
@@ -47,7 +47,7 @@ const API = (()=>{
     updateProduct:(id,d)=>req('/products/'+id,{method:'PUT',body:JSON.stringify(d)}),
     deleteProduct:(id)=>req('/products/'+id,{method:'DELETE'}),
     toggleStock:(id,d)=>req('/products/'+id+'/stock',{method:'PATCH',body:JSON.stringify(d)}),
-    archiveProduct:(id)=>req('/products/'+id+'/archive',{method:'PATCH'}),
+    archiveProduct:(id,force)=>req('/products/'+id+'/archive'+(force?'?force=true':''),{method:'PATCH'}),
     // Admin seller management
     getPendingSellers:()=>req('/sellers/pending'),
     approveSeller:(id,d)=>req('/sellers/'+id+'/approve',{method:'POST',body:JSON.stringify(d)}),
@@ -58,6 +58,8 @@ const API = (()=>{
     // Site-wide contact info (Contact page + admin settings)
     getSettings:()=>req('/settings'),
     updateSettings:(d)=>req('/settings',{method:'PUT',body:JSON.stringify(d)}),
+    // Account management
+    changePassword:(d)=>req('/auth/change-password',{method:'POST',body:JSON.stringify(d)}),
     img, base:API_BASE, raw:base
   };
 })();

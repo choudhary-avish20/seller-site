@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_admin
@@ -12,6 +13,11 @@ from app.core.auth import (
     create_refresh_token,
     decode_token,
     get_user_by_email,
+    get_password_hash,
+    verify_password,
+    create_verification_token,
+    verify_email_token,
+    invalidate_user_verification_tokens,
 )
 from app.models.user import User, UserRole, BuyerStatus
 from app.models.seller import SellerProfile, SellerStatus
@@ -23,14 +29,18 @@ from app.schemas.auth import (
     UserResponse,
     BuyerApprovalRequest,
     BuyerListResponse,
+    ResendVerificationResponse,
+    PasswordChangeRequest,
+    MessageResponse,
 )
+from app.services.email import send_verification_email
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def signup(user_data: UserCreate, db: Session = Depends(get_db)):
+async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     if get_user_by_email(db, user_data.email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -60,6 +70,17 @@ def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     )
     db.commit()
     db.refresh(user)
+    
+    # Send verification email
+    try:
+        verification_token = create_verification_token(db, user)
+        await send_verification_email(user.email, user.full_name, verification_token)
+        db.commit()
+    except Exception as e:
+        # Log the error but don't fail the signup
+        import logging
+        logging.getLogger(__name__).error(f"Failed to send verification email to {user.email}: {e}")
+    
     return user
 
 
@@ -118,6 +139,76 @@ def refresh_token(request: RefreshTokenRequest):
 @router.get("/me", response_model=UserResponse)
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.post("/change-password", response_model=MessageResponse)
+def change_password(
+    payload: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change password for the currently authenticated user."""
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Current password is incorrect",
+        )
+    current_user.hashed_password = get_password_hash(payload.new_password)
+    db.commit()
+    return MessageResponse(message="Password updated successfully")
+
+
+@router.get("/verify-email")
+def verify_email(token: str = Query(...), db: Session = Depends(get_db)):
+    """Consume a verification token and redirect the browser to the frontend result page."""
+    user = verify_email_token(db, token)
+    frontend_base = settings.FRONTEND_BASE_URL.rstrip("/")
+
+    if not user:
+        return RedirectResponse(
+            url=f"{frontend_base}/verify-email.html?status=invalid",
+            status_code=302,
+        )
+
+    db.commit()
+    return RedirectResponse(
+        url=f"{frontend_base}/verify-email.html?status=ok",
+        status_code=302,
+    )
+
+
+@router.post("/resend-verification", response_model=ResendVerificationResponse)
+async def resend_verification(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Resend email verification for authenticated user."""
+    if current_user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email is already verified",
+        )
+    
+    # Invalidate existing tokens
+    invalidate_user_verification_tokens(db, current_user.id)
+    
+    # Create new verification token
+    verification_token = create_verification_token(db, current_user)
+    
+    try:
+        await send_verification_email(current_user.email, current_user.full_name, verification_token)
+        db.commit()
+        return ResendVerificationResponse(
+            message="Verification email sent successfully"
+        )
+    except Exception as e:
+        db.rollback()
+        import logging
+        logging.getLogger(__name__).error(f"Failed to send verification email to {current_user.email}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send verification email. Please try again later.",
+        )
 
 
 @router.get("/config", tags=["config"])

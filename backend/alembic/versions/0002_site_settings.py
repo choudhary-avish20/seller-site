@@ -1,7 +1,7 @@
 """Add site_settings table for public contact page info
 
 Revision ID: 0002_site_settings
-Revises: 0001_initial_schema
+Revises: 5e8578a7fb32
 Create Date: 2026-09-02
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision: str = '0002_site_settings'
-down_revision: Union[str, None] = '0001_initial_schema'
+down_revision: Union[str, None] = '5e8578a7fb32'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

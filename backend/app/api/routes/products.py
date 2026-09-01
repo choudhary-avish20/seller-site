@@ -7,6 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.models.order import Order, OrderStatus
+from app.models.order_item import OrderItem
+
 from app.api.dependencies import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
@@ -15,6 +18,7 @@ from app.models.product_variant import ProductVariant
 from app.models.product_price_tier import ProductPriceTier
 from app.models.category import Category
 from app.models.user import User, UserRole
+from app.services.email import send_product_archived_email
 from app.schemas.product import (
     ProductCreate,
     ProductUpdate,
@@ -410,6 +414,13 @@ def delete_product(
     prod = db.query(Product).filter(Product.id == product_id).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
+    # Block deletion if this product appears in any order — order history must be preserved.
+    # Use archive (is_active=False) to hide it from the storefront instead.
+    if db.query(OrderItem).filter(OrderItem.product_id == product_id).first():
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot delete a product that has order history. Archive it instead to hide it from the storefront.",
+        )
     db.delete(prod)
     db.commit()
     return None
@@ -435,17 +446,114 @@ def toggle_stock(
     return _to_product_response(prod, db)
 
 
-@router.patch("/{product_id}/archive", response_model=ProductResponse)
-def archive_product(
+@router.get("/{product_id}/pending-orders", tags=["products"])
+def get_pending_orders_count(
     product_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+):
+    """
+    Returns the number of open (pending / confirmed / shipped) orders that
+    contain this product.  Used by the admin UI before archiving.
+    """
+    _require_admin(current_user)
+    prod = db.query(Product).filter(Product.id == product_id).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    OPEN_STATUSES = [OrderStatus.pending, OrderStatus.confirmed, OrderStatus.shipped]
+    count = (
+        db.query(Order)
+        .join(OrderItem, OrderItem.order_id == Order.id)
+        .filter(OrderItem.product_id == product_id, Order.status.in_(OPEN_STATUSES))
+        .distinct()
+        .count()
+    )
+    return {"product_id": str(product_id), "pending_orders_count": count}
+
+
+@router.patch("/{product_id}/archive", response_model=ProductResponse)
+async def archive_product(
+    product_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    force: bool = Query(False, description="Skip the pending-order guard and archive anyway"),
 ):
     _require_admin(current_user)
     prod = db.query(Product).filter(Product.id == product_id).first()
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    # Store original state to detect archiving action
+    was_active = prod.is_active
+    will_be_archived = was_active and not prod.is_active  # This would be True after toggle below
+    
+    # Only warn when going active → archived (restoring never needs a guard).
+    if prod.is_active and not force:
+        OPEN_STATUSES = [OrderStatus.pending, OrderStatus.confirmed, OrderStatus.shipped]
+        pending_count = (
+            db.query(Order)
+            .join(OrderItem, OrderItem.order_id == Order.id)
+            .filter(OrderItem.product_id == product_id, Order.status.in_(OPEN_STATUSES))
+            .distinct()
+            .count()
+        )
+        if pending_count > 0:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Ten produkt występuje w {pending_count} aktywn"
+                    f"{'ym' if pending_count == 1 else 'ych'} zamówieni"
+                    f"{'u' if pending_count == 1 else 'ach'} (oczekujące / potwierdzone / wysłane). "
+                    f"Przekaż ?force=true, aby archiwizować mimo to."
+                ),
+            )
+
+    # Collect affected buyers before archiving (if we're archiving an active product)
+    affected_buyers_and_orders = []
+    if was_active:  # We're about to archive an active product
+        OPEN_STATUSES = [OrderStatus.pending, OrderStatus.confirmed, OrderStatus.shipped]
+        
+        # Get all open orders containing this product
+        affected_orders = (
+            db.query(Order)
+            .join(OrderItem, OrderItem.order_id == Order.id)
+            .filter(OrderItem.product_id == product_id, Order.status.in_(OPEN_STATUSES))
+            .all()
+        )
+        
+        # Collect unique buyers and their order info
+        buyers_seen = set()
+        for order in affected_orders:
+            if order.buyer_id not in buyers_seen:
+                buyer = db.query(User).filter(User.id == order.buyer_id).first()
+                if buyer:
+                    affected_buyers_and_orders.append({
+                        'buyer': buyer,
+                        'order_id': str(order.id)
+                    })
+                    buyers_seen.add(order.buyer_id)
+
+    # Archive the product
     prod.is_active = not prod.is_active
     db.commit()
     db.refresh(prod)
+    
+    # Send notifications to affected buyers (fire-and-forget)
+    if was_active and not prod.is_active and affected_buyers_and_orders:  # Product was archived and has affected orders
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        for buyer_info in affected_buyers_and_orders:
+            try:
+                await send_product_archived_email(
+                    buyer_info['buyer'].email,
+                    buyer_info['buyer'].full_name,
+                    buyer_info['order_id'],
+                    [prod.name]
+                )
+                logger.info(f"Sent product archived notification to {buyer_info['buyer'].email} for product {prod.name}")
+            except Exception as e:
+                logger.error(f"Failed to send product archived notification to {buyer_info['buyer'].email}: {e}")
+    
     return _to_product_response(prod, db)

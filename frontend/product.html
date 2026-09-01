@@ -121,7 +121,7 @@ async function load(){
 }
 document.getElementById('imgBox')?.addEventListener('click',()=>{ const s=document.getElementById('mainImg').src; if(s){ document.getElementById('zoomImg').src=s; document.getElementById('zoom').style.display='flex'; }});
 load();
-document.querySelectorAll('[data-lang]').forEach(b=> b.addEventListener('click',()=>{ localStorage.setItem('lang', b.dataset.lang); location.reload(); }));
+
 </script>
 </body>
 </html>

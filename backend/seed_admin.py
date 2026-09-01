@@ -38,7 +38,15 @@ def seed_admin():
         )
         db.add(profile)
         db.commit()
-        print(f"Seller account created: {seller_email} / {seller_password}")
+        print(f"✅ Seller account created: {seller_email} / {seller_password}")
+        print()
+        print("⚠️  Next steps for handover:")
+        print("   1. Share these credentials with the owner via a secure channel")
+        print("      (e.g. 1Password, Signal, or in person — NOT plain email).")
+        print(f"   2. Give the owner the admin login URL: <your-domain>/admin-login.html")
+        print("      Ask them to bookmark it — it is not linked from the public site.")
+        print("   3. After first login, the owner should go to Settings → Change Password")
+        print("      so you no longer know their credentials.")
     finally:
         db.close()
 

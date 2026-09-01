@@ -48,6 +48,7 @@ class UserResponse(UserBase):
     role: UserRole
     is_active: bool
     buyer_status: BuyerStatus
+    email_verified: bool
     company_name: Optional[str]
     company_tax_id: Optional[str]
     company_address: Optional[str]
@@ -153,3 +154,25 @@ class BuyerListResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class EmailVerifyRequest(BaseModel):
+    token: str
+
+
+class EmailVerifyResponse(BaseModel):
+    message: str
+    user: UserResponse
+
+
+class ResendVerificationResponse(BaseModel):
+    message: str
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class MessageResponse(BaseModel):
+    message: str
