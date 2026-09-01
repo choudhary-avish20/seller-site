@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kontakt — WolkaGo</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/favicon-180.png">
+<link rel="stylesheet" href="css/style.css">
+<style>
+.contact-wrap{max-width:680px;margin:30px auto;padding:0 10px}
+.contact-card{background:#fff;border:1px solid #ddd;padding:22px 24px}
+.contact-row{display:flex;gap:14px;align-items:flex-start;padding:12px 0;border-bottom:1px solid #f0f0f0}
+.contact-row:last-child{border-bottom:none}
+.contact-row .ic{font-size:18px;width:24px;flex-shrink:0;text-align:center;margin-top:1px}
+.contact-row .lbl{font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.contact-row .val{font-size:14px;font-weight:bold;color:#222}
+.contact-row a.val{color:#c0703c}
+.contact-row a.val:hover{text-decoration:underline}
+.social-links{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+.social-btn{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border:1px solid #ddd;font-size:12px;font-weight:bold;color:#333}
+.social-btn:hover{background:#f5f5f5;border-color:#c0703c;color:#c0703c}
+.contact-note{margin-top:18px;padding-top:16px;border-top:1px solid #f0f0f0;font-size:12px;color:#666;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="container">
+  <div>Skontaktuj się z nami: <b id="tbPhone">+48 579 383 945</b></div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <a href="login.html" id="top-login">Zaloguj się</a>
+    <a href="index.html">Strona główna</a>
+  </div>
+</div></div>
+
+<div class="header"><div class="container">
+  <a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
+</div></div>
+
+<div class="contact-wrap">
+  <h1 style="font-size:20px;margin-bottom:4px">Kontakt</h1>
+  <p style="font-size:12px;color:#666;margin-bottom:18px">Masz pytania dotyczące zamówienia lub współpracy? Skontaktuj się z nami.</p>
+
+  <div class="contact-card" id="contactCard">
+    <div style="text-align:center;color:#888;padding:20px;font-size:13px">Ładowanie danych kontaktowych…</div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function row(icon, label, value, href){
+  const valHtml = href
+    ? `<a class="val" href="${esc(href)}"${href.startsWith('http')?' target="_blank" rel="noopener"':''}>${esc(value)}</a>`
+    : `<div class="val">${esc(value)}</div>`;
+  return `<div class="contact-row"><div class="ic">${icon}</div><div><div class="lbl">${esc(label)}</div>${valHtml}</div></div>`;
+}
+
+async function loadContact(){
+  const card = document.getElementById('contactCard');
+  let s = {};
+  try { s = await Api.getSettings(); } catch(e) { s = {}; }
+
+  if (s.phone) document.getElementById('tbPhone').textContent = s.phone;
+
+  const rows = [];
+  if (s.phone) rows.push(row('📞', 'Telefon', s.phone, 'tel:'+s.phone.replace(/[^\d+]/g,'')));
+  if (s.email) rows.push(row('✉️', 'E-mail', s.email, 'mailto:'+s.email));
+  if (s.address) rows.push(row('📍', 'Adres', s.address));
+  if (s.working_hours) rows.push(row('🕒', 'Godziny otwarcia', s.working_hours));
+  if (s.whatsapp_number) rows.push(row('💬', 'WhatsApp', s.whatsapp_number, 'https://wa.me/'+s.whatsapp_number.replace(/[^\d]/g,'')));
+
+  const social = [];
+  if (s.facebook_url) social.push(`<a class="social-btn" href="${esc(s.facebook_url)}" target="_blank" rel="noopener">📘 Facebook</a>`);
+  if (s.instagram_url) social.push(`<a class="social-btn" href="${esc(s.instagram_url)}" target="_blank" rel="noopener">📸 Instagram</a>`);
+
+  if (!rows.length && !social.length) {
+    card.innerHTML = '<div style="text-align:center;color:#888;padding:20px;font-size:13px">Dane kontaktowe zostaną wkrótce uzupełnione.</div>';
+    return;
+  }
+
+  card.innerHTML = rows.join('')
+    + (social.length ? `<div class="social-links">${social.join('')}</div>` : '')
+    + (s.contact_note ? `<div class="contact-note">${esc(s.contact_note)}</div>` : '');
+}
+
+loadContact();
+</script>
+</body>
+</html>

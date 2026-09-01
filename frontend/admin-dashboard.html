@@ -129,6 +129,7 @@ tr:hover td{background:#fafafa}
     <div class="nav-item active" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
     <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
     <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia</div>
+    <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙️</span> Ustawienia</div>
     <div style="border-top:1px solid #444;margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px">
       <div class="nav-item" onclick="doLogout()"><span class="icon">🚪</span> Wyloguj</div>
     </div>
@@ -339,6 +340,7 @@ function switchView(view) {
   if (view === 'products') renderProductsView();
   else if (view === 'categories') renderCategoriesView();
   else if (view === 'orders') renderOrdersView();
+  else if (view === 'settings') renderSettingsView();
 }
 
 // ── Products view ──────────────────────────────────────────────────────────
@@ -939,6 +941,89 @@ async function setOrderStatus(id, newStatus) {
     }
   };
   document.getElementById('confirmModal').classList.add('open');
+}
+
+// ── Settings view (public Contact page data) ─────────────────────────────────
+async function renderSettingsView() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<div class="empty">Ładowanie ustawień…</div>';
+
+  let s;
+  try { s = await Api.getSettings(); }
+  catch (e) { main.innerHTML = `<div class="alert alert-warn">Błąd ładowania ustawień: ${e.message}</div>`; return; }
+
+  main.innerHTML = `
+    <div class="page-title">⚙️ Ustawienia kontaktowe</div>
+    <div class="alert alert-info">Te dane są widoczne publicznie na stronie <a href="contact.html" target="_blank" style="color:#1e40af;font-weight:bold">Kontakt</a>.</div>
+    <div class="form-err" id="setErr"></div>
+    <div style="background:#fff;border:1px solid #ddd;padding:20px;max-width:640px">
+      <div class="f-cols">
+        <div class="f-row">
+          <label>Telefon</label>
+          <input id="s_phone" placeholder="+48 000 000 000" value="${esc(s.phone)}">
+        </div>
+        <div class="f-row">
+          <label>E-mail</label>
+          <input id="s_email" type="email" placeholder="kontakt@wolkago.pl" value="${esc(s.email)}">
+        </div>
+      </div>
+      <div class="f-row">
+        <label>Adres</label>
+        <input id="s_address" placeholder="Ulica, miasto" value="${esc(s.address)}">
+      </div>
+      <div class="f-row">
+        <label>Godziny otwarcia</label>
+        <input id="s_hours" placeholder="Pon–Pt: 8:00–18:00" value="${esc(s.working_hours)}">
+      </div>
+      <div class="f-cols">
+        <div class="f-row">
+          <label>Facebook (link)</label>
+          <input id="s_fb" placeholder="https://facebook.com/..." value="${esc(s.facebook_url)}">
+        </div>
+        <div class="f-row">
+          <label>Instagram (link)</label>
+          <input id="s_ig" placeholder="https://instagram.com/..." value="${esc(s.instagram_url)}">
+        </div>
+      </div>
+      <div class="f-row">
+        <label>WhatsApp (numer)</label>
+        <input id="s_wa" placeholder="+48..." value="${esc(s.whatsapp_number)}">
+        <div class="hint">Klienci trafią prosto na czat po kliknięciu linku na stronie Kontakt</div>
+      </div>
+      <div class="f-row">
+        <label>Dodatkowa notatka</label>
+        <textarea id="s_note" rows="3" placeholder="np. przerwa świąteczna, info o wysyłce...">${esc(s.contact_note)}</textarea>
+      </div>
+      <button class="btn btn-primary" id="setSaveBtn" onclick="saveSettings()">💾 Zapisz</button>
+    </div>`;
+}
+
+async function saveSettings() {
+  const err = document.getElementById('setErr');
+  err.style.display = 'none';
+
+  const payload = {
+    phone: document.getElementById('s_phone').value.trim() || null,
+    email: document.getElementById('s_email').value.trim() || null,
+    address: document.getElementById('s_address').value.trim() || null,
+    working_hours: document.getElementById('s_hours').value.trim() || null,
+    facebook_url: document.getElementById('s_fb').value.trim() || null,
+    instagram_url: document.getElementById('s_ig').value.trim() || null,
+    whatsapp_number: document.getElementById('s_wa').value.trim() || null,
+    contact_note: document.getElementById('s_note').value.trim() || null,
+  };
+
+  const btn = document.getElementById('setSaveBtn');
+  btn.disabled = true; btn.textContent = 'Zapisywanie…';
+  try {
+    await Api.updateSettings(payload);
+    btn.textContent = '✅ Zapisano';
+    setTimeout(() => { btn.textContent = '💾 Zapisz'; btn.disabled = false; }, 1200);
+  } catch (e) {
+    err.textContent = e.message || 'Błąd zapisu ustawień.';
+    err.style.display = 'block';
+    btn.disabled = false; btn.textContent = '💾 Zapisz';
+  }
 }
 
 // ── Add/Edit modal ─────────────────────────────────────────────────────────

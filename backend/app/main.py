@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import health, auth, categories, products, uploads, orders, sellers
+from app.api.routes import health, auth, categories, products, uploads, orders, sellers, settings as settings_routes
 from app.core.config import settings
 
 app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
@@ -28,6 +28,7 @@ app.include_router(products.router, prefix=settings.API_V1_PREFIX)
 app.include_router(uploads.router, prefix=settings.API_V1_PREFIX)
 app.include_router(orders.router, prefix=settings.API_V1_PREFIX)
 app.include_router(sellers.router, prefix=settings.API_V1_PREFIX)
+app.include_router(settings_routes.router, prefix=settings.API_V1_PREFIX)
 
 # Static for uploaded product images
 # backend/uploads/products -> /uploads/products/*

@@ -55,6 +55,9 @@ const API = (()=>{
     createCategory:(d)=>req('/categories',{method:'POST',body:JSON.stringify(d)}),
     updateCategory:(id,d)=>req('/categories/'+id,{method:'PUT',body:JSON.stringify(d)}),
     deleteCategory:(id)=>req('/categories/'+id,{method:'DELETE'}),
+    // Site-wide contact info (Contact page + admin settings)
+    getSettings:()=>req('/settings'),
+    updateSettings:(d)=>req('/settings',{method:'PUT',body:JSON.stringify(d)}),
     img, base:API_BASE, raw:base
   };
 })();
