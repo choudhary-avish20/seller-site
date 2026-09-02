@@ -1,0 +1,14 @@
+[build]
+  # Netlify will serve the frontend folder as the site root
+  publish = "frontend"
+
+# No build command needed — it's plain HTML/CSS/JS
+
+# Optional: set security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
