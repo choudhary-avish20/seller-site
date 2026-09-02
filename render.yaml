@@ -1,0 +1,58 @@
+services:
+  - type: web
+    name: seller-site-backend
+    runtime: python
+    region: frankfurt  # closest to EU; change to "oregon" or "singapore" if needed
+    plan: free
+
+    # Render runs commands from the repo root unless rootDir is set
+    rootDir: backend
+
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start_prod.sh
+
+    # Health check — Render will restart the service if this returns non-200
+    healthCheckPath: /api/v1/health
+
+    envVars:
+      # ── Required: set these in the Render dashboard ──────────────────────
+      - key: SECRET_KEY
+        generateValue: true   # Render auto-generates a secure random value
+
+      - key: DATABASE_URL
+        value: sqlite:///./wholesale.db   # default; swap for Render Postgres URL if you add one
+
+      # ── App mode ─────────────────────────────────────────────────────────
+      - key: ENV
+        value: production
+      - key: DEBUG
+        value: "false"
+
+      # ── CORS: set to your actual Netlify URL after first deploy ──────────
+      # Example: https://your-site-name.netlify.app
+      - key: CORS_ORIGINS
+        value: '["https://your-site-name.netlify.app"]'
+
+      # ── Frontend URL (used in email verification links) ──────────────────
+      - key: FRONTEND_BASE_URL
+        value: https://your-site-name.netlify.app
+
+      # ── Token expiry (optional, defaults shown) ───────────────────────────
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "7"
+
+      # ── Email (optional — leave empty to use console logging) ─────────────
+      # - key: MAIL_USERNAME
+      #   value: you@gmail.com
+      # - key: MAIL_PASSWORD
+      #   sync: false   # set manually in Render dashboard, never commit
+      # - key: MAIL_FROM
+      #   value: noreply@yourdomain.com
+      # - key: MAIL_SERVER
+      #   value: smtp.gmail.com
+      # - key: MAIL_PORT
+      #   value: "587"
+      # - key: MAIL_TLS
+      #   value: "true"

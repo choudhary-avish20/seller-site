@@ -1,9 +1,14 @@
 const API = (()=>{
-  let base = localStorage.getItem('API_URL') || '';
+  // Priority order:
+  //  1. localStorage override (set manually in browser console for testing)
+  //  2. window.__API_URL__ injected by Netlify build via config.js
+  //  3. Same-origin /api/v1 (when backend serves the frontend directly, e.g. local dev or Render)
+  //  4. localhost fallback for file:// development
+  let base = localStorage.getItem('API_URL') || window.__API_URL__ || '';
   if(!base){
     if(location.protocol==='file:') base='http://localhost:8000/api/v1';
     else if(location.port==='8000' || location.port==='8002') base = location.origin + '/api/v1';
-    else base='http://localhost:8000/api/v1';
+    else base = location.origin + '/api/v1';
   }
   const API_BASE = base.replace(/\/api\/v1\/?$/,'');
   const getT=()=>({a:localStorage.getItem('access_token'),r:localStorage.getItem('refresh_token')});
