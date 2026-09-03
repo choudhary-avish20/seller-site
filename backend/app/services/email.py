@@ -56,6 +56,7 @@ class EmailService:
                 MAIL_SSL_TLS=settings.MAIL_SSL,
                 USE_CREDENTIALS=True,
                 VALIDATE_CERTS=True,
+                TIMEOUT=10,  # fail fast — surface errors instead of hanging
             )
             self.fastmail = FastMail(self.conf)
         else:
