@@ -86,7 +86,7 @@ document.getElementById('resendLink').addEventListener('click', async e => {
     // Use the stored token to call resend
     const tok = localStorage.getItem('access_token');
     if (!tok) { location.href = 'signup.html'; return; }
-    const base = localStorage.getItem('API_URL') || 'http://localhost:8000/api/v1';
+    const base = API.raw;
     const res = await fetch(base + '/auth/resend-verification', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok },
