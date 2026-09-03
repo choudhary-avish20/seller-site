@@ -49,21 +49,30 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def _send_verification_email_task(user_id: str, email: str, full_name: str) -> None:
     """Background task: opens its own DB session, creates the verification token,
     commits it, then sends the email. Runs after the HTTP response has been returned."""
+    import sys
+    print(f"[EMAIL TASK] Starting verification email task for user {user_id} → {email}", file=sys.stderr, flush=True)
     db = SessionLocal()
     try:
         from uuid import UUID
         from app.models.user import User as UserModel
         user = db.query(UserModel).filter(UserModel.id == UUID(user_id)).first()
         if not user:
+            print(f"[EMAIL TASK] ERROR: user {user_id} not found in DB", file=sys.stderr, flush=True)
             logger.error("Background email task: user %s not found", user_id)
             return
         raw_token = create_verification_token(db, user)
         db.commit()
-        await send_verification_email(email, full_name, raw_token)
+        print(f"[EMAIL TASK] Token created, calling send_verification_email for {email}", file=sys.stderr, flush=True)
+        result = await send_verification_email(email, full_name, raw_token)
+        print(f"[EMAIL TASK] send_verification_email returned: {result}", file=sys.stderr, flush=True)
     except Exception:
+        import traceback
+        print(f"[EMAIL TASK] EXCEPTION for user {user_id}:", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
         logger.exception("Background email task failed for user %s", user_id)
     finally:
         db.close()
+        print(f"[EMAIL TASK] Task finished for user {user_id}", file=sys.stderr, flush=True)
 
 
 @router.post(
