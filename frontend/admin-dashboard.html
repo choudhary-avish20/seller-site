@@ -1132,18 +1132,22 @@ function orderActionButtons(o) {
   const cancelBtn = (o.status !== 'delivered' && o.status !== 'cancelled')
     ? `<button class="btn btn-danger btn-sm" onclick="setOrderStatus('${o.id}','cancelled')">✕ Anuluj</button>`
     : '';
-  // Only a cancelled order can be permanently deleted — it carries zero revenue
-  // (already excluded from every stat) and its stock was already restored, so
-  // nothing of business record value is lost. Any order that ever actually
-  // happened stays undeletable to keep order history/analytics intact.
-  const deleteBtn = o.status === 'cancelled'
-    ? `<button class="btn btn-sm" style="color:#888" onclick="deleteOrderAction('${o.id}')">🗑 Usuń</button>`
+  // Only a terminal-state order (cancelled or delivered) can be permanently
+  // deleted — nothing still in progress, since that would mean losing track of
+  // an order a courier may still be handling.
+  const deleteBtn = (o.status === 'cancelled' || o.status === 'delivered')
+    ? `<button class="btn btn-sm" style="color:#888" onclick="deleteOrderAction('${o.id}','${o.status}')">🗑 Usuń</button>`
     : '';
   return nextBtn + cancelBtn + deleteBtn;
 }
 
-async function deleteOrderAction(id) {
-  if (!confirm('Trwale usunąć to anulowane zamówienie? Tej operacji nie można cofnąć.')) return;
+async function deleteOrderAction(id, orderStatus) {
+  // Deleting a delivered order removes a real completed-sale record, not just a
+  // cancelled/worthless one — so it gets its own, more explicit warning.
+  const msg = orderStatus === 'delivered'
+    ? 'To zamówienie zostało zrealizowane — usunięcie go trwale skasuje ten wpis sprzedaży ze statystyk i historii. Kontynuować?'
+    : 'Trwale usunąć to anulowane zamówienie? Tej operacji nie można cofnąć.';
+  if (!confirm(msg)) return;
   try {
     await Api.deleteOrder(id);
     orders = orders.filter(o => o.id !== id);
