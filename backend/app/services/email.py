@@ -59,6 +59,8 @@ class EmailService:
             )
             self.fastmail = FastMail(self.conf)
         else:
+            import sys
+            print("[EMAIL] MAIL_USERNAME is not set — running in CONSOLE MODE (no real emails sent)", file=sys.stderr, flush=True)
             logger.info("Email service: tryb konsolowy (MAIL_USERNAME nie ustawiony)")
 
     # ── Public methods ─────────────────────────────────────────────────────
