@@ -5,7 +5,9 @@ starlette==0.38.6
 uvicorn[standard]==0.30.6
 sqlalchemy==2.0.35
 alembic==1.13.2
-psycopg2-binary==2.9.9  # PostgreSQL driver for Neon / any Postgres instance
+psycopg2-binary==2.9.12  # PostgreSQL driver for Neon / any Postgres instance — 2.9.9 has no
+                          # prebuilt wheel for Python 3.13 and fails to compile from source
+                          # (references a removed CPython internal API); 2.9.10+ ships one.
 pydantic==2.9.2
 pydantic-settings==2.5.2
 python-jose[cryptography]==3.3.0
