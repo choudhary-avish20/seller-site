@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Moje zamówienia — WolkaGo</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/favicon-180.png">
+<link rel="stylesheet" href="css/style.css">
+<style>
+.order-card{background:#fff;border:1px solid #ddd;margin-bottom:12px}
+.order-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 14px;background:#f5f5f5;border-bottom:1px solid #ddd;font-size:12px}
+.order-body{padding:12px 14px}
+.order-item{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #f0f0f0}
+.order-item:last-child{border-bottom:0}
+.status-badge{font-size:11px;font-weight:bold;padding:2px 9px;border-radius:999px}
+.status-pending{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
+.status-confirmed{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+.status-shipped{background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc}
+.status-delivered{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+.status-cancelled{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="container">
+  <div>Skontaktuj się z nami: <b>+48 579 383 945</b></div>
+  <div style="display:flex;gap:12px;align-items:center"><a href="index.html">Sklep</a></div>
+</div></div>
+<div class="header"><div class="container">
+  <a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
+  <div style="flex:1"></div>
+  <a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b></a>
+</div></div>
+
+<div class="container" style="padding:16px 10px">
+  <h1 style="font-size:16px;margin:0 0 12px">Moje zamówienia</h1>
+  <div id="list"></div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+const STATUS_LABELS = {pending:'Oczekujące', confirmed:'Potwierdzone', shipped:'Wysłane', delivered:'Zrealizowane', cancelled:'Anulowane'};
+
+async function load(){
+  const tok = localStorage.getItem('access_token');
+  if(!tok){ location.href = 'login.html'; return; }
+
+  const list = document.getElementById('list');
+  list.innerHTML = '<p style="text-align:center;padding:20px;color:#888">Ładowanie…</p>';
+
+  let orders;
+  try { orders = await Api.listOrders(); }
+  catch(e){ list.innerHTML = `<p style="color:red;text-align:center;padding:20px">${esc(e.message)}</p>`; return; }
+
+  if(!orders.length){
+    list.innerHTML = '<p style="padding:20px;background:#fff;border:1px solid #ddd;text-align:center">Nie masz jeszcze żadnych zamówień — <a href="index.html" style="color:#06c">przeglądaj produkty</a></p>';
+    return;
+  }
+
+  orders.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at));
+
+  list.innerHTML = orders.map(o=>{
+    const d = new Date(o.created_at).toLocaleString('pl-PL', {dateStyle:'medium', timeStyle:'short'});
+    const items = (o.items||[]).map(it=>`
+      <div class="order-item">
+        <span>${esc(it.product_name_snapshot)} × ${it.pack_quantity} paczek</span>
+        <b>${(Number(it.price_gross_snapshot)*it.pack_quantity).toFixed(2)} zł</b>
+      </div>`).join('');
+    const canCancel = o.status === 'pending';
+    return `
+      <div class="order-card">
+        <div class="order-head">
+          <div>Nr <b style="font-family:monospace">${esc(o.id.split('-')[0].toUpperCase())}</b> • ${d}</div>
+          <span class="status-badge status-${esc(o.status)}">${STATUS_LABELS[o.status] || esc(o.status)}</span>
+        </div>
+        <div class="order-body">
+          ${items}
+          <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #eee;font-weight:bold">
+            <span>Razem brutto</span><span>${Number(o.total_gross).toFixed(2)} zł</span>
+          </div>
+          ${canCancel ? `<div style="margin-top:10px;text-align:right"><button onclick="cancelOrder('${o.id}')" style="font-size:11px;color:#c00;background:none;border:1px solid #fca5a5;padding:5px 10px;cursor:pointer">Anuluj zamówienie</button></div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function cancelOrder(id){
+  if(!confirm('Na pewno anulować to zamówienie?')) return;
+  try{
+    await Api.updateOrderStatus(id, 'cancelled');
+    load();
+  }catch(e){
+    alert('Nie udało się anulować zamówienia: '+e.message);
+  }
+}
+
+load();
+</script>
+</body>
+</html>

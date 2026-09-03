@@ -60,3 +60,16 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+if settings.ENV == "production":
+    # These two checks close the gap where the app silently boots in an insecure
+    # state if an operator forgets to override the dev defaults for a real deploy.
+    if settings.SECRET_KEY == "change-me-in-prod":
+        raise RuntimeError(
+            "Refusing to start: SECRET_KEY is still the default placeholder. "
+            "Set a real SECRET_KEY environment variable before running with ENV=production."
+        )
+    if settings.DEBUG:
+        raise RuntimeError(
+            "Refusing to start: DEBUG=true with ENV=production. Set DEBUG=false in production."
+        )

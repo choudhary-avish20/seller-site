@@ -23,6 +23,8 @@ const API = (()=>{
     if(res.status===204) return {}; const ct=res.headers.get('content-type')||''; if(ct.includes('text/html')) return res.text(); return res.json();
   }
   function img(u){ if(!u) return ''; if(u.startsWith('http')) return u; if(u.startsWith('/')) return API_BASE+u; return u; }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  window.esc = esc;
   return {
     getConfig:()=>req('/auth/config'),
     login:(e,p)=>req('/auth/login',{method:'POST',body:JSON.stringify({email:e,password:p})}).then(d=>{setT(d.access_token,d.refresh_token);return d}),
@@ -30,7 +32,7 @@ const API = (()=>{
     getMe:()=>req('/auth/me'),
     registerSeller:(d)=>req('/sellers/register',{method:'POST',body:JSON.stringify(d)}),
     getCategoryTree:(p={})=>req('/categories/tree'+(p.include_inactive?'?include_inactive=true':'')),
-    listProducts:(p={})=>{ const qs=new URLSearchParams(); if(p.search) qs.set('search',p.search); if(p.category_id) qs.set('category_id',p.category_id); if(p.limit) qs.set('limit',p.limit); if(p.include_inactive) qs.set('include_inactive','true'); const s=qs.toString()? '?'+qs.toString():''; return req('/products'+s); },
+    listProducts:(p={})=>{ const qs=new URLSearchParams(); if(p.search) qs.set('search',p.search); if(p.category_id) qs.set('category_id',p.category_id); if(p.limit) qs.set('limit',p.limit); if(p.include_inactive) qs.set('include_inactive','true'); if(p.bestseller) qs.set('bestseller','true'); if(p.popular) qs.set('popular','true'); if(p.on_sale) qs.set('on_sale','true'); if(p.sort) qs.set('sort',p.sort); const s=qs.toString()? '?'+qs.toString():''; return req('/products'+s); },
     getProductBySlug:(s)=>req('/products/slug/'+s),
     getCategoryBySlug:(s)=>req('/categories/by-slug/'+s),
     createOrder:(d)=>req('/orders',{method:'POST',body:JSON.stringify(d)}),
@@ -76,7 +78,7 @@ const I18N={
 };
 let lang=localStorage.getItem('lang')||(navigator.language.startsWith('pl')?'pl':'pl');
 function t(k){return (I18N[lang]&&I18N[lang][k])||I18N.pl[k]||k}
-function setLang(l){lang=l;localStorage.setItem('lang',l);applyLang(); renderHeaderCart();}
+function setLang(l){lang=l;localStorage.setItem('lang',l);applyLang(); updateCartUI();}
 function applyLang(){ document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n'); if(k&&I18N[lang][k]) e.textContent=I18N[lang][k]}); document.querySelectorAll('[data-i18n-ph]').forEach(e=>{const k=e.getAttribute('data-i18n-ph'); if(k&&I18N[lang][k]) e.placeholder=I18N[lang][k]}); }
 document.addEventListener('DOMContentLoaded',()=>{ document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLang(b.dataset.lang))); applyLang(); });
 
@@ -98,19 +100,27 @@ const Cart={
   remove(id,varId){ this.save(this.get().filter(x=> !(x.product.id===id && (x.variantId||null)===(varId||null))))},
   clear(){ this.save([])},
   count(){return this.get().reduce((s,i)=>s+i.packQuantity,0)},
+  // Single source of truth for a cart line's unit price — used by totals() here,
+  // and by cart.html/checkout.html so all three never disagree on what a line costs.
+  // variantPriceNet is reserved for a genuine SKU variant price override; when unset,
+  // price is always recomputed live from the product's sale/tier data at current quantity.
+  linePrice(it){
+    const base=(it.product.is_on_sale && it.product.sale_price_net!=null)?it.product.sale_price_net:it.product.price_net;
+    let n=it.variantPriceNet!=null?it.variantPriceNet:base;
+    const tiers=it.product.price_tiers||[];
+    if(!it.variantPriceNet && tiers.length){
+      const s=[...tiers].sort((a,b)=>a.min_quantity-b.min_quantity);
+      for(const tr of s){ const mx=tr.max_quantity??Infinity; if(it.packQuantity>=tr.min_quantity && it.packQuantity<=mx){ n=tr.price_net; break;}}
+      if(it.packQuantity> s[s.length-1].min_quantity && !s.some(tr=> it.packQuantity>=tr.min_quantity && it.packQuantity<=(tr.max_quantity??Infinity))) n=s[s.length-1].price_net;
+    }
+    const vat=it.product.vat_rate||23;
+    const g=+(n*(1+vat/100)).toFixed(2);
+    return {net:n, gross:g};
+  },
   totals(){
     let net=0,gross=0;
     this.get().forEach(it=>{
-      let n=it.variantPriceNet!=null?it.variantPriceNet:it.product.price_net;
-      // tiered
-      const tiers=it.product.price_tiers||[];
-      if(!it.variantPriceNet && tiers.length){
-        const s=[...tiers].sort((a,b)=>a.min_quantity-b.min_quantity);
-        for(const tr of s){ const mx=tr.max_quantity??Infinity; if(it.packQuantity>=tr.min_quantity && it.packQuantity<=mx){ n=tr.price_net; break;}}
-        if(it.packQuantity> s[s.length-1].min_quantity && !s.some(tr=> it.packQuantity>=tr.min_quantity && it.packQuantity<=(tr.max_quantity??Infinity))) n=s[s.length-1].price_net;
-      }
-      const vat=it.product.vat_rate||23;
-      const g=+(n*(1+vat/100)).toFixed(2);
+      const {net:n,gross:g}=this.linePrice(it);
       net+=n*it.packQuantity; gross+=g*it.packQuantity;
     });
     return {net,gross}

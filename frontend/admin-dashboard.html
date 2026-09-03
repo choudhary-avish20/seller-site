@@ -83,6 +83,13 @@ tr:hover td{background:#fafafa}
 .req{color:#c00}
 .form-err{display:none;background:#fef2f2;border:1px solid #fecaca;color:#c00;padding:7px 10px;margin-bottom:10px;font-size:12px}
 
+/* ── Sale price live preview ── */
+.sale-preview{display:flex;align-items:center;gap:10px;background:#fff7f7;border:1px solid #fecaca;padding:10px 12px;margin:2px 0 12px;font-size:13px}
+.sale-preview .sp-old{color:#888;text-decoration:line-through}
+.sale-preview .sp-new{color:#c00;font-weight:bold;font-size:15px}
+.sale-preview .sp-pct{background:#c00;color:#fff;font-weight:bold;font-size:11px;padding:2px 7px;border-radius:2px;white-space:nowrap}
+.sale-preview .sp-err{color:#c00;font-size:12px}
+
 /* ── Image upload ── */
 .img-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .img-thumb{position:relative;width:70px;height:70px;border:1px solid #ddd}
@@ -109,6 +116,22 @@ tr:hover td{background:#fafafa}
 .alert-warn{background:#fef9c3;border-color:#fde047;color:#854d0e}
 .alert-info{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
 #fileInput{display:none}
+
+/* ── Responsive: stack sidebar above content, scroll nav horizontally ── */
+@media(max-width:860px){
+  .dash-wrap{flex-direction:column;min-height:0}
+  .dash-sidebar{width:100%;display:flex;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .dash-sidebar .logo-area{border-bottom:0;border-right:1px solid #444;flex-shrink:0}
+  .nav-item{border-left:0;border-bottom:3px solid transparent;white-space:nowrap;flex-shrink:0}
+  .nav-item.active{border-left-color:transparent;border-bottom-color:#0099cc}
+  .sidebar-footer{position:static;width:auto;margin-top:0;border-top:0;border-left:1px solid #444;padding:0 10px;flex-shrink:0}
+  .dash-main{padding:14px}
+  .stat-card{min-width:110px}
+  .modal-bg.open{padding:0}
+  .modal{max-width:100%;min-height:100vh}
+  .f-cols{flex-direction:column}
+  .f-cols .f-row{min-width:0}
+}
 </style>
 </head>
 <body>
@@ -129,9 +152,10 @@ tr:hover td{background:#fafafa}
     <div class="nav-item active" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
     <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
     <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia</div>
+    <div class="nav-item" data-view="sellers" onclick="switchView('sellers')"><span class="icon">🧑‍💼</span> Sprzedawcy</div>
     <div class="nav-item" data-view="contact" onclick="switchView('contact')"><span class="icon">📇</span> Dane kontaktowe</div>
     <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙</span> Ustawienia</div>
-    <div style="border-top:1px solid #444;margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px">
+    <div class="sidebar-footer" style="border-top:1px solid #444;margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px">
       <div class="nav-item" onclick="doLogout()"><span class="icon">🚪</span> Wyloguj</div>
     </div>
   </div>
@@ -181,7 +205,7 @@ tr:hover td{background:#fafafa}
       <div class="f-cols">
         <div class="f-row">
           <label>Cena netto (zł) <span class="req">*</span></label>
-          <input id="f_price_net" type="number" step="0.01" min="0" placeholder="0.00">
+          <input id="f_price_net" type="number" step="0.01" min="0" placeholder="0.00" oninput="updateSalePreview()">
         </div>
         <div class="f-row">
           <label>Stawka VAT (%)</label>
@@ -242,6 +266,38 @@ tr:hover td{background:#fafafa}
           <label>Nr lady/stoiska</label>
           <input id="f_counter" placeholder="np. Lada 12">
         </div>
+      </div>
+
+      <div class="f-section">Oznaczenia na stronie głównej</div>
+      <div class="hint" style="margin-bottom:8px">Steruje zakładkami na stronie głównej: POPULAR, BESTSELLERS, PROMOTIONS.</div>
+      <div class="f-cols">
+        <div class="f-row" style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="f_bestseller" style="width:auto">
+          <label style="margin:0;display:inline">🏆 Bestseller</label>
+        </div>
+        <div class="f-row" style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="f_popular" style="width:auto">
+          <label style="margin:0;display:inline">🔥 Popularny (Popular)</label>
+        </div>
+        <div class="f-row" style="display:flex;align-items:center;gap:6px">
+          <input type="checkbox" id="f_on_sale" onchange="onSaleToggle()" style="width:auto">
+          <label style="margin:0;display:inline">🏷️ Promocja / Wyprzedaż</label>
+        </div>
+      </div>
+      <div id="saleFields" style="display:none">
+        <div class="f-cols">
+          <div class="f-row">
+            <label>Cena promocyjna netto (zł)</label>
+            <input id="f_sale_price" type="number" step="0.01" min="0" placeholder="np. 16.50" oninput="onSalePriceInput()">
+            <div class="hint">Cena "po" — musi być niższa niż cena regularna</div>
+          </div>
+          <div class="f-row">
+            <label>lub Rabat (%)</label>
+            <input id="f_sale_percent" type="number" step="1" min="1" max="99" placeholder="np. 25" oninput="onSalePercentInput()">
+            <div class="hint">Wpisz jedno z pól — drugie przeliczy się automatycznie</div>
+          </div>
+        </div>
+        <div id="salePreview" class="sale-preview"></div>
       </div>
 
       <div class="f-section">Progi cenowe (opcjonalne)</div>
@@ -314,6 +370,7 @@ let orders = [];
 let editingProductId = null;
 let pendingImages = []; // {url, file?, uploading?}
 let currentView = 'products';
+let currentUser = null;
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -324,8 +381,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   try { user = await Api.getMe(); } catch { location.href = 'login.html'; return; }
   if (user.role !== 'admin' && user.role !== 'seller') { location.href = 'index.html'; return; }
 
+  currentUser = user;
   localStorage.setItem('user', JSON.stringify(user));
   document.getElementById('topUser').textContent = user.full_name;
+
+  // Seller approval is an admin-only action server-side — hide the nav item for sellers
+  // rather than let them click into it and hit a 403.
+  if (user.role !== 'admin') {
+    const navItem = document.querySelector('[data-view="sellers"]');
+    if (navItem) navItem.style.display = 'none';
+  }
 
   categories = await Api.getCategoryTree({include_inactive:true}).catch(() => []);
 
@@ -341,6 +406,7 @@ function switchView(view) {
   if (view === 'products') renderProductsView();
   else if (view === 'categories') renderCategoriesView();
   else if (view === 'orders') renderOrdersView();
+  else if (view === 'sellers') renderSellersView();
   else if (view === 'contact') renderContactSettingsView();
   else if (view === 'settings') renderSettingsView();
 }
@@ -449,9 +515,16 @@ function filterProducts() {
         <td>
           <div style="font-weight:bold">${esc(p.name)}</div>
           <div style="font-size:11px;color:#888">${esc(p.slug)}</div>
+          <div style="margin-top:3px;display:flex;gap:4px;flex-wrap:wrap">
+            ${p.is_bestseller ? `<span class="badge" style="background:#fef3c7;color:#92400e">🏆 Bestseller</span>` : ''}
+            ${p.is_popular ? `<span class="badge" style="background:#dbeafe;color:#1e40af">🔥 Popular</span>` : ''}
+            ${p.is_on_sale ? `<span class="badge" style="background:#fee2e2;color:#991b1b">🏷️ Sale${p.discount_percent!=null ? ' -'+p.discount_percent+'%' : ''}</span>` : ''}
+          </div>
         </td>
         <td style="font-size:11px">${esc(p.category_name || '—')}</td>
-        <td><b>${fmtPrice(p.price_net)}</b> zł<br><span style="font-size:10px;color:#888">${fmtPrice(p.price_gross)} zł brutto</span></td>
+        <td>${p.is_on_sale && p.sale_price_net!=null
+          ? `<span style="color:#999;text-decoration:line-through;font-size:11px">${fmtPrice(p.price_net)} zł</span><br><b style="color:#c00">${fmtPrice(p.sale_price_net)}</b> zł`
+          : `<b>${fmtPrice(p.price_net)}</b> zł`}<br><span style="font-size:10px;color:#888">${fmtPrice(p.price_gross)} zł brutto</span></td>
         <td>${stockBadge}</td>
         <td>${activeBadge}</td>
         <td>
@@ -800,14 +873,7 @@ function renderOrderRows() {
         <td>${fmtPrice(o.total_gross)} zł</td>
         <td>${statusBadge}</td>
         <td onclick="event.stopPropagation()">
-          <div class="actions">
-            ${o.status !== 'delivered' && o.status !== 'cancelled'
-              ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.id}','delivered')">✅ Zrealizowane</button>`
-              : ''}
-            ${o.status !== 'cancelled' && o.status !== 'delivered'
-              ? `<button class="btn btn-danger btn-sm" onclick="setOrderStatus('${o.id}','cancelled')">✕ Anuluj</button>`
-              : ''}
-          </div>
+          <div class="actions">${orderActionButtons(o)}</div>
         </td>
       </tr>
       <tr id="detail-${o.id}" style="display:none">
@@ -898,12 +964,7 @@ function renderOrderRows() {
 
               <div style="margin-top:12px;display:flex;gap:8px;align-items:center;justify-content:flex-end">
                 <span style="font-size:11px;color:#888">Nr zamówienia: <code>${esc(o.id)}</code></span>
-                ${o.status !== 'delivered' && o.status !== 'cancelled'
-                  ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.id}','delivered')">✅ Zrealizowane</button>`
-                  : ''}
-                ${o.status !== 'cancelled' && o.status !== 'delivered'
-                  ? `<button class="btn btn-danger btn-sm" onclick="setOrderStatus('${o.id}','cancelled')">✕ Anuluj</button>`
-                  : ''}
+                ${orderActionButtons(o)}
               </div>
             </div>
 
@@ -911,6 +972,17 @@ function renderOrderRows() {
         </td>
       </tr>`;
   }).join('');
+}
+
+// Linear fulfillment flow: pending → confirmed → shipped → delivered, with cancel
+// available at any point before delivered/cancelled (both terminal).
+function orderActionButtons(o) {
+  const next = { pending: ['confirmed', '🔄 Potwierdź'], confirmed: ['shipped', '🚚 Wyślij'], shipped: ['delivered', '✅ Zrealizowane'] }[o.status];
+  const nextBtn = next ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.id}','${next[0]}')">${next[1]}</button>` : '';
+  const cancelBtn = (o.status !== 'delivered' && o.status !== 'cancelled')
+    ? `<button class="btn btn-danger btn-sm" onclick="setOrderStatus('${o.id}','cancelled')">✕ Anuluj</button>`
+    : '';
+  return nextBtn + cancelBtn;
 }
 
 function toggleOrderDetail(id) {
@@ -923,10 +995,14 @@ function toggleOrderDetail(id) {
 }
 
 async function setOrderStatus(id, newStatus) {
-  const labels = { delivered: 'Zrealizowane', cancelled: 'Anulowane' };
-  const confirmMsg = newStatus === 'delivered'
-    ? 'Oznaczyć zamówienie jako zrealizowane?'
-    : 'Anulować to zamówienie? Operacja jest nieodwracalna.';
+  const labels = { confirmed: 'Potwierdzone', shipped: 'Wysłane', delivered: 'Zrealizowane', cancelled: 'Anulowane' };
+  const confirmMsgs = {
+    confirmed: 'Potwierdzić to zamówienie?',
+    shipped: 'Oznaczyć zamówienie jako wysłane?',
+    delivered: 'Oznaczyć zamówienie jako zrealizowane?',
+    cancelled: 'Anulować to zamówienie? Operacja jest nieodwracalna.',
+  };
+  const confirmMsg = confirmMsgs[newStatus] || `Zmienić status na "${labels[newStatus] || newStatus}"?`;
 
   const confirmDiv = document.getElementById('confirmMsg');
   confirmDiv.textContent = confirmMsg;
@@ -955,6 +1031,77 @@ async function setOrderStatus(id, newStatus) {
     }
   };
   document.getElementById('confirmModal').classList.add('open');
+}
+
+// ── Sellers view (admin approval of pending seller registrations) ─────────────
+async function renderSellersView() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<div class="empty">Ładowanie sprzedawców…</div>';
+  let pending;
+  try { pending = await Api.getPendingSellers(); }
+  catch (e) { main.innerHTML = `<div class="alert alert-warn">Błąd: ${e.message}</div>`; return; }
+
+  main.innerHTML = `
+    <div class="page-title">🧑‍💼 Sprzedawcy oczekujący na akceptację</div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="val">${pending.length}</div><div class="lbl">Oczekujący</div></div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Firma</th>
+            <th>Osoba kontaktowa</th>
+            <th>E-mail</th>
+            <th>Data zgłoszenia</th>
+            <th>Akcje</th>
+          </tr>
+        </thead>
+        <tbody id="sellersTbody"></tbody>
+      </table>
+    </div>`;
+
+  const tbody = document.getElementById('sellersTbody');
+  if (!pending.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty">Brak oczekujących zgłoszeń</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = pending.map(s => {
+    const d = new Date(s.created_at).toLocaleString('pl-PL', {dateStyle:'short', timeStyle:'short'});
+    return `
+      <tr>
+        <td><b>${esc(s.business_name)}</b></td>
+        <td>${esc(s.full_name)}</td>
+        <td><a href="mailto:${esc(s.email)}" style="color:#0099cc">${esc(s.email)}</a></td>
+        <td style="font-size:11px;color:#888">${d}</td>
+        <td>
+          <div class="actions">
+            <button class="btn btn-primary btn-sm" onclick="approveSellerAction('${s.id}')">✅ Zatwierdź</button>
+            <button class="btn btn-danger btn-sm" onclick="rejectSellerAction('${s.id}')">✕ Odrzuć</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+async function approveSellerAction(id) {
+  try {
+    await Api.approveSeller(id, { status: 'approved' });
+    renderSellersView();
+  } catch (e) {
+    alert('Błąd zatwierdzania: ' + e.message);
+  }
+}
+
+async function rejectSellerAction(id) {
+  const reason = prompt('Podaj powód odrzucenia zgłoszenia:');
+  if (!reason) return; // cancelled or left empty — backend requires a non-empty reason
+  try {
+    await Api.approveSeller(id, { status: 'rejected', rejection_reason: reason });
+    renderSellersView();
+  } catch (e) {
+    alert('Błąd odrzucania: ' + e.message);
+  }
 }
 
 // ── Contact settings view (public Contact page data) ──────────────────────────
@@ -1080,6 +1227,13 @@ async function openEditModal(id) {
   document.getElementById('f_cost').value = prod.cost_price ?? '';
   document.getElementById('f_stall').value = prod.stall_location || '';
   document.getElementById('f_counter').value = prod.counter_number || '';
+  document.getElementById('f_bestseller').checked = !!prod.is_bestseller;
+  document.getElementById('f_popular').checked = !!prod.is_popular;
+  document.getElementById('f_on_sale').checked = !!prod.is_on_sale;
+  document.getElementById('f_sale_price').value = prod.sale_price_net ?? '';
+  document.getElementById('f_sale_percent').value = prod.discount_percent ?? '';
+  document.getElementById('saleFields').style.display = prod.is_on_sale ? 'block' : 'none';
+  updateSalePreview();
 
   // set category
   const catSel = document.getElementById('f_category');
@@ -1111,8 +1265,78 @@ function clearModalForm() {
   document.getElementById('f_stock_qty').value = '0';
   document.getElementById('f_stock_status').value = 'in_stock';
   document.getElementById('f_active').value = 'true';
+  document.getElementById('f_bestseller').checked = false;
+  document.getElementById('f_popular').checked = false;
+  document.getElementById('f_on_sale').checked = false;
+  document.getElementById('f_sale_price').value = '';
+  document.getElementById('f_sale_percent').value = '';
+  document.getElementById('saleFields').style.display = 'none';
+  document.getElementById('salePreview').innerHTML = '';
   document.getElementById('tiersList').innerHTML = '';
   document.getElementById('modalErr').style.display = 'none';
+}
+
+// ── Sale pricing: bidirectional price↔percent calculator + live preview ────
+function onSaleToggle() {
+  const on = document.getElementById('f_on_sale').checked;
+  document.getElementById('saleFields').style.display = on ? 'block' : 'none';
+  updateSalePreview();
+}
+
+function onSalePriceInput() {
+  const price = parseFloat(document.getElementById('f_price_net').value);
+  const sale = parseFloat(document.getElementById('f_sale_price').value);
+  const pctEl = document.getElementById('f_sale_percent');
+  if (!isNaN(price) && price > 0 && !isNaN(sale)) {
+    pctEl.value = Math.round((1 - sale / price) * 100);
+  } else {
+    pctEl.value = '';
+  }
+  updateSalePreview();
+}
+
+function onSalePercentInput() {
+  const price = parseFloat(document.getElementById('f_price_net').value);
+  const pct = parseFloat(document.getElementById('f_sale_percent').value);
+  const saleEl = document.getElementById('f_sale_price');
+  if (!isNaN(price) && price > 0 && !isNaN(pct)) {
+    saleEl.value = (price * (1 - pct / 100)).toFixed(2);
+  } else {
+    saleEl.value = '';
+  }
+  updateSalePreview();
+}
+
+function updateSalePreview() {
+  const preview = document.getElementById('salePreview');
+  if (!preview) return;
+  const on = document.getElementById('f_on_sale').checked;
+  if (!on) { preview.innerHTML = ''; return; }
+
+  const price = parseFloat(document.getElementById('f_price_net').value);
+  const sale = parseFloat(document.getElementById('f_sale_price').value);
+  const vat = parseFloat(document.getElementById('f_vat').value) || 0;
+
+  if (isNaN(price) || price <= 0) {
+    preview.innerHTML = `<span class="sp-err">⚠ Podaj najpierw cenę netto produktu.</span>`;
+    return;
+  }
+  if (isNaN(sale)) {
+    preview.innerHTML = `<span class="sp-err">⚠ Podaj cenę promocyjną lub rabat %.</span>`;
+    return;
+  }
+  if (sale >= price) {
+    preview.innerHTML = `<span class="sp-err">⚠ Cena promocyjna musi być niższa niż cena regularna (${fmtPrice(price)} zł).</span>`;
+    return;
+  }
+  const pct = Math.round((1 - sale / price) * 100);
+  const saleGross = sale * (1 + vat / 100);
+  const priceGross = price * (1 + vat / 100);
+  preview.innerHTML = `
+    <span class="sp-pct">-${pct}%</span>
+    <span>Klient zobaczy: <span class="sp-old">${fmtPrice(price)} zł netto</span> → <span class="sp-new">${fmtPrice(sale)} zł netto</span></span>
+    <span style="color:#888;font-size:11px">(brutto: <s>${fmtPrice(priceGross)} zł</s> → ${fmtPrice(saleGross)} zł)</span>
+  `;
 }
 
 function populateCategorySelect() {
@@ -1213,6 +1437,14 @@ async function saveProduct() {
   if (!category_id) { showModalErr('Wybierz kategorię.'); return; }
   if (isNaN(price_net) || price_net < 0) { showModalErr('Podaj prawidłową cenę netto.'); return; }
 
+  const onSale = document.getElementById('f_on_sale').checked;
+  const salePriceVal = document.getElementById('f_sale_price').value;
+  const salePriceNet = salePriceVal ? parseFloat(salePriceVal) : null;
+  if (onSale) {
+    if (salePriceNet == null || isNaN(salePriceNet)) { showModalErr('Podaj cenę promocyjną lub rabat %.'); return; }
+    if (salePriceNet >= price_net) { showModalErr('Cena promocyjna musi być niższa niż cena regularna netto.'); return; }
+  }
+
   const slugVal = document.getElementById('f_slug').value.trim();
   const grossVal = document.getElementById('f_price_gross').value;
   const costVal = document.getElementById('f_cost').value;
@@ -1236,6 +1468,10 @@ async function saveProduct() {
     cost_price: costVal ? parseFloat(costVal) : null,
     stall_location: document.getElementById('f_stall').value.trim() || null,
     counter_number: document.getElementById('f_counter').value.trim() || null,
+    is_bestseller: document.getElementById('f_bestseller').checked,
+    is_popular: document.getElementById('f_popular').checked,
+    is_on_sale: onSale,
+    sale_price_net: onSale ? salePriceNet : null,
     price_tiers: tiers,
     variants: [],
   };

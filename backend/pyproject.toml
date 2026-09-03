@@ -5,3 +5,9 @@ exclude = ["alembic/versions"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+# Root-level test_*.py files here are manual demo scripts that hit a live server/DB,
+# not part of the automated suite — restrict collection to tests/ so a bare `pytest`
+# run doesn't try to execute them.
+testpaths = ["tests"]

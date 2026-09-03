@@ -1,110 +1,66 @@
-# Wholesale Marketplace — Project Roadmap
+# WolkaGo — Project Roadmap
 
-**Goal:** A simple, clean, slightly modern B2B retailer/wholesaler platform (inspired by centrumhurt.pl) with a seller panel for managing categories, sub-categories, and products.
+**Goal:** A simple, clean, slightly modern B2B retailer/wholesaler platform (inspired by centrumhurt.pl) with an admin/seller panel for managing categories, sub-categories, and products.
 
 **Design philosophy:** Keep scope lean. No unnecessary bells and whistles — clear catalog, easy browsing, functional seller tools, simple checkout. Modern UI (clean typography, whitespace, responsive), not a feature-bloated marketplace.
 
----
+**Actual stack (as built — supersedes any earlier planning docs):** FastAPI + SQLAlchemy/Alembic backend, SQLite by default (Postgres supported via `DATABASE_URL`, no Docker/Redis required). Plain HTML/CSS/vanilla JS frontend served directly by FastAPI — no Next.js, no build step. Payment is COD-only by design (no payment gateway is planned or needed).
 
-## Phase 0 — Foundations (Week 1)
-
-- [ ] Finalize tech stack: FastAPI + PostgreSQL + SQLAlchemy/Alembic (backend), Next.js + Tailwind (frontend)
-- [ ] Set up repo structure (monorepo or separate backend/frontend repos)
-- [ ] Set up local dev environment (Docker Compose: API + Postgres + optional Redis)
-- [ ] Define core DB schema v1: users, sellers, categories, products, product_variants, orders, order_items
-- [ ] Set up basic CI (lint + test on push)
-
-**Deliverable:** Empty but running FastAPI app + Postgres, connected Next.js shell, schema migrated.
+**Scope decision:** this is a single-store site. "Seller" and "admin" are both staff roles managing one shared catalog, not independent vendors in a multi-tenant marketplace — there is no per-seller storefront, order splitting, or payout logic, and none is planned. Products have no owner field; any seller/admin account can manage the full catalog.
 
 ---
 
-## Phase 1 — Auth & Roles (Week 1–2)
+## Phase 0 — Foundations ✅ done
+- [x] Tech stack finalized (see above)
+- [x] Repo structure (backend/frontend in one repo)
+- [x] Local dev environment (`./start.sh`, no Docker needed)
+- [x] Core DB schema + Alembic migrations (users, sellers, categories, products, variants, price tiers, orders, order items, site settings, email verification tokens)
+- [ ] CI (lint + test on push) — not set up
 
-- [ ] User model with roles: `buyer`, `seller`, `admin`
-- [ ] JWT-based auth (signup, login, refresh token)
-- [ ] Seller registration flow (business info, pending approval by admin)
-- [ ] Basic admin approval screen (approve/reject sellers)
-- [ ] Role-gated routing on frontend (buyer view vs seller panel vs admin)
+## Phase 1 — Auth & Roles ✅ mostly done
+- [x] User model with roles: buyer, seller, admin
+- [x] JWT auth (signup, login, refresh, email verification)
+- [x] Seller registration flow (business info, pending approval)
+- [x] Role-gated API routes (buyer vs seller/admin enforced server-side)
+- [ ] Admin approval screen in the UI — the backend endpoints exist (`/sellers/pending`, `/sellers/{id}/approve`) but there's no admin-dashboard view wired to them yet
 
-**Deliverable:** Users can sign up as buyer or seller; sellers need admin approval before listing products.
+## Phase 2 — Category System ✅ mostly done
+- [x] Self-referencing category tree, admin CRUD
+- [x] Category tree API
+- [ ] Seller "request new category" flow — schemas exist (`CategoryRequestCreate/Response/Decision`) but there's no backing model, table, or route; this is unused/dead code, not a shipped feature
 
----
+## Phase 3 — Product Catalog & Seller Panel ✅ mostly done
+- [x] Product model: name, description, images, category, pack size, tiered pricing, VAT, variants, stock
+- [x] Admin/seller panel: product list, add/edit form, archive, stock toggle, image upload
+- [x] Merchandising badges (bestseller/popular/on-sale) and sale pricing
+- [ ] Per-seller product ownership — intentionally out of scope per the single-store decision above
 
-## Phase 2 — Category System (Week 2)
+## Phase 4 — Storefront ✅ mostly done
+- [x] Homepage with category sidebar, tabs (new/popular/frequent/bestseller/sale)
+- [x] Product detail page with tiered pricing, variants, recommendations
+- [x] Cart (pack-quantity based) and COD checkout
+- [ ] Search — the search box submits to `search.html`, which doesn't exist yet
+- [ ] Pagination / price-range filtering — backend supports `page`/`limit`, frontend doesn't use them yet
 
-- [ ] Category model (self-referencing `parent_id`, supports nesting)
-- [ ] Admin CRUD for top-level categories (keep taxonomy centrally controlled — sellers pick from existing tree)
-- [ ] Seller-facing "request new category/subcategory" flow → admin approves → added to tree
-- [ ] Category tree API (fetch full tree, fetch by path/slug)
+## Phase 5 — Orders & Notifications ✅ mostly done
+- [x] Order model with status (pending/confirmed/shipped/delivered/cancelled)
+- [x] Email notifications: order confirmation, status change, product-archived notice
+- [x] Stock decrement on order, restored on cancellation
+- [ ] Admin order-status controls only cover delivered/cancelled in the UI — confirmed/shipped need buttons too
+- [ ] Buyer-facing order history page — the API already scopes `GET /orders` to the buyer's own orders, just no page uses it yet
 
-**Deliverable:** Admin can manage a nested category tree; sellers can request additions.
-
----
-
-## Phase 3 — Product Catalog & Seller Panel (Week 3–4)
-
-- [ ] Product model: name, description, images, category, seller, pack_size, price (net/gross), stock
-- [ ] Product variants (size/color) as a linked table
-- [ ] Seller panel UI:
-  - [ ] Product list (own products only)
-  - [ ] Add/edit product form (pick category → subcategory, set pack size & price, upload images)
-  - [ ] Delete/archive product
-  - [ ] Simple stock toggle (in stock / out of stock)
-- [ ] Image upload (S3-compatible storage or local disk for MVP)
-
-**Deliverable:** A seller can log in, request/pick a category, and list a product with pack pricing and images.
-
----
-
-## Phase 4 — Storefront (Week 4–5)
-
-- [ ] Homepage: featured/new categories, new arrivals
-- [ ] Category browsing page (with subcategory sidebar, like the reference site)
-- [ ] Product listing grid (pack size + net/gross price shown clearly)
-- [ ] Product detail page
-- [ ] Simple search (by name/category, Postgres full-text to start)
-- [ ] Cart (pack-quantity based, not single units)
-- [ ] Checkout flow (basic — no payment gateway yet, or COD/manual invoice to start)
-
-**Deliverable:** A buyer can browse categories, search, add packs to cart, and place an order.
+## Phase 6 — Polish & Launch Prep — not started
+- [ ] Responsive pass on the admin dashboard (currently desktop-only)
+- [ ] Static pages: FAQ, Shipping costs, Terms are still dead `#` links; Contact page is done
+- [ ] Basic SEO (meta tags, sitemap)
+- [ ] Production deployment (`start.sh` is dev-only: single-process `uvicorn --reload`, no process manager/HTTPS/CI)
 
 ---
 
-## Phase 5 — Orders & Notifications (Week 5–6)
-
-- [ ] Order model: buyer, seller(s), line items, status (pending/confirmed/shipped/delivered/cancelled)
-- [ ] Seller order dashboard (view incoming orders, update status)
-- [ ] Buyer order history page
-- [ ] Email notifications on order placed/status change (basic transactional email)
-
-**Deliverable:** Full order lifecycle from cart → placed → seller fulfills → buyer sees status.
-
----
-
-## Phase 6 — Polish & Launch Prep (Week 6–7)
-
-- [ ] Responsive design pass (mobile-friendly storefront + seller panel)
-- [ ] Basic analytics for sellers (views, orders, revenue — simple counts, no fancy charts)
-- [ ] Static pages (About, Shipping/Terms, FAQ, Contact)
-- [ ] Error handling, form validation, loading states across app
-- [ ] Basic SEO (meta tags, sitemap, clean URLs)
-- [ ] Deploy (backend + DB + frontend)
-
-**Deliverable:** MVP ready for real sellers/buyers to use.
-
----
-
-## Post-MVP / Future (not in initial scope)
-
+## Post-MVP / Future (not in scope)
 - Bulk product import via CSV/Excel
-- Payment gateway integration
 - Advanced search (Meilisearch/Typesense) once catalog grows
 - Multi-image galleries, product reviews
-- Promotions/discount codes
-- Multi-language support
-
----
-
-## Immediate Next Step
-
-Start **Phase 0**: scaffold the FastAPI backend + Postgres schema, and the Next.js frontend shell. We can begin with the DB schema (tables/columns in detail) and the FastAPI project structure.
+- Promotions/discount codes beyond the current sale-price/tier system
+- Multi-language support beyond the current PL/EN toggle
+- Payment gateway integration — explicitly not wanted; COD-only is the intended design

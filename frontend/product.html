@@ -14,20 +14,25 @@
 <a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b></a></div></div>
 
 <div class="container">
-<div class="breadcrumb" id="crumb"><a href="index.html">⌂</a><a href="categories.html">HAIR ACCESSORIES</a><a href="categories.html">HAIR BANDS</a><span class="current" id="crumb-current">Hairbands 8752</span></div>
+<div class="breadcrumb" id="crumb"><a href="index.html">⌂</a><a href="index.html" id="crumb-cat" style="display:none"></a><span class="current" id="crumb-current"></span></div>
 <div class="layout">
 <aside class="sidebar"><div class="sidebar-head">HAIR BANDS</div><div class="cat-list" id="catList"></div></aside>
 <main class="main">
 <div class="detail">
   <div class="detail-img" id="imgBox" style="cursor:zoom-in">
-    <div class="ribbon" style="left:-28px">NEW</div>
+    <div class="ribbon" style="left:-28px" id="detailRibbon">NEW</div>
     <img id="mainImg" src="" alt="" style="min-height:260px">
   </div>
+  <div id="thumbRow" style="display:flex;gap:6px;margin-top:6px"></div>
   <div class="detail-info" id="info"></div>
 </div>
 <div style="margin-top:14px;border:1px solid #ddd;background:#fff">
   <div style="padding:8px 10px;background:#f5f5f5;font-weight:bold;border-bottom:1px solid #ddd">MORE INFORMATION</div>
-  <div id="more" style="padding:10px;font-size:12px;color:#555"></div>
+  <div id="more" style="padding:10px;font-size:12px;color:#555;white-space:pre-line"></div>
+</div>
+<div style="margin-top:14px" id="recoSection">
+  <div style="font-size:14px;font-weight:bold;color:#333;margin-bottom:8px">You may also like</div>
+  <div class="grid" id="recoGrid"></div>
 </div>
 </main>
 </div>
@@ -41,12 +46,31 @@ async function load(){
   const slug=new URLSearchParams(location.search).get('slug') || location.hash.slice(1);
   if(!slug){ document.getElementById('info').innerHTML='No slug'; return; }
   const tree=await Api.getCategoryTree().catch(()=>[]);
-  document.getElementById('catList').innerHTML = tree.slice(0,12).map(n=>`<div class="cat-item"><span>${n.name}</span><span class="plus">+</span></div>`).join('');
+  document.getElementById('catList').innerHTML = tree.slice(0,12).map(n=>`<div class="cat-item"><span>${esc(n.name)}</span><span class="plus">+</span></div>`).join('');
   try{
     const p=await Api.getProductBySlug(slug);
     document.getElementById('crumb-current').textContent=p.name;
+    if(p.category_name){
+      const catLink=document.getElementById('crumb-cat');
+      catLink.textContent=p.category_name.toUpperCase();
+      catLink.href = p.category_id ? `index.html?category_id=${encodeURIComponent(p.category_id)}` : 'index.html';
+      catLink.style.display='';
+    }
+    const ribbon = p.is_on_sale ? 'SALE' : (p.is_bestseller ? 'BESTSELLER' : (p.is_popular ? 'POPULAR' : 'NEW'));
+    document.getElementById('detailRibbon').textContent = ribbon;
     document.getElementById('mainImg').src=Api.img(p.images[0]||'');
-    document.getElementById('mainImg').onclick=()=>{ document.getElementById('zoomImg').src=Api.img(p.images[0]||''); document.getElementById('zoom').style.display='flex'; };
+    document.getElementById('mainImg').onclick=()=>{ document.getElementById('zoomImg').src=document.getElementById('mainImg').src; document.getElementById('zoom').style.display='flex'; };
+    if(p.images && p.images.length>1){
+      document.getElementById('thumbRow').innerHTML = p.images.map((u,i)=>
+        `<img src="${esc(Api.img(u))}" data-i="${i}" style="width:56px;height:56px;object-fit:cover;border:2px solid ${i===0?'#0099cc':'#ddd'};cursor:pointer" onclick="selectThumb(this)">`
+      ).join('');
+    }
+    window.selectThumb=(el)=>{
+      const u = p.images[Number(el.dataset.i)];
+      document.getElementById('mainImg').src=Api.img(u);
+      document.querySelectorAll('#thumbRow img').forEach(t=>t.style.border='2px solid #ddd');
+      el.style.border='2px solid #0099cc';
+    };
     // tiered table
     let tierRows='';
     if(p.price_tiers && p.price_tiers.length){
@@ -58,19 +82,24 @@ async function load(){
     let hide=false; try{ const cfg=await Api.getConfig(); hide=cfg.require_login_to_see_prices && isGuest; }catch{}
     const inc=p.pack_increment||1;
     document.getElementById('info').innerHTML=`
-      <h1 style="font-size:16px">${p.name}</h1>
-      <div class="meta">Code: <b>${p.sku||p.slug}</b></div>
+      <h1 style="font-size:16px">${esc(p.name)}</h1>
+      <div class="meta">Code: <b>${esc(p.sku||p.slug)}</b></div>
       <div class="meta">Condition: New product</div>
       <div class="meta">Date posted: ${new Date(p.created_at).toLocaleDateString()} ${new Date(p.created_at).toLocaleTimeString()}</div>
       ${hide? `<div style="background:#fffbeb;border:1px solid #fde68a;padding:12px;margin:10px 0;font-size:12px">Prices visible after login — <a href="login.html" style="color:#0066cc">Zaloguj się</a> / <a href="signup.html" style="color:#0066cc">Register</a></div>` : `
       <div class="grey-bar">in a package: <b>${p.pack_size} ${p.pack_size===1?'pair':'pairs'}</b> ${p.stall_location? `• Stall ${p.stall_location}${p.counter_number? ' / Counter '+p.counter_number:''}`:''}</div>
       <div class="price-block">
-        <div>package price:</div>
+        <div>package price:${p.is_on_sale && p.sale_price_net!=null && p.discount_percent ? ` <span style="background:#c00;color:#fff;font-size:11px;font-weight:bold;padding:2px 7px;border-radius:2px">-${p.discount_percent}%</span>` : ''}</div>
+        ${p.is_on_sale && p.sale_price_net!=null ? `
+        <div><s style="color:#999">PLN ${Number(p.price_net).toFixed(2)} net</s> &nbsp; <b style="color:#c00">PLN ${Number(p.sale_price_net).toFixed(2)} net</b> &nbsp; <s style="color:#999">PLN ${Number(p.price_gross).toFixed(2)} gross</s> &nbsp; <b style="color:#c00">PLN ${Number(p.sale_price_gross).toFixed(2)} gross</b></div>
+        ` : `
         <div><b>PLN ${Number(p.price_net).toFixed(2)} net</b> &nbsp; <b>PLN ${Number(p.price_gross).toFixed(2)} gross</b></div>
-        <div>price per ${p.pack_size===1?'pair':'pcs'}: <b>PLN ${(Number(p.price_net)/p.pack_size).toFixed(2)} net</b> PLN ${(Number(p.price_gross)/p.pack_size).toFixed(2)} gross</div>
+        `}
+        ${(()=>{ const effNet=(p.is_on_sale&&p.sale_price_net!=null)?p.sale_price_net:p.price_net; const effGross=(p.is_on_sale&&p.sale_price_gross!=null)?p.sale_price_gross:p.price_gross;
+          return `<div>price per ${p.pack_size===1?'pair':'pcs'}: <b>PLN ${(Number(effNet)/p.pack_size).toFixed(2)} net</b> PLN ${(Number(effGross)/p.pack_size).toFixed(2)} gross</div>`; })()}
       </div>
       ${tierRows}
-      ${p.variants&&p.variants.length? `<div style="margin-top:8px;font-size:12px"><b>Colours / Sizes:</b> ${p.variants.map(v=>`${v.option_name}:${v.option_value} (${v.sku})`).join(', ')}</div>`:''}
+      ${p.variants&&p.variants.length? `<div style="margin-top:8px;font-size:12px"><b>Colours / Sizes:</b> ${p.variants.map(v=>`${esc(v.option_name)}:${esc(v.option_value)} (${esc(v.sku)})`).join(', ')}</div>`:''}
       <div style="margin-top:8px;font-size:12px">Quantity</div>
       <div class="qty-block">
         <button onclick="chg(-1)">−</button>
@@ -85,21 +114,16 @@ async function load(){
       <div class="social"><a href="#">Tweet</a><a href="#">Share</a><a href="#">Google+</a><a href="#">Pinterest</a></div>
       <div style="margin-top:6px"><a href="#" onclick="window.print();return false" style="font-size:11px">🖨 Print</a></div>
       `}
-      <div id="more" style="display:none"></div>
     `;
     if(!hide){
       document.getElementById('addBtn').onclick=()=>{
         const inp=document.getElementById('qty');
         let q=parseInt(inp.value||inc,10);
         q=Math.ceil(q/inc)*inc;
-        // tiered price recalc
-        let net=p.price_net;
-        if(p.price_tiers && p.price_tiers.length){
-          const s=[...p.price_tiers].sort((a,b)=>a.min_quantity-b.min_quantity);
-          for(const tr of s){ const mx=tr.max_quantity??Infinity; if(q>=tr.min_quantity && q<=mx){ net=tr.price_net; break; } }
-          if(q> s[s.length-1].min_quantity) net=s[s.length-1].price_net;
-        }
-        Cart.add(p, q, null, null, net);
+        // No frozen price passed here — Cart.linePrice() recomputes sale/tier pricing
+        // live from packQuantity every time the cart is rendered or the qty changes,
+        // so it never goes stale the way a snapshot taken at add-to-cart time would.
+        Cart.add(p, q);
         alert('Added '+q+' packs');
       };
       window.chg=(dir)=>{
@@ -114,10 +138,33 @@ async function load(){
       };
     }
     document.getElementById('more').textContent = p.description || 'No description';
-    document.querySelector('#more').parentElement.querySelector('div').textContent = p.description || '';
+    loadRecommended(p);
   }catch(e){
     document.getElementById('info').innerHTML='<p style="color:red">'+e.message+'</p>';
   }
+}
+
+async function loadRecommended(p){
+  const wrap=document.getElementById('recoSection');
+  const grid=document.getElementById('recoGrid');
+  try{
+    const params={limit:9};
+    if(p.category_id) params.category_id=p.category_id;
+    let items=await Api.listProducts(params).catch(()=>[]);
+    items=items.filter(x=>x.id!==p.id).slice(0,4);
+    if(!items.length){ wrap.style.display='none'; return; }
+    grid.innerHTML=items.map(rp=>{
+      const img = rp.images && rp.images[0] ? Api.img(rp.images[0]) : 'https://via.placeholder.com/300x220?text=No+image';
+      const slugUrl = encodeURIComponent(rp.slug);
+      return `<div class="card">
+        <div style="position:relative"><a href="product.html?slug=${slugUrl}"><img src="${esc(img)}" alt="${esc(rp.name)}"></a></div>
+        <h3><a href="product.html?slug=${slugUrl}">${esc(rp.name)}</a></h3>
+        <div class="price">
+          <div>net price: <b>${Number(rp.price_net).toFixed(2)} PLN</b></div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch{ wrap.style.display='none'; }
 }
 document.getElementById('imgBox')?.addEventListener('click',()=>{ const s=document.getElementById('mainImg').src; if(s){ document.getElementById('zoomImg').src=s; document.getElementById('zoom').style.display='flex'; }});
 load();

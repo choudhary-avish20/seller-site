@@ -47,6 +47,12 @@ class Product(UUIDPKMixin, TimestampMixin, Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)  # archived if False
 
+    # Storefront merchandising badges — manually toggled by the seller in admin
+    is_bestseller: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_popular: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_on_sale: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    sale_price_net: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)  # shown when is_on_sale
+
     category: Mapped["Category"] = relationship(back_populates="products")
     variants: Mapped[list["ProductVariant"]] = relationship(
         back_populates="product", cascade="all, delete-orphan"

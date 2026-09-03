@@ -23,12 +23,10 @@ function render(){
  if(!items.length){ el.innerHTML='<p style="padding:20px;background:#fff;border:1px solid #ddd;text-align:center">Koszyk pusty — <a href="index.html" style="color:#06c">Przeglądaj</a></p>'; document.getElementById('summary').style.display='none'; return; }
  document.getElementById('summary').style.display='block';
  el.innerHTML=items.map(it=>{
-   const net=it.variantPriceNet!=null?it.variantPriceNet:it.product.price_net;
-   const vat=it.product.vat_rate||23;
-   const gross=+(net*(1+vat/100)).toFixed(2);
+   const {net,gross}=Cart.linePrice(it);
    return `<div style="background:#fff;border:1px solid #ddd;padding:10px;display:flex;gap:10px;margin-bottom:6px">
-     <img src="${Api.img(it.product.images[0]||'')}" style="width:60px;height:60px;object-fit:contain;border:1px solid #eee">
-     <div style="flex:1"><a href="product.html?slug=${it.product.slug}" style="font-weight:bold">${it.product.name}</a><div style="font-size:11px;color:#666">Pack ${it.product.pack_size} • ${it.product.category_name||''}</div><div style="font-size:12px">${gross.toFixed(2)} zł brutto (${net.toFixed(2)} netto) × ${it.packQuantity} = <b>${(gross*it.packQuantity).toFixed(2)} zł</b></div></div>
+     <img src="${esc(Api.img(it.product.images[0]||''))}" style="width:60px;height:60px;object-fit:contain;border:1px solid #eee">
+     <div style="flex:1"><a href="product.html?slug=${encodeURIComponent(it.product.slug)}" style="font-weight:bold">${esc(it.product.name)}</a><div style="font-size:11px;color:#666">Pack ${it.product.pack_size} • ${esc(it.product.category_name||'')}</div><div style="font-size:12px">${gross.toFixed(2)} zł brutto (${net.toFixed(2)} netto) × ${it.packQuantity} = <b>${(gross*it.packQuantity).toFixed(2)} zł</b></div></div>
      <div style="text-align:center"><div style="display:flex;gap:4px;align-items:center"><button onclick="Cart.update('${it.product.id}','${it.variantId||''}',${it.packQuantity-1});render()" style="width:24px;height:24px">−</button><span style="width:30px;text-align:center">${it.packQuantity}</span><button onclick="Cart.update('${it.product.id}','${it.variantId||''}',${it.packQuantity+1});render()" style="width:24px;height:24px">+</button></div><button onclick="Cart.remove('${it.product.id}','${it.variantId||''}');render()" style="font-size:11px;color:#c00;background:none;border:0;cursor:pointer">Usuń</button></div>
    </div>`;
  }).join('');

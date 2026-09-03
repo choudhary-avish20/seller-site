@@ -42,7 +42,7 @@ except Exception:
     sys.exit(0)
 EOF
 then
-  echo "→ Seeding seller account (email: seller@example.com  password: seller123)"
+  echo "→ Seeding admin account (email: seller@example.com  password: seller123)"
   python3 seed_admin.py
 fi
 

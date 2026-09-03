@@ -20,7 +20,7 @@ class ProductVariantCreate(BaseModel):
     sku: str = Field(..., min_length=1, max_length=64)
     option_name: str = Field(..., min_length=1, max_length=64, examples=["size"])
     option_value: str = Field(..., min_length=1, max_length=64, examples=["XL"])
-    price_net_override: Optional[float] = Field(None, ge=0)
+    price_net_override: Optional[float] = Field(None, gt=0)
     stock_quantity: int = Field(0, ge=0)
 
 
@@ -28,7 +28,7 @@ class ProductVariantUpdate(BaseModel):
     sku: Optional[str] = Field(None, min_length=1, max_length=64)
     option_name: Optional[str] = None
     option_value: Optional[str] = None
-    price_net_override: Optional[float] = Field(None, ge=0)
+    price_net_override: Optional[float] = Field(None, gt=0)
     stock_quantity: Optional[int] = Field(None, ge=0)
 
 
@@ -55,7 +55,7 @@ class ProductVariantResponse(BaseModel):
 class ProductPriceTierCreate(BaseModel):
     min_quantity: int = Field(..., ge=1, description="Min packs inclusive, e.g. 1")
     max_quantity: Optional[int] = Field(None, ge=1, description="Max packs inclusive, null = infinity (e.g. Over 50)")
-    price_net: float = Field(..., ge=0)
+    price_net: float = Field(..., gt=0)
 
 
 class ProductPriceTierResponse(BaseModel):
@@ -83,8 +83,8 @@ class ProductBase(BaseModel):
     images: List[str] = Field(default_factory=list, description="List of image URLs/paths")
     category_id: UUID
     pack_size: int = Field(1, ge=1, description="Units per pack")
-    price_net: float = Field(..., ge=0)
-    price_gross: Optional[float] = Field(None, ge=0, description="If omitted, computed from net + VAT")
+    price_net: float = Field(..., gt=0)
+    price_gross: Optional[float] = Field(None, gt=0, description="If omitted, computed from net + VAT")
     vat_rate: float = Field(23.00, ge=0, le=100)
     stock_quantity: int = Field(0, ge=0)
     stock_status: StockStatus = StockStatus.in_stock
@@ -94,6 +94,11 @@ class ProductBase(BaseModel):
     cost_price: Optional[float] = Field(None, ge=0, description="Purchase cost price for staff")
     stall_location: Optional[str] = Field(None, max_length=255, description="Hall / stall where bought")
     counter_number: Optional[str] = Field(None, max_length=64, description="Counter number")
+    # storefront merchandising badges
+    is_bestseller: bool = False
+    is_popular: bool = False
+    is_on_sale: bool = False
+    sale_price_net: Optional[float] = Field(None, gt=0, description="Discounted net price, shown when is_on_sale")
 
 
 class ProductCreate(ProductBase):
@@ -108,8 +113,8 @@ class ProductUpdate(BaseModel):
     images: Optional[List[str]] = None
     category_id: Optional[UUID] = None
     pack_size: Optional[int] = Field(None, ge=1)
-    price_net: Optional[float] = Field(None, ge=0)
-    price_gross: Optional[float] = Field(None, ge=0)
+    price_net: Optional[float] = Field(None, gt=0)
+    price_gross: Optional[float] = Field(None, gt=0)
     vat_rate: Optional[float] = Field(None, ge=0, le=100)
     stock_quantity: Optional[int] = Field(None, ge=0)
     stock_status: Optional[StockStatus] = None
@@ -118,6 +123,10 @@ class ProductUpdate(BaseModel):
     cost_price: Optional[float] = Field(None, ge=0)
     stall_location: Optional[str] = Field(None, max_length=255)
     counter_number: Optional[str] = Field(None, max_length=64)
+    is_bestseller: Optional[bool] = None
+    is_popular: Optional[bool] = None
+    is_on_sale: Optional[bool] = None
+    sale_price_net: Optional[float] = Field(None, gt=0)
     variants: Optional[List[ProductVariantCreate]] = None  # replace all if provided
     price_tiers: Optional[List[ProductPriceTierCreate]] = None
 
@@ -140,6 +149,12 @@ class ProductResponse(BaseModel):
     cost_price: Optional[float]
     stall_location: Optional[str]
     counter_number: Optional[str]
+    is_bestseller: bool = False
+    is_popular: bool = False
+    is_on_sale: bool = False
+    sale_price_net: Optional[float] = None
+    sale_price_gross: Optional[float] = None
+    discount_percent: Optional[int] = None
     created_at: datetime
     updated_at: datetime
     # denormalized
@@ -173,9 +188,16 @@ class ProductListResponse(BaseModel):
     cost_price: Optional[float]
     stall_location: Optional[str]
     counter_number: Optional[str]
+    is_bestseller: bool = False
+    is_popular: bool = False
+    is_on_sale: bool = False
+    sale_price_net: Optional[float] = None
+    sale_price_gross: Optional[float] = None
+    discount_percent: Optional[int] = None
     created_at: datetime
     category_name: Optional[str] = None
     category_slug: Optional[str] = None
+    purchase_count: Optional[int] = None
     price_tiers: List[ProductPriceTierResponse] = Field(default_factory=list)
 
     @field_serializer('id', 'category_id')

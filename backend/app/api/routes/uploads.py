@@ -26,18 +26,35 @@ def _is_allowed(filename: str) -> bool:
     return Path(filename).suffix.lower() in ALLOWED_EXT
 
 
+def _sniff_image_ext(contents: bytes) -> str | None:
+    """Identify the real image format from its magic bytes, ignoring whatever
+    extension the client claims — a renamed .exe with a .png extension would
+    otherwise sail through the extension-only check above."""
+    if contents[:3] == b"\xff\xd8\xff":
+        return ".jpg"
+    if contents[:8] == b"\x89PNG\r\n\x1a\n":
+        return ".png"
+    if contents[:6] in (b"GIF87a", b"GIF89a"):
+        return ".gif"
+    if contents[:4] == b"RIFF" and contents[8:12] == b"WEBP":
+        return ".webp"
+    if contents[4:8] == b"ftyp" and contents[8:12] in (b"avif", b"avis", b"mif1", b"MA1A", b"MA1B"):
+        return ".avif"
+    return None
+
+
 @router.post("/image", status_code=status.HTTP_201_CREATED)
 async def upload_image(
     file: UploadFile = File(...),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if current_user.role != UserRole.seller:
-        raise HTTPException(status_code=403, detail="Only sellers can upload images")
-    # approved seller check
-    seller = db.query(SellerProfile).filter(SellerProfile.user_id == current_user.id).first()
-    if not seller or seller.status != SellerStatus.approved:
-        raise HTTPException(status_code=403, detail="Seller not approved")
+    if current_user.role not in (UserRole.admin, UserRole.seller):
+        raise HTTPException(status_code=403, detail="Only sellers or admins can upload images")
+    if current_user.role == UserRole.seller:
+        seller = db.query(SellerProfile).filter(SellerProfile.user_id == current_user.id).first()
+        if not seller or seller.status != SellerStatus.approved:
+            raise HTTPException(status_code=403, detail="Seller not approved")
     if not file.filename or not _is_allowed(file.filename):
         raise HTTPException(status_code=400, detail="File type not allowed. Use jpg/jpeg/png/webp/gif/avif")
     
@@ -48,7 +65,13 @@ async def upload_image(
     if len(contents) == 0:
         raise HTTPException(status_code=400, detail="Empty file")
 
-    ext = Path(file.filename).suffix.lower()
+    sniffed_ext = _sniff_image_ext(contents)
+    claimed_ext = Path(file.filename).suffix.lower()
+    equivalent_exts = {".jpg", ".jpeg"} if sniffed_ext == ".jpg" else {sniffed_ext}
+    if sniffed_ext is None or claimed_ext not in equivalent_exts:
+        raise HTTPException(status_code=400, detail="File content doesn't match a supported image format")
+
+    ext = claimed_ext
     unique = f"{uuid.uuid4().hex}{ext}"
     dest = UPLOAD_ROOT / unique
     dest.write_bytes(contents)
@@ -78,7 +101,10 @@ def list_test_images():
 @router.get("/test-images/{filename}")
 def get_test_image(filename: str):
     # serve file from assets/test-images without auth (for preview)
-    path = ASSETS_ROOT / filename
+    resolved_root = ASSETS_ROOT.resolve()
+    path = (ASSETS_ROOT / filename).resolve()
+    if not path.is_relative_to(resolved_root):
+        raise HTTPException(status_code=404, detail="Not found")
     if not path.exists() or not path.is_file():
         raise HTTPException(status_code=404, detail="Not found")
     from fastapi.responses import FileResponse

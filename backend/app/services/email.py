@@ -17,14 +17,14 @@ def _html_wrap(title: str, body_html: str, accent: str = "#0099cc") -> str:
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif">
 <div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #ddd">
   <div style="background:{accent};padding:14px 20px">
-    <span style="color:#fff;font-size:16px;font-weight:bold">CentrumHurt.pl</span>
+    <span style="color:#fff;font-size:16px;font-weight:bold">WolkaGo</span>
   </div>
   <div style="padding:24px 20px;font-size:13px;color:#333;line-height:1.6">
     <h2 style="margin:0 0 16px;font-size:16px;color:#222">{title}</h2>
     {body_html}
   </div>
   <div style="background:#f5f5f5;border-top:1px solid #ddd;padding:10px 20px;font-size:11px;color:#888">
-    CentrumHurt.pl &bull; Wólka Kosowska &bull; +48 579 383 945
+    WolkaGo &bull; Wólka Kosowska &bull; +48 579 383 945
   </div>
 </div>
 </body>
@@ -62,11 +62,11 @@ class EmailService:
         full_name: str,
         verification_url: str,
     ) -> bool:
-        subject = "Potwierdź swój adres e-mail — CentrumHurt.pl"
+        subject = "Potwierdź swój adres e-mail — WolkaGo"
 
         text_body = f"""Witaj {full_name},
 
-Dziękujemy za rejestrację w CentrumHurt.pl!
+Dziękujemy za rejestrację w WolkaGo!
 Kliknij poniższy link, aby potwierdzić swój adres e-mail:
 
 {verification_url}
@@ -76,11 +76,11 @@ Link jest ważny przez 24 godziny.
 Jeśli nie zakładałeś(-aś) konta, zignoruj tę wiadomość.
 
 Pozdrawiamy,
-Zespół CentrumHurt.pl"""
+Zespół WolkaGo"""
 
         body_html = f"""
 <p>Witaj <strong>{full_name}</strong>,</p>
-<p>Dziękujemy za rejestrację w CentrumHurt.pl! Kliknij przycisk poniżej, aby potwierdzić swój adres e-mail.</p>
+<p>Dziękujemy za rejestrację w WolkaGo! Kliknij przycisk poniżej, aby potwierdzić swój adres e-mail.</p>
 <div style="text-align:center;margin:28px 0">
   <a href="{verification_url}"
      style="background:#0099cc;color:#fff;padding:12px 28px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block">
@@ -102,7 +102,7 @@ Jeśli nie zakładałeś(-aś) konta, zignoruj tę wiadomość.</p>"""
         order,
     ) -> bool:
         order_short = str(order.id)[:8].upper()
-        subject = f"Potwierdzenie zamówienia #{order_short} — CentrumHurt.pl"
+        subject = f"Potwierdzenie zamówienia #{order_short} — WolkaGo"
 
         # Build rows
         rows_text = []
@@ -152,7 +152,7 @@ Telefon      : {order.recipient_phone or '—'}
 Skontaktujemy się w razie pytań.
 
 Pozdrawiamy,
-Zespół CentrumHurt.pl"""
+Zespół WolkaGo"""
 
         body_html = f"""
 <p>Witaj <strong>{full_name}</strong>,</p>
@@ -232,7 +232,7 @@ Zespół CentrumHurt.pl"""
             new_status, ("Zmiana statusu zamówienia", "#333", "#f5f5f5")
         )
 
-        subject = f"{label} #{order_short} — CentrumHurt.pl"
+        subject = f"{label} #{order_short} — WolkaGo"
 
         status_notes = {
             "delivered": "Twoje zamówienie zostało oznaczone jako zrealizowane. Jeśli masz jakiekolwiek pytania, skontaktuj się z nami.",
@@ -253,7 +253,7 @@ Nr zamówienia: {order_short}
 W razie pytań zadzwoń: +48 579 383 945
 
 Pozdrawiamy,
-Zespół CentrumHurt.pl"""
+Zespół WolkaGo"""
 
         body_html = f"""
 <p>Witaj <strong>{full_name}</strong>,</p>
@@ -279,7 +279,7 @@ Zespół CentrumHurt.pl"""
         product_names: List[str],
     ) -> bool:
         order_short = order_id[:8].upper()
-        subject = f"Informacja o zamówieniu #{order_short} — CentrumHurt.pl"
+        subject = f"Informacja o zamówieniu #{order_short} — WolkaGo"
 
         products_text = "\n".join(f"  • {n}" for n in product_names)
         products_html = "".join(f"<li>{n}</li>" for n in product_names)
@@ -297,7 +297,7 @@ Jeśli Twoje zamówienie jest w toku (oczekujące lub potwierdzone), skontaktuj 
 Przepraszamy za utrudnienia.
 
 Pozdrawiamy,
-Zespół CentrumHurt.pl"""
+Zespół WolkaGo"""
 
         body_html = f"""
 <p>Witaj <strong>{full_name}</strong>,</p>

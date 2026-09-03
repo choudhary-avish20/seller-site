@@ -29,7 +29,7 @@
 </div></div>
 
 <div class="container" style="margin-top:6px;display:flex;gap:10px;font-size:11px">
-  <a href="index.html">Nowości</a> • <a href="search.html?filter=sale" data-i18n="sale">Wyprzedaż</a> • <a href="search.html" data-i18n="bestsellers">Bestsellery</a> • <a href="#">FAQ</a> • <a href="#">Koszty wysyłki</a> • <a href="#">Regulamin</a> • <a href="#" id="authLink2"></a>
+  <a href="index.html">Nowości</a> • <a href="index.html?filter=sale" data-i18n="sale">Wyprzedaż</a> • <a href="index.html?filter=bestseller" data-i18n="bestsellers">Bestsellery</a> • <a href="#">FAQ</a> • <a href="#">Koszty wysyłki</a> • <a href="#">Regulamin</a> • <a href="orders.html" id="myOrdersLink" style="display:none">Moje zamówienia</a> • <a href="#" id="authLink2"></a>
 </div>
 
 <div class="container layout">
@@ -42,32 +42,37 @@
     <p style="font-size:11px;color:#666;margin-bottom:10px">We are a wholesaler with a very wide selection. We offer women's and men's clothing, children's clothing, underwear... <a href="#" style="font-weight:bold">Read more</a></p>
 
     <div class="tabs">
-      <div class="tab active" data-i18n="new">NEWS</div>
-      <div class="tab">POPULAR</div>
-      <div class="tab">MOST FREQUENTLY PURCHASED</div>
-      <div class="tab">PROMOTIONS</div>
-      <div class="tab">NEWS</div>
+      <div class="tab active" data-filter="new" data-i18n="new" onclick="selectTab('new',this)">NEWS</div>
+      <div class="tab" data-filter="popular" onclick="selectTab('popular',this)">POPULAR</div>
+      <div class="tab" data-filter="frequent" onclick="selectTab('frequent',this)">MOST FREQUENTLY PURCHASED</div>
+      <div class="tab" data-filter="bestseller" onclick="selectTab('bestseller',this)">BESTSELLERS</div>
+      <div class="tab" data-filter="sale" onclick="selectTab('sale',this)">PROMOTIONS</div>
     </div>
 
     <div id="catHeading" style="font-size:13px;font-weight:bold;color:#333;margin-bottom:8px;min-height:18px"></div>
     <div class="grid" id="grid"></div>
+    <div id="loadMoreWrap" style="text-align:center;margin-top:16px;display:none">
+      <button id="loadMoreBtn" onclick="loadMore()" style="padding:9px 28px;background:#fff;border:1px solid #0099cc;color:#0099cc;font-weight:bold;cursor:pointer">Load more</button>
+    </div>
   </main>
 </div>
 
 <script src="js/app.js"></script>
 <script>
+const catNamesById = {};
 async function loadCats(){
   const tree=await Api.getCategoryTree().catch(()=>[]);
   const el=document.getElementById('catList');
 
   function row(n, depth=0){
+    catNamesById[n.id] = n.name;
     const pad = depth * 10;
     const hasChildren = n.children && n.children.length;
     let h = `<div class="cat-item" style="padding-left:${8+pad}px"
-      onclick="selectCat('${n.id}', '${n.name.replace(/'/g,"\\'")}', event, ${hasChildren})"
+      onclick="selectCat('${n.id}', event, ${hasChildren})"
       data-cat-id="${n.id}"
       id="cat-${n.id}">
-        <span>${n.name}</span>
+        <span>${esc(n.name)}</span>
         ${hasChildren ? `<span class="plus" data-toggle>+</span>` : ''}
       </div>`;
     if(hasChildren){
@@ -76,12 +81,13 @@ async function loadCats(){
     return h;
   }
 
-  el.innerHTML = `<div class="cat-item" id="cat-all" onclick="selectCat(null,'Wszystkie',event,false)" style="font-style:italic;color:#0099cc;border-bottom:2px solid #0099cc">
+  el.innerHTML = `<div class="cat-item" id="cat-all" onclick="selectCat(null,event,false)" style="font-style:italic;color:#0099cc;border-bottom:2px solid #0099cc">
     <span>Wszystkie produkty</span>
   </div>` + (tree.map(n=>row(n)).join('') || '<div style="padding:8px;font-size:11px;color:#888">No categories — admin at /admin</div>');
 }
 
-function selectCat(id, name, event, hasChildren){
+function selectCat(id, event, hasChildren){
+  const name = id ? (catNamesById[id] || '') : 'Wszystkie produkty';
   // If the click was on the +/− toggle, only expand — don't filter
   if(event && event.target.dataset.toggle !== undefined){
     const sub = event.currentTarget.nextElementSibling;
@@ -123,29 +129,66 @@ function selectCat(id, name, event, hasChildren){
 
   loadProducts(id);
 }
-async function loadProducts(categoryId){
-  const grid=document.getElementById('grid');
-  grid.innerHTML='<p style="grid-column:1/-1;text-align:center;padding:20px;color:#888">Ładowanie…</p>';
+let currentFilter='new';
+let currentCategoryId=null;
+let currentPage=1;
+const PAGE_SIZE=32;
 
-  const params = {limit:32};
+function selectTab(filter, el){
+  currentFilter=filter;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  loadProducts(currentCategoryId);
+}
+
+function loadMore(){
+  currentPage++;
+  loadProducts(currentCategoryId, {append:true});
+}
+
+async function loadProducts(categoryId, opts={}){
+  const append = !!opts.append;
+  currentCategoryId = categoryId || null;
+  if(!append) currentPage = 1;
+  const grid=document.getElementById('grid');
+  const loadMoreWrap=document.getElementById('loadMoreWrap');
+  if(!append) grid.innerHTML='<p style="grid-column:1/-1;text-align:center;padding:20px;color:#888">Ładowanie…</p>';
+
+  const params = {limit:PAGE_SIZE, page:currentPage};
   if(categoryId) params.category_id = categoryId;
+  if(currentFilter==='popular') params.popular = true;
+  else if(currentFilter==='bestseller') params.bestseller = true;
+  else if(currentFilter==='sale') params.on_sale = true;
+  else if(currentFilter==='frequent') params.sort = 'most_purchased';
   const prods=await Api.listProducts(params).catch(()=>[]);
 
-  if(!prods.length){
+  if(!append && !prods.length){
     grid.innerHTML='<p style="grid-column:1/-1;text-align:center;padding:40px;background:#fff;border:1px solid #ddd;color:#888">Brak produktów w tej kategorii.</p>';
+    loadMoreWrap.style.display='none';
     return;
   }
-  grid.innerHTML = prods.map(p=>{
+  const cardsHtml = prods.map(p=>{
     const out=p.stock_status==='out_of_stock'||p.stock_quantity===0;
     const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/300x220?text=No+image';
     const inc = p.pack_increment||1;
+    const ribbon = p.is_on_sale ? 'SALE' : (p.is_bestseller ? 'BESTSELLER' : (p.is_popular ? 'POPULAR' : 'NEW'));
+    const showSale = p.is_on_sale && p.sale_price_net!=null;
+    const slugUrl = encodeURIComponent(p.slug);
     return `<div class="card">
-      <div style="position:relative"><div class="ribbon">NEW</div><a href="product.html?slug=${p.slug}"><img src="${img}" alt="${p.name}"></a></div>
-      <h3><a href="product.html?slug=${p.slug}">${p.name}</a></h3>
+      <div style="position:relative">
+        <div class="ribbon">${ribbon}</div>
+        ${showSale && p.discount_percent ? `<div style="position:absolute;top:6px;right:6px;background:#c00;color:#fff;font-size:11px;font-weight:bold;padding:3px 7px;border-radius:2px;z-index:1">-${p.discount_percent}%</div>` : ''}
+        <a href="product.html?slug=${slugUrl}"><img src="${esc(img)}" alt="${esc(p.name)}"></a>
+      </div>
+      <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
       <div class="package-bar" data-i18n="pack">in a package: ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
       <div class="price">
-        <div>net price: <b>${Number(p.price_net).toFixed(2)} PLN</b></div>
-        <div>gross price: <b>${Number(p.price_gross).toFixed(2)} PLN</b></div>
+        ${showSale
+          ? `<div>net price: <s style="color:#999">${Number(p.price_net).toFixed(2)} PLN</s> <b style="color:#c00">${Number(p.sale_price_net).toFixed(2)} PLN</b></div>`
+          : `<div>net price: <b>${Number(p.price_net).toFixed(2)} PLN</b></div>`}
+        ${showSale
+          ? `<div>gross price: <s style="color:#999">${Number(p.price_gross).toFixed(2)} PLN</s> <b style="color:#c00">${Number(p.sale_price_gross).toFixed(2)} PLN</b></div>`
+          : `<div>gross price: <b>${Number(p.price_gross).toFixed(2)} PLN</b></div>`}
         ${p.price_tiers && p.price_tiers.length ? `<div style="font-size:10px;color:#06c;margin-top:4px">${p.price_tiers.map(tr=>`${tr.min_quantity}-${tr.max_quantity||'∞'}: ${Number(tr.price_net).toFixed(2)}`).join(' | ')}</div>`:''}
       </div>
       <div class="qty">
@@ -156,7 +199,10 @@ async function loadProducts(categoryId){
       <button class="add" onclick="addToCart('${p.id}')" ${out?'disabled style="opacity:.5"':''}>Add to cart</button>
     </div>`;
   }).join('');
-  window._prods=prods;
+
+  if(append){ grid.insertAdjacentHTML('beforeend', cardsHtml); window._prods=(window._prods||[]).concat(prods); }
+  else { grid.innerHTML=cardsHtml; window._prods=prods; }
+  loadMoreWrap.style.display = prods.length===PAGE_SIZE ? '' : 'none';
 }
 function chg(id,dir){
   const inp=document.getElementById('qty-'+id);
@@ -183,20 +229,32 @@ document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDef
 (async()=>{
   const u=await refreshUser().catch(()=>null);
   const a=document.getElementById('authLink2');
-  if(u){ a.textContent=u.email+' • Wyloguj'; a.href='#'; a.onclick=()=>{doLogout();return false}; }
+  if(u){ a.textContent=u.email+' • Wyloguj'; a.href='#'; a.onclick=()=>{doLogout();return false};
+    document.getElementById('myOrdersLink').style.display='';
+  }
   else { a.textContent=t('login'); a.href='login.html'; }
 })();
+const urlCategoryId = new URLSearchParams(location.search).get('category_id');
 loadCats().then(()=>{
-  // Highlight "all" on initial load
-  const allEl = document.getElementById('cat-all');
-  if(allEl){
-    allEl.style.background='#e8f4fb';
-    allEl.style.borderLeft='3px solid #0099cc';
-    allEl.style.color='#0099cc';
-    allEl.style.fontWeight='bold';
+  // Highlight the requested category (from a product-page breadcrumb link), else "all"
+  const target = urlCategoryId ? document.getElementById('cat-'+urlCategoryId) : document.getElementById('cat-all');
+  if(target){
+    target.style.background='#e8f4fb';
+    target.style.borderLeft='3px solid #0099cc';
+    target.style.color='#0099cc';
+    target.style.fontWeight='bold';
+    if(urlCategoryId){ const heading=document.getElementById('catHeading'); if(heading) heading.textContent = catNamesById[urlCategoryId] || ''; }
   }
 });
-loadProducts();
+// Activate tab from ?filter= query param (used by top-bar "Wyprzedaż"/"Bestsellery" links)
+(()=>{
+  const urlFilter = new URLSearchParams(location.search).get('filter');
+  if(urlFilter){
+    const tabEl = document.querySelector(`.tab[data-filter="${urlFilter}"]`);
+    if(tabEl){ currentFilter=urlFilter; document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); tabEl.classList.add('active'); }
+  }
+})();
+loadProducts(urlCategoryId);
 
 </script>
 </body>

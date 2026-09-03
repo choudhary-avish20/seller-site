@@ -118,6 +118,20 @@
       </div>
 
       <div class="co-box">
+        <div class="co-box-head">🏢 Dane firmy (opcjonalnie, do faktury)</div>
+        <div class="co-box-body">
+          <div class="f-row">
+            <label>Nazwa firmy</label>
+            <input id="f_company" placeholder="Nazwa Sp. z o.o.">
+          </div>
+          <div class="f-row">
+            <label>NIP</label>
+            <input id="f_nip" placeholder="000-000-00-00">
+          </div>
+        </div>
+      </div>
+
+      <div class="co-box">
         <div class="co-box-head">📍 Adres dostawy</div>
         <div class="co-box-body">
           <div class="f-row">
@@ -174,7 +188,7 @@
 <script>
 // ── Boot ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
-  renderHeaderCart();
+  updateCartUI();
 
   const items = Cart.get();
   if (!items.length) {
@@ -189,8 +203,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       const me = await Api.getMe();
       document.getElementById('topUser').textContent = me.full_name;
-      if (me.full_name) document.getElementById('f_name').value = me.full_name;
-      if (me.phone)     document.getElementById('f_phone').value = me.phone;
+      if (me.full_name)      document.getElementById('f_name').value = me.full_name;
+      if (me.phone)          document.getElementById('f_phone').value = me.phone;
+      if (me.company_name)   document.getElementById('f_company').value = me.company_name;
+      if (me.company_tax_id) document.getElementById('f_nip').value = me.company_tax_id;
     } catch { /* not logged in, that's fine */ }
   }
 
@@ -201,11 +217,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 function renderSummary(items) {
   const wrap = document.getElementById('summaryItems');
   wrap.innerHTML = items.map(it => {
-    const net   = it.variantPriceNet != null ? it.variantPriceNet : it.product.price_net;
-    const vat   = it.product.vat_rate || 23;
-    const gross = +(net * (1 + vat / 100)).toFixed(2);
+    const {net,gross} = Cart.linePrice(it);
     const img   = it.product.images && it.product.images[0]
-      ? `<img class="oi-img" src="${Api.img(it.product.images[0])}" alt="" loading="lazy">`
+      ? `<img class="oi-img" src="${esc(Api.img(it.product.images[0]))}" alt="" loading="lazy">`
       : `<div class="oi-img-ph">📷</div>`;
     return `
       <div class="oi-row">
@@ -238,12 +252,14 @@ async function placeOrder() {
   }
 
   // Field validation
-  const name   = document.getElementById('f_name').value.trim();
-  const phone  = document.getElementById('f_phone').value.trim();
-  const street = document.getElementById('f_street').value.trim();
-  const zip    = document.getElementById('f_zip').value.trim();
-  const city   = document.getElementById('f_city').value.trim();
-  const notes  = document.getElementById('f_notes').value.trim();
+  const name    = document.getElementById('f_name').value.trim();
+  const phone   = document.getElementById('f_phone').value.trim();
+  const company = document.getElementById('f_company').value.trim();
+  const nip     = document.getElementById('f_nip').value.trim();
+  const street  = document.getElementById('f_street').value.trim();
+  const zip     = document.getElementById('f_zip').value.trim();
+  const city    = document.getElementById('f_city').value.trim();
+  const notes   = document.getElementById('f_notes').value.trim();
 
   if (!name)   { showErr('Podaj imię i nazwisko odbiorcy.'); focus('f_name'); return; }
   if (!phone)  { showErr('Podaj numer telefonu.'); focus('f_phone'); return; }
@@ -266,6 +282,8 @@ async function placeOrder() {
     recipient_name:   name,
     recipient_phone:  phone,
     recipient_address: shippingAddress,
+    company_name: company || null,
+    company_tax_id: nip || null,
     notes: notes || null,
     payment_method: 'cod',
   };
@@ -303,7 +321,6 @@ function showSuccess(orderId) {
   sc.scrollIntoView({ behavior: 'smooth' });
 }
 
-function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 </script>
 </body>
 </html>

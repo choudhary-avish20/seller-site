@@ -1,8 +1,10 @@
+import html
 from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
+from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
@@ -34,17 +36,70 @@ def _require_buyer(user: User) -> User:
     return user
 
 
+def _base_price(product: Product) -> float:
+    """Regular net price, or the active sale price when the product is on sale."""
+    if product.is_on_sale and product.sale_price_net is not None:
+        return float(product.sale_price_net)
+    return float(product.price_net)
+
+
 def _tiered_price(product: Product, quantity: int, db: Session) -> float:
     tiers = db.query(ProductPriceTier).filter(ProductPriceTier.product_id == product.id).order_by(ProductPriceTier.min_quantity).all()
     if not tiers:
-        return float(product.price_net)
+        return _base_price(product)
     for t in tiers:
         max_q = t.max_quantity if t.max_quantity is not None else float('inf')
         if t.min_quantity <= quantity <= max_q:
             return float(t.price_net)
     if quantity > tiers[-1].min_quantity:
         return float(tiers[-1].price_net)
-    return float(product.price_net)
+    return _base_price(product)
+
+
+def _atomic_decrement_stock(db: Session, model, obj_id, quantity: int, label: str) -> None:
+    """Decrement stock in a single guarded UPDATE so two concurrent orders for the
+    same product can't both pass a check-then-act stock check and oversell it."""
+    result = db.execute(
+        sa_update(model)
+        .where(model.id == obj_id, model.stock_quantity >= quantity)
+        .values(stock_quantity=model.stock_quantity - quantity)
+    )
+    if result.rowcount == 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Stock for {label} changed while placing your order. Please review your cart and try again.",
+        )
+
+
+def _restore_stock_for_order(db: Session, order: Order) -> None:
+    """Return reserved stock to inventory when an order is cancelled, undoing the
+    decrement applied at order-creation time."""
+    items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
+    for item in items:
+        db.execute(
+            sa_update(Product)
+            .where(Product.id == item.product_id)
+            .values(stock_quantity=Product.stock_quantity + item.pack_quantity)
+        )
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        if product:
+            db.refresh(product)
+            if product.stock_quantity > 0:
+                product.stock_status = StockStatus.in_stock
+        if item.variant_id:
+            db.execute(
+                sa_update(ProductVariant)
+                .where(ProductVariant.id == item.variant_id)
+                .values(stock_quantity=ProductVariant.stock_quantity + item.pack_quantity)
+            )
+
+
+def _redact_cost_price(resp: OrderResponse, viewer: User) -> OrderResponse:
+    """Cost price is internal margin data — never show it to the buyer who placed the order."""
+    if viewer.role == UserRole.buyer:
+        for item in resp.items:
+            item.cost_price_snapshot = None
+    return resp
 
 
 @router.post("", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
@@ -162,30 +217,33 @@ async def create_order(
             counter_number_snapshot=p.counter_number,
         )
         db.add(oi)
-        p.stock_quantity -= entry["pack_quantity"]
-        if p.stock_quantity < 0:
-            p.stock_quantity = 0
-        if p.stock_quantity == 0:
-            p.stock_status = StockStatus.out_of_stock
+        _atomic_decrement_stock(db, Product, p.id, entry["pack_quantity"], p.name)
         if entry["variant"]:
             v = entry["variant"]
-            v.stock_quantity -= entry["pack_quantity"]
-            if v.stock_quantity < 0:
-                v.stock_quantity = 0
+            _atomic_decrement_stock(db, ProductVariant, v.id, entry["pack_quantity"], f"{p.name} ({v.option_value})")
+
+    for entry in items_to_create:
+        p = entry["product"]
+        db.refresh(p)
+        if p.stock_quantity == 0:
+            p.stock_status = StockStatus.out_of_stock
 
     db.commit()
     db.refresh(order)
     order.items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
-    
+
+    resp = OrderResponse.model_validate(order)
+    _redact_cost_price(resp, current_user)
+
     # Send order confirmation email (fire-and-forget, don't block response on email failure)
     try:
-        await send_order_confirmation_email(current_user.email, current_user.full_name, order)
+        await send_order_confirmation_email(current_user.email, current_user.full_name, resp)
     except Exception as e:
         # Log the error but don't fail the order creation
         import logging
         logging.getLogger(__name__).error(f"Failed to send order confirmation email to {current_user.email}: {e}")
-    
-    return order
+
+    return resp
 
 
 @router.get("", response_model=List[OrderResponse])
@@ -211,7 +269,7 @@ def list_orders(
         if buyer and current_user.role in (UserRole.admin, UserRole.seller):
             resp.buyer_email = buyer.email
             resp.buyer_full_name = buyer.full_name
-        result.append(resp)
+        result.append(_redact_cost_price(resp, current_user))
     return result
 
 
@@ -228,7 +286,19 @@ def get_order(
         raise HTTPException(status_code=403, detail="Not authorized")
 
     order.items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
-    return order
+    resp = OrderResponse.model_validate(order)
+    return _redact_cost_price(resp, current_user)
+
+
+# Linear fulfillment flow; delivered/cancelled are terminal. Enforced server-side so the
+# API can't be pushed into a nonsensical state even by staff, regardless of what the UI sends.
+_ALLOWED_STATUS_TRANSITIONS = {
+    OrderStatus.pending: {OrderStatus.confirmed, OrderStatus.cancelled},
+    OrderStatus.confirmed: {OrderStatus.shipped, OrderStatus.cancelled},
+    OrderStatus.shipped: {OrderStatus.delivered, OrderStatus.cancelled},
+    OrderStatus.delivered: set(),
+    OrderStatus.cancelled: set(),
+}
 
 
 @router.patch("/{order_id}/status", response_model=OrderResponse)
@@ -238,7 +308,8 @@ async def update_order_status(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Seller/admin can set any status. Buyer can only cancel their own pending order."""
+    """Seller/admin can advance an order through the fulfillment flow or cancel it.
+    Buyer can only cancel their own pending order."""
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
@@ -250,8 +321,16 @@ async def update_order_status(
             raise HTTPException(status_code=403, detail="Buyers can only cancel orders")
         if order.status != OrderStatus.pending:
             raise HTTPException(status_code=400, detail="Only pending orders can be cancelled")
+    elif payload.status not in _ALLOWED_STATUS_TRANSITIONS.get(order.status, set()):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot change status from '{order.status.value}' to '{payload.status.value}'",
+        )
 
     old_status = order.status
+    if payload.status == OrderStatus.cancelled and old_status != OrderStatus.cancelled:
+        _restore_stock_for_order(db, order)
+
     order.status = payload.status
     db.commit()
     db.refresh(order)
@@ -259,6 +338,7 @@ async def update_order_status(
 
     # Enrich with buyer info for the response
     resp = OrderResponse.model_validate(order)
+    _redact_cost_price(resp, current_user)
     buyer = db.query(User).filter(User.id == order.buyer_id).first()
     if buyer and current_user.role in (UserRole.admin, UserRole.seller):
         resp.buyer_email = buyer.email
@@ -283,6 +363,14 @@ async def update_order_status(
     return resp
 
 
+def _e(value) -> str:
+    """HTML-escape any value headed into the print view — several fields
+    (shipping address, recipient name, company name) are buyer-controlled input."""
+    if value is None:
+        return ""
+    return html.escape(str(value))
+
+
 @router.get("/{order_id}/print", response_class=HTMLResponse)
 def print_order(
     order_id: UUID,
@@ -297,18 +385,32 @@ def print_order(
     if current_user.role == UserRole.buyer and order.buyer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    is_staff = current_user.role in (UserRole.admin, UserRole.seller)
     items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
     buyer = db.query(User).filter(User.id == order.buyer_id).first()
-    html = f"""
-    <html><head><meta charset="utf-8"><title>Order {str(order.id)[:8]} Print</title>
+
+    company_name = order.company_name or (buyer.company_name if buyer else None)
+    company_tax_id = order.company_tax_id or (buyer.company_tax_id if buyer else None)
+    cost_col_header = "<th>Cost price</th>" if is_staff else ""
+
+    doc = f"""
+    <html><head><meta charset="utf-8"><title>Order {_e(str(order.id)[:8])} Print</title>
     <style>body{{font-family:Arial,sans-serif;padding:24px;color:#0f172a}} table{{width:100%;border-collapse:collapse;margin-top:16px}} th,td{{border:1px solid #cbd5e1;padding:8px;font-size:12px;text-align:left}} th{{background:#f1f5f9}} h1{{font-size:20px}} .meta{{margin-top:12px;font-size:12px;color:#475569}} @media print{{button{{display:none}}}}</style></head>
     <body>
     <button onclick="window.print()" style="padding:8px 16px;background:#0f172a;color:#fff;border:0;border-radius:999px;cursor:pointer">Print</button>
-    <h1>Order #{str(order.id)[:8]} — {order.status.value}</h1>
-    <div class="meta">Buyer: {buyer.full_name if buyer else ''} ({buyer.email if buyer else ''})<br>Company: {order.company_name or buyer.company_name if buyer else ''} NIP: {order.company_tax_id or (buyer.company_tax_id if buyer else '')}<br>Shipping: {order.shipping_address}<br>Recipient: {order.recipient_name or ''} {order.recipient_phone or ''} {order.recipient_address or ''}<br>Payment: {order.payment_method.value} (COD only)<br>Date: {order.created_at}</div>
-    <table><thead><tr><th>Product</th><th>Pack</th><th>Qty (packs)</th><th>Stall / Counter</th><th>Cost price</th><th>Sell net</th><th>Total net</th></tr></thead><tbody>
+    <h1>Order #{_e(str(order.id)[:8])} — {_e(order.status.value)}</h1>
+    <div class="meta">Buyer: {_e(buyer.full_name if buyer else '')} ({_e(buyer.email if buyer else '')})<br>Company: {_e(company_name)} NIP: {_e(company_tax_id)}<br>Shipping: {_e(order.shipping_address)}<br>Recipient: {_e(order.recipient_name)} {_e(order.recipient_phone)} {_e(order.recipient_address)}<br>Payment: {_e(order.payment_method.value)} (COD only)<br>Date: {_e(order.created_at)}</div>
+    <table><thead><tr><th>Product</th><th>Pack</th><th>Qty (packs)</th><th>Stall / Counter</th>{cost_col_header}<th>Sell net</th><th>Total net</th></tr></thead><tbody>
     """
     for it in items:
-        html += f"<tr><td>{it.product_name_snapshot} (pack {it.pack_size_snapshot})</td><td>{it.pack_size_snapshot}</td><td>{it.pack_quantity}</td><td>{it.stall_location_snapshot or '-'} / {it.counter_number_snapshot or '-'}</td><td>{it.cost_price_snapshot if it.cost_price_snapshot is not None else '-'}</td><td>{it.price_net_snapshot}</td><td>{round(float(it.price_net_snapshot)*it.pack_quantity,2)}</td></tr>"
-    html += f"</tbody></table><p style='margin-top:12px;font-weight:700'>Total net: {order.total_net} | Total gross: {order.total_gross}</p><p style='font-size:11px;color:#64748b'>Print for staff: buy goods at stall after order. Cost price shown for margin.</p></body></html>"
-    return HTMLResponse(content=html)
+        cost_cell = f"<td>{_e(it.cost_price_snapshot) if it.cost_price_snapshot is not None else '-'}</td>" if is_staff else ""
+        doc += (
+            f"<tr><td>{_e(it.product_name_snapshot)} (pack {_e(it.pack_size_snapshot)})</td>"
+            f"<td>{_e(it.pack_size_snapshot)}</td><td>{_e(it.pack_quantity)}</td>"
+            f"<td>{_e(it.stall_location_snapshot or '-')} / {_e(it.counter_number_snapshot or '-')}</td>"
+            f"{cost_cell}"
+            f"<td>{_e(it.price_net_snapshot)}</td><td>{_e(round(float(it.price_net_snapshot) * it.pack_quantity, 2))}</td></tr>"
+        )
+    footer_note = "Print for staff: buy goods at stall after order. Cost price shown for margin." if is_staff else "Print for staff: buy goods at stall after order."
+    doc += f"</tbody></table><p style='margin-top:12px;font-weight:700'>Total net: {_e(order.total_net)} | Total gross: {_e(order.total_gross)}</p><p style='font-size:11px;color:#64748b'>{_e(footer_note)}</p></body></html>"
+    return HTMLResponse(content=doc)

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Search results — WolkaGo</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/favicon-180.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><div class="container">
+  <div>Skontaktuj się z nami: <b>+48 579 383 945</b></div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <a href="login.html" id="top-login" data-i18n="login">Zaloguj się</a>
+    <a href="contact.html">Kontakt z nami</a>
+  </div>
+</div></div>
+
+<div class="header"><div class="container">
+  <a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
+  <form class="search" id="searchForm">
+    <input id="q" data-i18n-ph="searchPh" placeholder="Szukaj — nazwa produktu, kategoria...">
+    <button type="submit" data-i18n="search">Szukaj</button>
+  </form>
+  <a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b> — <span data-cart-net>0.00 zł</span></a>
+</div></div>
+
+<div class="container" style="padding:16px 10px">
+  <h1 id="heading" style="font-size:16px;margin:0 0 12px"></h1>
+  <div class="grid" id="grid"></div>
+</div>
+
+<script src="js/app.js"></script>
+<script>
+async function runSearch(){
+  const q = new URLSearchParams(location.search).get('q') || '';
+  document.getElementById('q').value = q;
+  document.getElementById('heading').textContent = q
+    ? `Wyniki wyszukiwania dla „${q}”`
+    : 'Wpisz szukaną frazę powyżej';
+
+  const grid = document.getElementById('grid');
+  if(!q){ grid.innerHTML=''; return; }
+
+  grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;padding:20px;color:#888">Ładowanie…</p>';
+  const prods = await Api.listProducts({search:q, limit:48}).catch(()=>[]);
+
+  if(!prods.length){
+    grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;padding:40px;background:#fff;border:1px solid #ddd;color:#888">Brak wyników.</p>';
+    return;
+  }
+
+  grid.innerHTML = prods.map(p=>{
+    const out = p.stock_status==='out_of_stock' || p.stock_quantity===0;
+    const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/300x220?text=No+image';
+    const slugUrl = encodeURIComponent(p.slug);
+    const ribbon = p.is_on_sale ? 'SALE' : (p.is_bestseller ? 'BESTSELLER' : (p.is_popular ? 'POPULAR' : 'NEW'));
+    return `<div class="card">
+      <div style="position:relative">
+        <div class="ribbon">${ribbon}</div>
+        <a href="product.html?slug=${slugUrl}"><img src="${esc(img)}" alt="${esc(p.name)}"></a>
+      </div>
+      <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
+      <div class="package-bar">in a package: ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
+      <div class="price">
+        <div>net price: <b>${Number(p.price_net).toFixed(2)} PLN</b></div>
+        <div>gross price: <b>${Number(p.price_gross).toFixed(2)} PLN</b></div>
+      </div>
+      <button class="add" onclick="location.href='product.html?slug=${slugUrl}'" ${out?'disabled style="opacity:.5"':''}>View product</button>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('searchForm').addEventListener('submit', e=>{
+  e.preventDefault();
+  const q = document.getElementById('q').value.trim();
+  location.href = q ? 'search.html?q='+encodeURIComponent(q) : 'search.html';
+});
+
+runSearch();
+</script>
+</body>
+</html>

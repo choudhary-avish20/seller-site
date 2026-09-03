@@ -4,15 +4,15 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_admin
 from app.core.config import settings
+from app.core.rate_limit import rate_limit
 from app.db.session import get_db
 from app.core.auth import (
     authenticate_user,
     create_user,
     create_tokens,
-    create_access_token,
-    create_refresh_token,
     decode_token,
     get_user_by_email,
+    get_user_by_id,
     get_password_hash,
     verify_password,
     create_verification_token,
@@ -39,7 +39,12 @@ from app.services.email import send_verification_email
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/signup",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(rate_limit("signup", max_requests=5, window_seconds=3600))],
+)
 async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     if get_user_by_email(db, user_data.email):
         raise HTTPException(
@@ -84,15 +89,10 @@ async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     return user
 
 
-@router.post("/login", response_model=Token)
-def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    user = authenticate_user(db, credentials.email, credentials.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+def _check_user_allowed_to_authenticate(user: User, db: Session) -> None:
+    """Shared account-standing checks for both /login and /refresh — a deactivated,
+    pending, or rejected account must be blocked from both paths equally, otherwise
+    a still-valid refresh token would let it keep minting access tokens forever."""
     if not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -117,23 +117,46 @@ def login(credentials: UserLogin, db: Session = Depends(get_db)):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Seller account rejected: {profile.rejection_reason or ''}",
             )
+
+
+@router.post(
+    "/login",
+    response_model=Token,
+    dependencies=[Depends(rate_limit("login", max_requests=10, window_seconds=300))],
+)
+def login(credentials: UserLogin, db: Session = Depends(get_db)):
+    user = authenticate_user(db, credentials.email, credentials.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    _check_user_allowed_to_authenticate(user, db)
     access_token, refresh_token = create_tokens(user)
     return Token(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post("/refresh", response_model=Token)
-def refresh_token(request: RefreshTokenRequest):
+def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
     payload = decode_token(request.refresh_token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid refresh token",
         )
-    user_id = payload.get("sub")
-    role = payload.get("role")
-    new_access = create_access_token({"sub": user_id, "role": role})
-    new_refresh = create_refresh_token({"sub": user_id, "role": role})
-    return Token(access_token=new_access, refresh_token=new_refresh)
+    from uuid import UUID as UUUID
+
+    try:
+        user_uuid = UUUID(payload.get("sub") or "")
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    user = get_user_by_id(db, user_uuid)
+    if not user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    _check_user_allowed_to_authenticate(user, db)
+    access_token, new_refresh = create_tokens(user)
+    return Token(access_token=access_token, refresh_token=new_refresh)
 
 
 @router.get("/me", response_model=UserResponse)

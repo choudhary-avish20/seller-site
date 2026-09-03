@@ -12,33 +12,38 @@ from app.models.seller import SellerProfile, SellerStatus
 def seed_admin():
     db = SessionLocal()
     try:
-        seller_email = os.getenv("ADMIN_EMAIL", "seller@example.com")
-        seller_password = os.getenv("ADMIN_PASSWORD", "seller123")
-        seller_name = os.getenv("ADMIN_NAME", "Store Owner")
+        admin_email = os.getenv("ADMIN_EMAIL", "seller@example.com")
+        admin_password = os.getenv("ADMIN_PASSWORD", "seller123")
+        admin_name = os.getenv("ADMIN_NAME", "Store Owner")
 
-        existing = db.query(User).filter(User.email == seller_email).first()
+        existing = db.query(User).filter(User.email == admin_email).first()
         if existing:
-            print(f"Seller account already exists: {seller_email}")
+            print(f"Admin account already exists: {admin_email}")
             return
 
+        # This is the store owner's account. It must be role=admin, not role=seller,
+        # so it can reach admin-only endpoints (approve sellers, approve buyers) —
+        # there is no other path in the app that ever creates a UserRole.admin user.
         user = User(
-            email=seller_email,
-            hashed_password=get_password_hash(seller_password),
-            full_name=seller_name,
-            role=UserRole.seller,
+            email=admin_email,
+            hashed_password=get_password_hash(admin_password),
+            full_name=admin_name,
+            role=UserRole.admin,
             is_active=True,
         )
         db.add(user)
         db.flush()
 
+        # Not required for the admin role, but harmless to keep so the account
+        # has a business_name on file if it's ever displayed alongside orders.
         profile = SellerProfile(
             user_id=user.id,
-            business_name=seller_name,
+            business_name=admin_name,
             status=SellerStatus.approved,
         )
         db.add(profile)
         db.commit()
-        print(f"✅ Seller account created: {seller_email} / {seller_password}")
+        print(f"✅ Admin account created: {admin_email} / {admin_password}")
         print()
         print("⚠️  Next steps for handover:")
         print("   1. Share these credentials with the owner via a secure channel")
