@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -7,7 +8,36 @@ from fastapi.staticfiles import StaticFiles
 from app.api.routes import health, auth, categories, products, uploads, orders, sellers, wishlist, addresses, reviews, settings as settings_routes
 from app.core.config import settings
 
+logger = logging.getLogger(__name__)
+
+
+def run_migrations() -> None:
+    """Run Alembic migrations on startup so every deploy is always up to date.
+    Safe to call repeatedly — Alembic is idempotent (skips already-applied migrations)."""
+    try:
+        from alembic import command
+        from alembic.config import Config
+
+        # alembic.ini lives in backend/ (one level above app/)
+        alembic_cfg_path = Path(__file__).resolve().parents[1] / "alembic.ini"
+        alembic_cfg = Config(str(alembic_cfg_path))
+        # Override script_location to absolute path so it works regardless of
+        # the working directory the process starts from (important on Render).
+        alembic_cfg.set_main_option(
+            "script_location", str(Path(__file__).resolve().parents[1] / "alembic")
+        )
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Alembic migrations applied successfully.")
+    except Exception:
+        logger.exception("Alembic migration failed — server will still start, check logs.")
+
+
 app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
+
+
+@app.on_event("startup")
+async def startup_event() -> None:
+    run_migrations()
 
 is_dev = settings.ENV == "development" or settings.DEBUG
 app.add_middleware(

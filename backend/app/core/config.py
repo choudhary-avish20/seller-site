@@ -16,8 +16,10 @@ class Settings(BaseSettings):
     ENV: str = "development"
     DEBUG: bool = True
 
-    # Database — SQLite default for local dev (no services needed)
-    # Override with a PostgreSQL URL in .env for production.
+    # Database
+    # Local dev default: SQLite (no extra setup needed).
+    # Production: set DATABASE_URL to your Neon connection string, e.g.:
+    #   postgresql://user:pass@ep-xxx.us-east-2.aws.neon.tech/dbname?sslmode=require
     DATABASE_URL: str = "sqlite:///./wholesale.db"
 
     # Auth

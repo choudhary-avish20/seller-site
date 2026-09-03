@@ -3,12 +3,28 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 
-# For SQLite, we need check_same_thread=False
-connect_args = {}
-if settings.DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False}
+# SQLite needs check_same_thread=False; Postgres does not.
+# For Neon (serverless Postgres), we use NullPool to avoid keeping connections
+# open between requests — Neon's serverless architecture works best this way.
+is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+is_neon = "neon.tech" in settings.DATABASE_URL or "neon.fl" in settings.DATABASE_URL
 
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, connect_args=connect_args)
+if is_sqlite:
+    connect_args = {"check_same_thread": False}
+    engine = create_engine(
+        settings.DATABASE_URL,
+        pool_pre_ping=True,
+        connect_args=connect_args,
+    )
+else:
+    # Postgres / Neon: use NullPool so connections are not held open between
+    # requests. This is the recommended approach for serverless/PaaS Postgres.
+    from sqlalchemy.pool import NullPool
+    engine = create_engine(
+        settings.DATABASE_URL,
+        poolclass=NullPool,
+        pool_pre_ping=True,
+    )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

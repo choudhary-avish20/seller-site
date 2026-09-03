@@ -3,9 +3,7 @@ starlette==0.38.6
 uvicorn[standard]==0.30.6
 sqlalchemy==2.0.35
 alembic==1.13.2
-# psycopg2-binary==2.9.9  # PostgreSQL driver — only needed if DATABASE_URL is postgresql://
-#   No wheel exists for Python 3.13, so pip compiles from source and fails without libpq.
-#   Uncomment (and `brew install postgresql`) only when switching off SQLite.
+psycopg2-binary==2.9.9  # PostgreSQL driver for Neon / any Postgres instance
 pydantic==2.9.2
 pydantic-settings==2.5.2
 python-jose[cryptography]==3.3.0
