@@ -28,14 +28,19 @@ services:
       - key: DEBUG
         value: "false"
 
-      # ── CORS: set to your actual Netlify URL after first deploy ──────────
-      # Example: https://your-site-name.netlify.app
+      # ── Single-service deploy: this backend also serves the frontend (see
+      # app/main.py's StaticFiles mount), so the browser's requests are
+      # same-origin and CORS_ORIGINS is mostly a no-op safety net rather than
+      # something that needs to list a separate frontend host. Set both of
+      # these to this service's own public URL after your first deploy —
+      # Render shows it in the dashboard once the service exists.
+      # Example: https://seller-site-backend.onrender.com
       - key: CORS_ORIGINS
-        value: '["https://your-site-name.netlify.app"]'
+        value: '["https://your-service-name.onrender.com"]'
 
-      # ── Frontend URL (used in email verification links) ──────────────────
+      # ── Public URL (used in email verification links) ────────────────────
       - key: FRONTEND_BASE_URL
-        value: https://your-site-name.netlify.app
+        value: https://your-service-name.onrender.com
 
       # ── Token expiry (optional, defaults shown) ───────────────────────────
       - key: ACCESS_TOKEN_EXPIRE_MINUTES

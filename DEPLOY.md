@@ -1,38 +1,28 @@
 # Deployment Guide
 
 ## Stack
-- **Frontend**: Static HTML/CSS/JS → Netlify
-- **Backend**: FastAPI (Python 3.12) → Render (free tier)
-- **Database**: SQLite (file on Render disk) — swap for Render Postgres for persistence
+- **Single service on Render**: the FastAPI backend serves the API *and* the
+  static frontend from the same origin (see `backend/app/main.py`'s
+  `StaticFiles` mount at `/`) — this is exactly what `./start.sh` does for
+  local dev, just running in production instead.
+- **Database**: SQLite (file on Render disk) — swap for Render Postgres for
+  persistence.
+
+There is no separate frontend deployment. If you previously created a second
+Render static site for the frontend, delete it — it's not wired to anything
+and will serve a stale, unconfigured copy of the frontend that can't reach
+the API.
 
 ---
 
-## 1. Deploy Frontend to Netlify
-
-### Option A — Drag & Drop (instant)
-1. Go to [app.netlify.com](https://app.netlify.com) and log in
-2. Drag the `frontend/` folder onto the deploy zone
-3. Note your site URL (e.g. `https://random-name.netlify.app`)
-
-### Option B — GitHub CI (auto-deploys on push)
-1. Go to **Add new site → Import from Git**, select this repo
-2. Build settings are read from `netlify.toml` automatically:
-   - Publish directory: `frontend`
-   - Build command: `echo "window.__API_URL__='${API_URL}';" > frontend/config.js`
-3. Go to **Site settings → Environment variables** and add:
-
-| Variable  | Value |
-|-----------|-------|
-| `API_URL` | `https://seller-site-backend.onrender.com/api/v1` (your Render URL) |
-
----
-
-## 2. Deploy Backend to Render
+## Deploy to Render
 
 1. Go to [render.com](https://render.com) and log in
 2. **New → Web Service → Connect a repository** → select this repo
 3. Render will detect `render.yaml` automatically and pre-fill all settings
 4. Review and click **Deploy**
+5. Once it's live, copy the service's public URL from the Render dashboard
+   (e.g. `https://seller-site-backend.onrender.com`)
 
 ### Required Environment Variables (set in Render dashboard)
 
@@ -42,8 +32,8 @@
 | `ENV` | ✅ | Set to `production` |
 | `DEBUG` | ✅ | Set to `false` |
 | `DATABASE_URL` | ✅ | `sqlite:///./wholesale.db` (default) or a Render Postgres URL |
-| `CORS_ORIGINS` | ✅ | JSON array: `["https://your-site.netlify.app"]` |
-| `FRONTEND_BASE_URL` | ✅ | `https://your-site.netlify.app` (used in email links) |
+| `CORS_ORIGINS` | recommended | JSON array containing this service's own URL, e.g. `["https://seller-site-backend.onrender.com"]` — requests are same-origin so this mostly matters if something else calls the API directly |
+| `FRONTEND_BASE_URL` | ✅ | This service's own URL — used to build links in verification emails |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | optional | Default: `30` |
 | `REFRESH_TOKEN_EXPIRE_DAYS` | optional | Default: `7` |
 
@@ -60,14 +50,13 @@
 
 ---
 
-## 3. Post-Deploy Checklist
+## Post-Deploy Checklist
 
-- [ ] Update `CORS_ORIGINS` in Render with your actual Netlify URL
-- [ ] Update `FRONTEND_BASE_URL` in Render with your actual Netlify URL
-- [ ] Update `API_URL` in Netlify environment variables with your actual Render URL
-- [ ] Trigger a redeploy on both services after updating the URLs
-- [ ] Visit `https://your-backend.onrender.com/api/v1/health` — should return `{"status":"ok"}`
-- [ ] Visit your Netlify URL — the frontend should load and connect to the backend
+- [ ] Update `CORS_ORIGINS` and `FRONTEND_BASE_URL` in Render with the service's actual URL (you only know it after the first deploy)
+- [ ] Redeploy after updating those two values
+- [ ] Visit `https://<your-service>.onrender.com/api/v1/health` — should return `{"status":"ok"}`
+- [ ] Visit `https://<your-service>.onrender.com/` — the storefront should load and work end-to-end (browse, sign up, log in) with no separate frontend deploy needed
+- [ ] Delete any other frontend-only Render/Netlify site you created earlier — it's not part of this setup and will only cause confusion
 
 ---
 
@@ -86,8 +75,10 @@ For persistent data, add a Render PostgreSQL database:
 3. Set it as `DATABASE_URL` in your web service's env vars
 4. Uncomment `psycopg2-binary` in `backend/requirements.txt`
 
-### Setting API URL manually (browser)
-To point the frontend at a different backend without redeploying:
+### Pointing the frontend at a different backend (local testing only)
+`frontend/config.js` is a no-op by default (same-origin API calls). To test
+the deployed frontend against a different backend temporarily, run this in
+the browser console:
 ```js
 localStorage.setItem('API_URL', 'https://your-backend.onrender.com/api/v1')
 location.reload()
