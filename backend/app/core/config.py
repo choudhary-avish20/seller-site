@@ -89,6 +89,28 @@ class Settings(BaseSettings):
     # Frontend URL for email links
     FRONTEND_BASE_URL: str = "http://localhost:8000"
 
+    # Cloudflare R2 image storage
+    # Leave all R2 vars empty in local dev — uploads will fall back to local disk.
+    # In production, set all five vars in Render's environment dashboard.
+    # Get these from: Cloudflare dashboard → R2 → your bucket → Manage R2 API Tokens
+    R2_ACCOUNT_ID: str = ""         # Cloudflare Account ID (found on R2 overview page)
+    R2_ACCESS_KEY_ID: str = ""      # R2 API token Access Key ID
+    R2_SECRET_ACCESS_KEY: str = ""  # R2 API token Secret Access Key
+    R2_BUCKET_NAME: str = ""        # e.g. "seller-site-uploads"
+    R2_PUBLIC_URL: str = ""         # Public bucket URL, e.g. "https://pub-xxx.r2.dev"
+                                    # or your custom domain "https://cdn.yourdomain.com"
+
+    @property
+    def r2_configured(self) -> bool:
+        """True when all five R2 vars are set — switches uploads from local disk to R2."""
+        return all([
+            self.R2_ACCOUNT_ID,
+            self.R2_ACCESS_KEY_ID,
+            self.R2_SECRET_ACCESS_KEY,
+            self.R2_BUCKET_NAME,
+            self.R2_PUBLIC_URL,
+        ])
+
 
 settings = Settings()
 
