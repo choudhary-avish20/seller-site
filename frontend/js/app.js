@@ -83,7 +83,7 @@ const I18N={
 };
 let lang=localStorage.getItem('lang')||(navigator.language.startsWith('pl')?'pl':'pl');
 function t(k){return (I18N[lang]&&I18N[lang][k])||I18N.pl[k]||k}
-function setLang(l){lang=l;localStorage.setItem('lang',l);applyLang(); updateCartUI();}
+function setLang(l){lang=l;localStorage.setItem('lang',l);applyLang(); updateCartUI(); renderAuthHeader();}
 function applyLang(){ document.querySelectorAll('[data-i18n]').forEach(e=>{const k=e.getAttribute('data-i18n'); if(k&&I18N[lang][k]) e.textContent=I18N[lang][k]}); document.querySelectorAll('[data-i18n-ph]').forEach(e=>{const k=e.getAttribute('data-i18n-ph'); if(k&&I18N[lang][k]) e.placeholder=I18N[lang][k]}); }
 document.addEventListener('DOMContentLoaded',()=>{ document.querySelectorAll('[data-lang]').forEach(b=>b.addEventListener('click',()=>setLang(b.dataset.lang))); applyLang(); });
 
@@ -147,7 +147,45 @@ async function refreshUser(){
   const tok=localStorage.getItem('access_token'); if(!tok) return null;
   try{ const u=await Api.getMe(); localStorage.setItem('user',JSON.stringify(u)); return u;}catch{ return null}
 }
+
+// Reads ?next=<page> from the current URL and returns it only if it's a
+// plain same-site page filename — never an absolute/protocol-relative URL
+// or a javascript: URI — so login.html can't be used as an open redirect.
+function safeNextUrl(fallback){
+  const next = new URLSearchParams(location.search).get('next');
+  if(next && /^[a-zA-Z0-9_-]+\.html(\?[^\s]*)?$/.test(next)) return next;
+  return fallback;
+}
+window.safeNextUrl = safeNextUrl;
+
+// Shared header auth state. Every consumer-facing page includes a single
+// <a id="top-login"> in its topbar; this is the one place that decides
+// whether it reads "Sign in" or "email • Sign out", so pages can't drift
+// out of sync with each other (or, on a page with two separate login
+// indicators, with themselves) the way this used to be duplicated ad-hoc
+// per page. No-ops on pages that don't opt in (e.g. the admin dashboard,
+// which manages its own header).
+async function renderAuthHeader(){
+  const link = document.getElementById('top-login');
+  const myOrders = document.getElementById('myOrdersLink');
+  if(!link && !myOrders) return null;
+  const topUser = document.getElementById('topUser');
+  const u = await refreshUser().catch(()=>null);
+  if(u){
+    if(link){ link.textContent = u.email+' • '+t('logout'); link.href='#'; link.onclick=()=>{doLogout();return false}; }
+    if(topUser) topUser.textContent = u.full_name || u.email;
+    if(myOrders) myOrders.style.display = u.role==='buyer' ? '' : 'none';
+  } else {
+    if(link){ link.textContent = t('login'); link.href='login.html'; link.onclick=null; }
+    if(topUser) topUser.textContent = '';
+    if(myOrders) myOrders.style.display = 'none';
+  }
+  return u;
+}
+document.addEventListener('DOMContentLoaded', renderAuthHeader);
+
 window.Cart = Cart;
 window.doLogout = doLogout;
 window.refreshUser = refreshUser;
+window.renderAuthHeader = renderAuthHeader;
 window.updateCartUI = updateCartUI;

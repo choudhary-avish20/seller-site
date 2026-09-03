@@ -48,8 +48,6 @@
 <script src="config.js"></script>
 <script src="js/app.js"></script>
 <script>
-function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
 function row(icon, label, value, href){
   const valHtml = href
     ? `<a class="val" href="${esc(href)}"${href.startsWith('http')?' target="_blank" rel="noopener"':''}>${esc(value)}</a>`

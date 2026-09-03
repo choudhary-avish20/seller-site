@@ -12,6 +12,7 @@ class SiteSettingsResponse(BaseModel):
     instagram_url: Optional[str] = None
     whatsapp_number: Optional[str] = None
     contact_note: Optional[str] = None
+    terms_content: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -28,3 +29,4 @@ class SiteSettingsUpdate(BaseModel):
     instagram_url: Optional[str] = Field(None, max_length=500)
     whatsapp_number: Optional[str] = Field(None, max_length=32)
     contact_note: Optional[str] = None
+    terms_content: Optional[str] = None

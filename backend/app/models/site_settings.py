@@ -21,3 +21,4 @@ class SiteSettings(UUIDPKMixin, TimestampMixin, Base):
     instagram_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     whatsapp_number: Mapped[str | None] = mapped_column(String(32), nullable=True)
     contact_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    terms_content: Mapped[str | None] = mapped_column(Text, nullable=True)

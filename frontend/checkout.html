@@ -69,6 +69,7 @@
   <div style="display:flex;gap:12px;align-items:center">
     <span id="topUser" style="font-size:11px;color:#555"></span>
     <a href="index.html">Sklep</a>
+    <a href="login.html" id="top-login" data-i18n="login">Zaloguj się</a>
   </div>
 </div></div>
 
@@ -177,7 +178,7 @@
       </div>
 
       <div style="font-size:11px;color:#888;line-height:1.6;padding:0 2px">
-        Składając zamówienie akceptujesz warunki sprzedaży. Zamówienie jest wiążące po potwierdzeniu przez sprzedawcę.
+        Składając zamówienie akceptujesz <a href="terms.html" target="_blank" style="color:#0099cc">warunki sprzedaży</a>. Zamówienie jest wiążące po potwierdzeniu przez sprzedawcę.
       </div>
     </div>
 
@@ -198,18 +199,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     return;
   }
 
-  // Pre-fill name/phone from logged-in user if available
-  const tok = localStorage.getItem('access_token');
-  if (tok) {
-    try {
-      const me = await Api.getMe();
-      document.getElementById('topUser').textContent = me.full_name;
-      if (me.full_name)      document.getElementById('f_name').value = me.full_name;
-      if (me.phone)          document.getElementById('f_phone').value = me.phone;
-      if (me.company_name)   document.getElementById('f_company').value = me.company_name;
-      if (me.company_tax_id) document.getElementById('f_nip').value = me.company_tax_id;
-    } catch { /* not logged in, that's fine */ }
+  // renderAuthHeader() (app.js) has already set #topUser/#top-login by the
+  // time this runs — reuse its result instead of calling Api.getMe() again.
+  const me = await renderAuthHeader();
+  if (!me) {
+    // Don't let a guest fill out the whole form only to be rejected at
+    // submit time — send them to log in first, then straight back here.
+    location.href = 'login.html?next=checkout.html';
+    return;
   }
+  if (me.full_name)      document.getElementById('f_name').value = me.full_name;
+  if (me.phone)          document.getElementById('f_phone').value = me.phone;
+  if (me.company_name)   document.getElementById('f_company').value = me.company_name;
+  if (me.company_tax_id) document.getElementById('f_nip').value = me.company_tax_id;
 
   renderSummary(items);
 });

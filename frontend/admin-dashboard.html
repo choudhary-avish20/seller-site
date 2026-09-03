@@ -154,6 +154,7 @@ tr:hover td{background:#fafafa}
     <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia</div>
     <div class="nav-item" data-view="sellers" onclick="switchView('sellers')"><span class="icon">🧑‍💼</span> Sprzedawcy</div>
     <div class="nav-item" data-view="contact" onclick="switchView('contact')"><span class="icon">📇</span> Dane kontaktowe</div>
+    <div class="nav-item" data-view="terms" onclick="switchView('terms')"><span class="icon">📜</span> Regulamin</div>
     <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙</span> Ustawienia</div>
     <div class="sidebar-footer" style="border-top:1px solid #444;margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px">
       <div class="nav-item" onclick="doLogout()"><span class="icon">🚪</span> Wyloguj</div>
@@ -409,6 +410,7 @@ function switchView(view) {
   else if (view === 'orders') renderOrdersView();
   else if (view === 'sellers') renderSellersView();
   else if (view === 'contact') renderContactSettingsView();
+  else if (view === 'terms') renderTermsView();
   else if (view === 'settings') renderSettingsView();
 }
 
@@ -610,7 +612,7 @@ function renderCatRows() {
             <div class="actions">
               <button class="btn btn-ghost btn-sm" onclick="openCatModal('${n.id}')">✏️ Edytuj</button>
               <button class="btn btn-ghost btn-sm" onclick="openAddSubcatModal('${n.id}')">＋ Podkat.</button>
-              <button class="btn btn-danger btn-sm" onclick="confirmDeleteCat('${n.id}','${esc(n.name)}')">🗑</button>
+              <button class="btn btn-danger btn-sm" onclick="confirmDeleteCat('${n.id}',this.dataset.name)" data-name="${esc(n.name)}">🗑</button>
             </div>
           </td>
         </tr>`);
@@ -1188,6 +1190,47 @@ async function saveContactSettings() {
   }
 }
 
+// ── Terms & Conditions (Regulamin) ─────────────────────────────────────────
+async function renderTermsView() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<div class="empty">Ładowanie regulaminu…</div>';
+
+  let s;
+  try { s = await Api.getSettings(); }
+  catch (e) { main.innerHTML = `<div class="alert alert-warn">Błąd ładowania regulaminu: ${e.message}</div>`; return; }
+
+  main.innerHTML = `
+    <div class="page-title">📜 Regulamin</div>
+    <div class="alert alert-info">Ten tekst jest widoczny publicznie na stronie <a href="terms.html" target="_blank" style="color:#1e40af;font-weight:bold">Regulamin</a>, do której linkuje strona główna i formularz zamówienia.</div>
+    <div class="alert alert-warn">To jest przykładowy szablon — pola w nawiasach kwadratowych, np. [NIP], należy zastąpić prawdziwymi danymi firmy. Przed publikacją zalecana jest weryfikacja treści przez radcę prawnego lub adwokata.</div>
+    <div class="form-err" id="termsErr"></div>
+    <div style="background:#fff;border:1px solid #ddd;padding:20px;max-width:760px">
+      <div class="f-row">
+        <label>Treść regulaminu</label>
+        <textarea id="s_terms" rows="24" style="font-family:monospace;font-size:12px;white-space:pre-wrap">${esc(s.terms_content)}</textarea>
+        <div class="hint">Zwykły tekst — bez znaczników HTML. Puste linie oddzielają akapity.</div>
+      </div>
+      <button class="btn btn-primary" id="termsSaveBtn" onclick="saveTerms()">💾 Zapisz</button>
+    </div>`;
+}
+
+async function saveTerms() {
+  const err = document.getElementById('termsErr');
+  err.style.display = 'none';
+
+  const btn = document.getElementById('termsSaveBtn');
+  btn.disabled = true; btn.textContent = 'Zapisywanie…';
+  try {
+    await Api.updateSettings({ terms_content: document.getElementById('s_terms').value });
+    btn.textContent = '✅ Zapisano';
+    setTimeout(() => { btn.textContent = '💾 Zapisz'; btn.disabled = false; }, 1200);
+  } catch (e) {
+    err.textContent = e.message || 'Błąd zapisu regulaminu.';
+    err.style.display = 'block';
+    btn.disabled = false; btn.textContent = '💾 Zapisz';
+  }
+}
+
 // ── Add/Edit modal ─────────────────────────────────────────────────────────
 function openAddModal() {
   editingProductId = null;
@@ -1708,7 +1751,6 @@ async function changePassword() {
 // ── Helpers ────────────────────────────────────────────────────────────────
 function showModalErr(msg) { const e = document.getElementById('modalErr'); e.textContent = msg; e.style.display = 'block'; }
 function hideModalErr() { document.getElementById('modalErr').style.display = 'none'; }
-function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 function fmtPrice(v) { return (parseFloat(v) || 0).toFixed(2); }
 function fmtDate(s) { if (!s) return '—'; try { return new Date(s).toLocaleDateString('pl-PL'); } catch { return s; } }
 </script>

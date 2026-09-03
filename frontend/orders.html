@@ -24,7 +24,7 @@
 <body>
 <div class="topbar"><div class="container">
   <div>Skontaktuj się z nami: <b>+48 579 383 945</b></div>
-  <div style="display:flex;gap:12px;align-items:center"><a href="index.html">Sklep</a></div>
+  <div style="display:flex;gap:12px;align-items:center"><a href="index.html">Sklep</a><a href="login.html" id="top-login" data-i18n="login">Zaloguj się</a></div>
 </div></div>
 <div class="header"><div class="container">
   <a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
@@ -44,7 +44,7 @@ const STATUS_LABELS = {pending:'Oczekujące', confirmed:'Potwierdzone', shipped:
 
 async function load(){
   const tok = localStorage.getItem('access_token');
-  if(!tok){ location.href = 'login.html'; return; }
+  if(!tok){ location.href = 'login.html?next=orders.html'; return; }
 
   const list = document.getElementById('list');
   list.innerHTML = '<p style="text-align:center;padding:20px;color:#888">Ładowanie…</p>';

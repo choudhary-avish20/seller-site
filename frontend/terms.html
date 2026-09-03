@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Regulamin — WolkaGo</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/favicon-180.png">
+<link rel="stylesheet" href="css/style.css">
+<style>
+.terms-wrap{max-width:760px;margin:30px auto;padding:0 10px}
+.terms-card{background:#fff;border:1px solid #ddd;padding:28px 30px;font-size:13px;line-height:1.7;color:#222;white-space:pre-wrap;word-wrap:break-word}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="container">
+  <div>Skontaktuj się z nami: <b>+48 579 383 945</b></div>
+  <div style="display:flex;gap:12px;align-items:center">
+    <a href="login.html" id="top-login" data-i18n="login">Zaloguj się</a>
+    <a href="index.html">Strona główna</a>
+  </div>
+</div></div>
+
+<div class="header"><div class="container">
+  <a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
+</div></div>
+
+<div class="terms-wrap">
+  <h1 style="font-size:20px;margin-bottom:14px">Regulamin</h1>
+  <div class="terms-card" id="termsBody">Ładowanie…</div>
+</div>
+
+<script src="config.js"></script>
+<script src="js/app.js"></script>
+<script>
+async function loadTerms(){
+  const el = document.getElementById('termsBody');
+  try{
+    const s = await Api.getSettings();
+    el.textContent = s.terms_content || 'Regulamin zostanie wkrótce opublikowany.';
+  }catch(e){
+    el.textContent = 'Nie udało się załadować regulaminu. Spróbuj ponownie później.';
+  }
+}
+loadTerms();
+</script>
+</body>
+</html>
