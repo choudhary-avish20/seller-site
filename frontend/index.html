@@ -36,6 +36,15 @@
   <aside class="sidebar">
     <div class="sidebar-head">WHOLESALER CATEGORIES</div>
     <div class="cat-list" id="catList"></div>
+    <div class="sidebar-head" style="margin-top:10px">PRICE (NET, PLN)</div>
+    <div style="padding:10px;display:flex;gap:6px;align-items:center">
+      <input id="priceMin" type="number" min="0" placeholder="Min" style="width:100%;border:1px solid #ccc;padding:5px;font-size:12px">
+      <span style="color:#999">–</span>
+      <input id="priceMax" type="number" min="0" placeholder="Max" style="width:100%;border:1px solid #ccc;padding:5px;font-size:12px">
+    </div>
+    <div style="padding:0 10px 10px">
+      <button onclick="applyPriceFilter()" style="width:100%;padding:6px;background:#0099cc;color:#fff;border:0;font-size:12px;font-weight:bold;cursor:pointer">Filtruj</button>
+    </div>
   </aside>
   <main class="main">
     <h1 style="font-size:18px;margin:0 0 6px">Clothing wholesaler from Wólka Kosowska</h1>
@@ -138,7 +147,17 @@ function selectCat(id, event, hasChildren){
 let currentFilter='new';
 let currentCategoryId=null;
 let currentPage=1;
+let priceMinFilter=null;
+let priceMaxFilter=null;
 const PAGE_SIZE=32;
+
+function applyPriceFilter(){
+  const minV = document.getElementById('priceMin').value;
+  const maxV = document.getElementById('priceMax').value;
+  priceMinFilter = minV!=='' ? Number(minV) : null;
+  priceMaxFilter = maxV!=='' ? Number(maxV) : null;
+  loadProducts(currentCategoryId);
+}
 
 function selectTab(filter, el){
   currentFilter=filter;
@@ -166,6 +185,8 @@ async function loadProducts(categoryId, opts={}){
   else if(currentFilter==='bestseller') params.bestseller = true;
   else if(currentFilter==='sale') params.on_sale = true;
   else if(currentFilter==='frequent') params.sort = 'most_purchased';
+  if(priceMinFilter!=null) params.price_min = priceMinFilter;
+  if(priceMaxFilter!=null) params.price_max = priceMaxFilter;
   const prods=await Api.listProducts(params).catch(()=>[]);
 
   if(!append && !prods.length){

@@ -288,6 +288,8 @@ def list_products(
     bestseller: Optional[bool] = Query(None, description="Filter to products marked as bestsellers"),
     popular: Optional[bool] = Query(None, description="Filter to products marked as popular"),
     on_sale: Optional[bool] = Query(None, description="Filter to products currently on sale/promotion"),
+    price_min: Optional[float] = Query(None, ge=0, description="Minimum net price (PLN)"),
+    price_max: Optional[float] = Query(None, ge=0, description="Maximum net price (PLN)"),
     sort: Optional[str] = Query(
         None, description="'new' (default, newest first) or 'most_purchased' (ranked by total units ordered)"
     ),
@@ -310,6 +312,10 @@ def list_products(
         q = q.filter(Product.is_popular == popular)
     if on_sale is not None:
         q = q.filter(Product.is_on_sale == on_sale)
+    if price_min is not None:
+        q = q.filter(Product.price_net >= price_min)
+    if price_max is not None:
+        q = q.filter(Product.price_net <= price_max)
     if search:
         term = f"%{search}%"
         q = q.outerjoin(Category, Product.category_id == Category.id).filter(

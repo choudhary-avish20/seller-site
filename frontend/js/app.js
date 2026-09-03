@@ -37,7 +37,7 @@ const API = (()=>{
     getMe:()=>req('/auth/me'),
     registerSeller:(d)=>req('/sellers/register',{method:'POST',body:JSON.stringify(d)}),
     getCategoryTree:(p={})=>req('/categories/tree'+(p.include_inactive?'?include_inactive=true':'')),
-    listProducts:(p={})=>{ const qs=new URLSearchParams(); if(p.search) qs.set('search',p.search); if(p.category_id) qs.set('category_id',p.category_id); if(p.limit) qs.set('limit',p.limit); if(p.include_inactive) qs.set('include_inactive','true'); if(p.bestseller) qs.set('bestseller','true'); if(p.popular) qs.set('popular','true'); if(p.on_sale) qs.set('on_sale','true'); if(p.sort) qs.set('sort',p.sort); const s=qs.toString()? '?'+qs.toString():''; return req('/products'+s); },
+    listProducts:(p={})=>{ const qs=new URLSearchParams(); if(p.search) qs.set('search',p.search); if(p.category_id) qs.set('category_id',p.category_id); if(p.limit) qs.set('limit',p.limit); if(p.page) qs.set('page',p.page); if(p.include_inactive) qs.set('include_inactive','true'); if(p.bestseller) qs.set('bestseller','true'); if(p.popular) qs.set('popular','true'); if(p.on_sale) qs.set('on_sale','true'); if(p.price_min!=null) qs.set('price_min',p.price_min); if(p.price_max!=null) qs.set('price_max',p.price_max); if(p.sort) qs.set('sort',p.sort); const s=qs.toString()? '?'+qs.toString():''; return req('/products'+s); },
     getProductBySlug:(s)=>req('/products/slug/'+s),
     getProductById:(id)=>req('/products/'+id),
     getCategoryBySlug:(s)=>req('/categories/by-slug/'+s),
