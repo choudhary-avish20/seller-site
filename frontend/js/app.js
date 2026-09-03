@@ -230,6 +230,125 @@ const RecentlyViewed = {
 };
 window.RecentlyViewed = RecentlyViewed;
 
+// ── Shared product card ──────────────────────────────────────────────────
+// One card component used by the homepage grid, search results, wishlist,
+// and "you may also like" — so every catalogue surface looks and behaves
+// identically instead of each page carrying its own hand-rolled markup.
+// Cards register their product data in _productRegistry so cardChg()/
+// cardAddToCart()/toggleWishlistCard() can look a product up by id no matter
+// which section on the page rendered it.
+window._productRegistry = window._productRegistry || new Map();
+
+function renderProductCard(p){
+  window._productRegistry.set(p.id, p);
+  const out = p.stock_status === 'out_of_stock' || p.stock_quantity === 0;
+  const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/400x400?text=No+image';
+  const img2 = p.images && p.images[1] ? Api.img(p.images[1]) : null;
+  const inc = p.pack_increment || 1;
+  const showSale = p.is_on_sale && p.sale_price_net != null;
+  const slugUrl = encodeURIComponent(p.slug);
+  const packsLeft = Math.floor((p.stock_quantity || 0) / inc);
+  const lowStock = packsLeft > 0 && packsLeft <= 2;
+
+  let badge;
+  if(showSale && p.discount_percent) badge = `<span class="pill pill-sale">-${p.discount_percent}%</span>`;
+  else if(p.is_bestseller) badge = `<span class="pill">Bestseller</span>`;
+  else if(p.is_popular) badge = `<span class="pill">Popular</span>`;
+  else badge = `<span class="pill">New</span>`;
+
+  const netGross = showSale
+    ? `<div><s>${Number(p.price_net).toFixed(2)} PLN</s> <b style="color:var(--sale)">${Number(p.sale_price_net).toFixed(2)} PLN</b> netto</div>
+       <div style="color:var(--text-secondary)">${Number(p.sale_price_gross).toFixed(2)} PLN brutto</div>`
+    : `<div><b>${Number(p.price_net).toFixed(2)} PLN</b> netto</div>
+       <div style="color:var(--text-secondary)">${Number(p.price_gross).toFixed(2)} PLN brutto</div>`;
+
+  return `<div class="card">
+    <div class="card-media">
+      <a href="product.html?slug=${slugUrl}" class="card-img-wrap">
+        <img class="img-a" src="${esc(img)}" alt="${esc(p.name)}" loading="lazy">
+        ${img2 ? `<img class="img-b" src="${esc(img2)}" alt="" loading="lazy">` : ''}
+      </a>
+      <div class="badge-row">${badge}</div>
+      <button class="wl-heart" data-id="${p.id}" onclick="toggleWishlistCard(this,'${p.id}')" aria-label="Dodaj do listy życzeń" title="Dodaj do listy życzeń">♡</button>
+    </div>
+    <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
+    ${p.review_count ? `<div style="font-size:11px;color:#f5a623">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:var(--muted)">(${p.review_count})</span></div>` : ''}
+    <div class="package-bar">Pack of ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
+    ${lowStock ? `<div class="stock-low">Only ${packsLeft} pack${packsLeft>1?'s':''} left</div>` : ''}
+    <div class="price">${netGross}</div>
+    <div class="qty">
+      <button onclick="cardChg('${p.id}',-1)" aria-label="Zmniejsz ilość">−</button>
+      <input id="qty-${p.id}" value="${inc}" data-inc="${inc}" inputmode="numeric">
+      <button onclick="cardChg('${p.id}',1)" aria-label="Zwiększ ilość">+</button>
+    </div>
+    <button class="add" onclick="cardAddToCart('${p.id}')" ${out?'disabled style="opacity:.5;cursor:not-allowed"':''}>${out?'Niedostępny':'Add to cart'}</button>
+  </div>`;
+}
+
+function cardChg(id, dir){
+  const p = window._productRegistry.get(id);
+  const inc = p ? (p.pack_increment || 1) : 1;
+  const inp = document.getElementById('qty-'+id);
+  if(!inp) return;
+  let v = parseInt(inp.value || inc, 10) + dir*inc;
+  if(v < inc) v = inc;
+  v = Math.ceil(v/inc)*inc;
+  inp.value = v;
+}
+
+function cardAddToCart(id){
+  const p = window._productRegistry.get(id);
+  if(!p) return;
+  const inc = p.pack_increment || 1;
+  const inp = document.getElementById('qty-'+id);
+  let qty = parseInt((inp && inp.value) || inc, 10);
+  qty = Math.ceil(qty/inc)*inc;
+  Cart.add(p, qty);
+  showToast(`Dodano do koszyka: ${p.name}`);
+}
+
+async function toggleWishlistCard(btn, id){
+  const saved = await Wishlist.toggle(id);
+  if(saved === null) return; // guest — redirected to login
+  btn.textContent = saved ? '♥' : '♡';
+  btn.classList.toggle('active', saved);
+  if(saved) showToast('Dodano do listy życzeń');
+  if(typeof updateWishlistBadge === 'function') updateWishlistBadge();
+}
+
+function refreshWishlistHearts(){
+  Wishlist.ids().then(ids=>{
+    document.querySelectorAll('.wl-heart').forEach(btn=>{
+      const savedItem = ids.has(btn.dataset.id);
+      btn.textContent = savedItem ? '♥' : '♡';
+      btn.classList.toggle('active', savedItem);
+    });
+  });
+}
+
+// Lightweight, dependency-free toast — used for add-to-cart/wishlist feedback
+// instead of blocking alert() dialogs.
+let _toastTimer = null;
+function showToast(msg){
+  let el = document.getElementById('_toast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = '_toast';
+    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(0);background:var(--text-primary,#211d1a);color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:200;opacity:0;transition:opacity 200ms ease,transform 200ms ease;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  clearTimeout(_toastTimer);
+  requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.transform='translateX(-50%) translateY(-6px)'; });
+  _toastTimer = setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(0)'; }, 2200);
+}
+window.renderProductCard = renderProductCard;
+window.cardChg = cardChg;
+window.cardAddToCart = cardAddToCart;
+window.toggleWishlistCard = toggleWishlistCard;
+window.refreshWishlistHearts = refreshWishlistHearts;
+window.showToast = showToast;
+
 // auth helpers
 async function doLogout(){
   localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); localStorage.removeItem('user'); localStorage.removeItem('cart_v1');
@@ -287,9 +406,23 @@ async function renderAuthHeader(){
     const adminLink = document.getElementById('adminPanelLink');
     if(adminLink) adminLink.remove();
   }
+  updateWishlistBadge();
   return u;
 }
 document.addEventListener('DOMContentLoaded', renderAuthHeader);
+
+// Small numeric badge on the header wishlist icon — hidden at 0 so the icon
+// stays clean for guests/empty lists.
+async function updateWishlistBadge(){
+  const badge = document.getElementById('wishlistCountBadge');
+  if(!badge || !localStorage.getItem('access_token')) { if(badge) badge.style.display = 'none'; return; }
+  try{
+    const ids = await Wishlist.ids();
+    if(ids.size > 0){ badge.textContent = ids.size; badge.style.display = 'flex'; }
+    else badge.style.display = 'none';
+  }catch{ badge.style.display = 'none'; }
+}
+window.updateWishlistBadge = updateWishlistBadge;
 
 // Shared site footer + floating WhatsApp contact button. Every page includes
 // a single <div id="site-footer"></div> placeholder before </body>; this is

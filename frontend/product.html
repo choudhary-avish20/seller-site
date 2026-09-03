@@ -7,60 +7,63 @@
 <link rel="apple-touch-icon" href="assets/favicon-180.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#333333">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <style>
 .pd-gallery{flex:1;min-width:280px}
-.pd-img-box{border:1px solid #e2e2e2;background:#fff;position:relative;border-radius:6px;overflow:hidden;cursor:zoom-in;box-shadow:0 1px 3px rgba(0,0,0,.05)}
-.pd-img-box img{width:100%;display:block;transition:transform .2s}
-.pd-img-box:hover img{transform:scale(1.02)}
-.pd-zoom-hint{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity .15s;pointer-events:none}
+.pd-img-box{border:1px solid var(--border);background:var(--surface);position:relative;border-radius:var(--radius-md);overflow:hidden;cursor:zoom-in;box-shadow:var(--shadow-sm)}
+.pd-img-box img{width:100%;display:block;transition:transform var(--t-base)}
+.pd-img-box:hover img{transform:scale(1.035)}
+.pd-zoom-hint{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity var(--t-fast);pointer-events:none}
 .pd-img-box:hover .pd-zoom-hint{opacity:1}
 .pd-thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.pd-thumbs img{width:60px;height:60px;object-fit:cover;border-radius:4px;border:2px solid #e2e2e2;cursor:pointer;transition:border-color .15s}
-.pd-thumbs img:hover{border-color:#7ec8e3}
-.pd-thumbs img.active{border-color:#0099cc}
+.pd-thumbs img{width:60px;height:60px;object-fit:cover;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;transition:border-color var(--t-fast)}
+.pd-thumbs img:hover{border-color:var(--border-strong)}
+.pd-thumbs img.active{border-color:var(--accent)}
 
 .pd-info{flex:1;min-width:300px}
-.pd-title{font-size:21px;font-weight:700;margin:0 0 8px;color:#1a1a1a;line-height:1.3}
-.pd-meta-row{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:#888;margin-bottom:12px}
-.pd-meta-row b{color:#444}
-.pd-rating-link{font-size:12px;color:#0099cc;text-decoration:none;cursor:pointer}
+.pd-title{font-size:22px;font-weight:700;margin:0 0 8px;color:var(--text-primary);line-height:1.3}
+.pd-meta-row{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--muted);margin-bottom:16px}
+.pd-meta-row b{color:var(--text-secondary);font-weight:600}
+.pd-rating-link{font-size:12px;color:var(--accent);text-decoration:none;cursor:pointer}
 .pd-rating-link:hover{text-decoration:underline}
 
-.pd-pack-bar{background:#f6f6f6;border-radius:5px;padding:8px 12px;font-size:12px;color:#555;margin-bottom:14px;display:inline-block}
-.pd-pack-bar b{color:#222}
+.pd-pack-bar{font-size:13px;color:var(--text-secondary);margin-bottom:16px}
+.pd-pack-bar b{color:var(--text-primary);font-weight:600}
 
-.pd-price-card{background:#fafafa;border:1px solid #eee;border-radius:8px;padding:14px 16px;margin-bottom:14px}
-.pd-price-badge{display:inline-block;background:#c00;color:#fff;font-size:11px;font-weight:bold;padding:2px 8px;border-radius:3px;margin-bottom:6px}
-.pd-price-main{font-size:24px;font-weight:800;color:#1a1a1a}
-.pd-price-main.on-sale{color:#c00}
-.pd-price-was{color:#999;text-decoration:line-through;font-size:14px;margin-right:8px}
-.pd-price-sub{font-size:12px;color:#777;margin-top:4px}
-.pd-price-unit{font-size:12px;color:#666;margin-top:6px;padding-top:6px;border-top:1px dashed #e2e2e2}
+.pd-price-card{padding:0;margin-bottom:18px}
+.pd-price-badge{display:inline-block;background:var(--sale);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;margin-bottom:8px}
+.pd-price-main{font-size:26px;font-weight:800;color:var(--text-primary)}
+.pd-price-main.on-sale{color:var(--sale)}
+.pd-price-was{color:var(--muted);text-decoration:line-through;font-size:14px;margin-right:8px}
+.pd-price-sub{font-size:13px;color:var(--text-secondary);margin-top:4px}
+.pd-price-unit{font-size:12.5px;color:var(--text-secondary);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
 
-.pd-tier-table{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
-.pd-tier-table th{background:#f0f0f0;padding:6px;text-align:left;font-weight:600;border:1px solid #e2e2e2}
-.pd-tier-table td{padding:6px;border:1px solid #e2e2e2}
+.pd-tier-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
+.pd-tier-table th{background:var(--surface-muted);padding:7px;text-align:left;font-weight:600;color:var(--text-secondary);border-bottom:1px solid var(--border)}
+.pd-tier-table td{padding:7px;border-bottom:1px solid var(--border)}
 
-.pd-qty-label{font-size:12px;font-weight:600;color:#333;margin-bottom:6px}
-.pd-qty-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
-.pd-qty-stepper{display:flex;align-items:center;border:1px solid #ddd;border-radius:5px;overflow:hidden}
-.pd-qty-stepper button{width:34px;height:34px;border:0;background:#f7f7f7;cursor:pointer;font-size:16px;color:#333}
-.pd-qty-stepper button:hover{background:#eee}
-.pd-qty-stepper input{width:56px;height:34px;border:0;border-left:1px solid #ddd;border-right:1px solid #ddd;text-align:center;font-size:13px;font-weight:600}
-.pd-qty-quick{padding:6px 10px;background:#fff;border:1px solid #ccc;border-radius:5px;font-size:11px;cursor:pointer;color:#444}
-.pd-qty-quick:hover{background:#f5f5f5}
-.pd-qty-hint{font-size:11px;color:#888;margin-bottom:14px}
+.pd-qty-label{font-size:12.5px;font-weight:600;color:var(--text-primary);margin-bottom:8px}
+.pd-qty-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+.pd-qty-stepper{display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden}
+.pd-qty-stepper button{width:36px;height:36px;border:0;background:var(--surface-muted);cursor:pointer;font-size:16px;color:var(--text-primary);transition:background var(--t-fast)}
+.pd-qty-stepper button:hover{background:var(--border)}
+.pd-qty-stepper input{width:56px;height:36px;border:0;border-left:1px solid var(--border);border-right:1px solid var(--border);text-align:center;font-size:13px;font-weight:600;color:var(--text-primary)}
+.pd-qty-quick{padding:7px 11px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:11.5px;cursor:pointer;color:var(--text-secondary);transition:border-color var(--t-fast)}
+.pd-qty-quick:hover{border-color:var(--border-strong);color:var(--text-primary)}
+.pd-qty-hint{font-size:11.5px;color:var(--muted);margin-bottom:16px}
 
-.pd-cta{width:100%;background:linear-gradient(#4aa3ff,#0066cc);color:#fff;border:0;padding:13px;font-weight:bold;font-size:14px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 2px 6px rgba(0,102,204,.3);transition:filter .15s}
-.pd-cta:hover{filter:brightness(1.05)}
-.pd-secondary-actions{display:flex;gap:16px;margin-top:12px;font-size:12px}
-.pd-secondary-actions a{color:#666;text-decoration:none}
-.pd-secondary-actions a:hover{color:#0099cc}
+.pd-cta{width:100%;background:var(--text-primary);color:#fff;border:0;padding:14px;font-weight:600;font-size:14px;border-radius:var(--radius-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:background var(--t-fast)}
+.pd-cta:hover{background:#000}
+.pd-secondary-actions{display:flex;gap:20px;margin-top:14px;font-size:12.5px}
+.pd-secondary-actions a{color:var(--text-secondary);text-decoration:none;transition:color var(--t-fast)}
+.pd-secondary-actions a:hover{color:var(--accent)}
 
-.pd-section{margin-top:16px;border:1px solid #e2e2e2;background:#fff;border-radius:8px;overflow:hidden}
-.pd-section-head{padding:12px 16px;background:#f7f7f7;font-weight:700;font-size:13px;border-bottom:1px solid #e2e2e2;display:flex;justify-content:space-between;align-items:center}
-.pd-section-body{padding:14px 16px}
+.pd-section{margin-top:20px}
+.pd-section-head{padding:0 0 10px;font-weight:700;font-size:14px;color:var(--text-primary);border-bottom:1px solid var(--border);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.pd-section-body{padding:0}
 
 .pd-zoom-overlay{display:none;position:fixed;inset:0;background:rgba(10,10,10,.9);z-index:99;align-items:center;justify-content:center;padding:30px;cursor:zoom-out}
 .pd-zoom-overlay img{max-width:90vw;max-height:88vh;background:#fff;border-radius:4px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
@@ -71,17 +74,30 @@
 <div class="topbar"><div class="container"><div>B2B only</div><div><span class="lang"><button data-lang="pl" class="active">PL</button><button data-lang="en">EN</button></span> <a href="login.html" id="top-login" data-i18n="login">Zaloguj</a></div></div></div>
 <div class="header"><div class="container"><a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
 <form class="search" id="searchForm"><input id="q" placeholder="Szukaj..."><button>Szukaj</button></form>
-<a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b></a></div></div>
+<div class="header-actions">
+    <a href="wishlist.html" class="hdr-icon-btn" id="wishlistNavLink" style="display:none" aria-label="Lista życzeń">
+      <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.35-9.5-8.5C1.2 9.5 2.5 6 6 6c2 0 3.4 1.3 4.5 2.8C11.6 7.3 13 6 15 6c3.5 0 4.8 3.5 3.5 6.5C16.5 16.65 12 21 12 21z"/></svg>
+      <span>Ulubione</span>
+      <span class="badge" id="wishlistCountBadge" style="display:none"></span>
+    </a>
+    <a href="cart.html" class="cart" aria-label="Koszyk">
+      <svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>
+      <span class="cart-copy">
+        <span class="cart-label">Koszyk (<b data-cart-count>0</b>)</span>
+        <span class="cart-total" data-cart-net>0.00 zł</span>
+      </span>
+    </a>
+  </div></div></div>
 
 <div class="container">
 <div class="breadcrumb" id="crumb"><a href="index.html">⌂</a><a href="index.html" id="crumb-cat" style="display:none"></a><span class="current" id="crumb-current"></span></div>
 <div class="layout">
-<aside class="sidebar"><div class="sidebar-head">HAIR BANDS</div><div class="cat-list" id="catList"></div></aside>
+<aside class="sidebar"><div class="sidebar-head">Kategorie</div><div class="cat-list" id="catList"></div></aside>
 <main class="main">
 <div class="detail">
   <div class="pd-gallery">
     <div class="pd-img-box" id="imgBox">
-      <div class="ribbon" style="left:-28px" id="detailRibbon">NEW</div>
+      <div class="badge-row" style="position:absolute;top:10px;left:10px"><span class="pill" id="detailRibbon">New</span></div>
       <img id="mainImg" src="" alt="" style="min-height:260px">
       <div class="pd-zoom-hint">🔍 Kliknij, aby powiększyć</div>
     </div>
@@ -90,25 +106,25 @@
   <div class="pd-info" id="info"></div>
 </div>
 <div class="pd-section">
-  <div class="pd-section-head">ℹ️ Więcej informacji</div>
-  <div class="pd-section-body" id="more" style="font-size:12px;color:#555;white-space:pre-line"></div>
+  <div class="pd-section-head">Opis produktu</div>
+  <div class="pd-section-body" id="more" style="font-size:13.5px;color:var(--text-secondary);white-space:pre-line;line-height:1.7"></div>
 </div>
 <div class="pd-section" id="reviewsSection">
   <div class="pd-section-head">
-    <span>⭐ Opinie klientów</span>
-    <span id="ratingSummary" style="font-weight:normal;font-size:12px;color:#666"></span>
+    <span>Opinie klientów</span>
+    <span id="ratingSummary" style="font-weight:normal;font-size:12.5px;color:var(--text-secondary)"></span>
   </div>
-  <div id="reviewForm" class="pd-section-body" style="border-bottom:1px solid #eee;display:none">
-    <div style="font-size:12px;font-weight:bold;margin-bottom:6px">Dodaj opinię</div>
-    <div id="starPicker" style="font-size:22px;color:#ddd;cursor:pointer;margin-bottom:8px"></div>
-    <textarea id="reviewComment" rows="2" placeholder="Twoja opinia (opcjonalnie)…" style="width:100%;border:1px solid #ccc;padding:6px 8px;font-family:inherit;font-size:12px;border-radius:4px"></textarea>
-    <button onclick="submitReview()" style="margin-top:8px;padding:7px 16px;background:#333;color:#fff;border:0;font-size:12px;font-weight:bold;cursor:pointer;border-radius:4px">Wyślij opinię</button>
-    <span id="reviewMsg" style="font-size:11px;color:#166534;margin-left:8px"></span>
+  <div id="reviewForm" class="pd-section-body" style="padding-bottom:20px;margin-bottom:6px;border-bottom:1px solid var(--border);display:none">
+    <div style="font-size:13px;font-weight:600;margin-bottom:8px;color:var(--text-primary)">Dodaj opinię</div>
+    <div id="starPicker" style="font-size:22px;color:var(--border-strong);cursor:pointer;margin-bottom:10px"></div>
+    <textarea id="reviewComment" rows="2" placeholder="Twoja opinia (opcjonalnie)…" style="width:100%;border:1px solid var(--border);padding:9px 11px;font-family:inherit;font-size:13px;border-radius:var(--radius-sm)"></textarea>
+    <button onclick="submitReview()" style="margin-top:10px;padding:9px 18px;background:var(--text-primary);color:#fff;border:0;font-size:12.5px;font-weight:600;cursor:pointer;border-radius:var(--radius-sm)">Wyślij opinię</button>
+    <span id="reviewMsg" style="font-size:11.5px;color:var(--success);margin-left:10px"></span>
   </div>
   <div id="reviewsList" class="pd-section-body"></div>
 </div>
-<div style="margin-top:14px" id="recoSection">
-  <div style="font-size:14px;font-weight:bold;color:#333;margin-bottom:8px">You may also like</div>
+<div class="pd-section" id="recoSection">
+  <div class="pd-section-head">Może Ci się spodobać</div>
   <div class="grid" id="recoGrid"></div>
 </div>
 </main>
@@ -138,8 +154,9 @@ async function load(){
       catLink.href = p.category_id ? `index.html?category_id=${encodeURIComponent(p.category_id)}` : 'index.html';
       catLink.style.display='';
     }
-    const ribbon = p.is_on_sale ? 'SALE' : (p.is_bestseller ? 'BESTSELLER' : (p.is_popular ? 'POPULAR' : 'NEW'));
-    document.getElementById('detailRibbon').textContent = ribbon;
+    const ribbonEl = document.getElementById('detailRibbon');
+    if(p.is_on_sale && p.discount_percent){ ribbonEl.textContent = `-${p.discount_percent}%`; ribbonEl.classList.add('pill-sale'); }
+    else { ribbonEl.textContent = p.is_bestseller ? 'Bestseller' : (p.is_popular ? 'Popular' : 'New'); ribbonEl.classList.remove('pill-sale'); }
     document.getElementById('mainImg').src=Api.img(p.images[0]||'');
     if(p.images && p.images.length>1){
       document.getElementById('thumbRow').innerHTML = p.images.map((u,i)=>
@@ -174,10 +191,10 @@ async function load(){
       <div class="pd-price-card">
         ${p.is_on_sale && p.sale_price_net!=null && p.discount_percent ? `<span class="pd-price-badge">-${p.discount_percent}%</span>` : ''}
         ${p.is_on_sale && p.sale_price_net!=null ? `
-        <div><span class="pd-price-was">${Number(p.price_net).toFixed(2)} PLN</span><span class="pd-price-main on-sale">${Number(p.sale_price_net).toFixed(2)} PLN</span> <span style="font-size:13px;color:#888">netto</span></div>
+        <div><span class="pd-price-was">${Number(p.price_net).toFixed(2)} PLN</span><span class="pd-price-main on-sale">${Number(p.sale_price_net).toFixed(2)} PLN</span> <span style="font-size:13px;color:var(--muted)">netto</span></div>
         <div class="pd-price-sub"><s>${Number(p.price_gross).toFixed(2)} PLN</s> <b style="color:#c00">${Number(p.sale_price_gross).toFixed(2)} PLN</b> brutto</div>
         ` : `
-        <div><span class="pd-price-main">${Number(p.price_net).toFixed(2)} PLN</span> <span style="font-size:13px;color:#888">netto</span></div>
+        <div><span class="pd-price-main">${Number(p.price_net).toFixed(2)} PLN</span> <span style="font-size:13px;color:var(--muted)">netto</span></div>
         <div class="pd-price-sub">${Number(p.price_gross).toFixed(2)} PLN brutto</div>
         `}
         ${(()=>{ const effNet=(p.is_on_sale&&p.sale_price_net!=null)?p.sale_price_net:p.price_net; const effGross=(p.is_on_sale&&p.sale_price_gross!=null)?p.sale_price_gross:p.price_gross;
@@ -275,16 +292,16 @@ async function loadReviews(p){
   try{ reviews = await Api.getReviews(p.id); }catch{}
   const list = document.getElementById('reviewsList');
   if(!reviews.length){
-    list.innerHTML = '<p style="color:#888;font-size:12px;padding:6px 0">Brak opinii dla tego produktu.</p>';
+    list.innerHTML = '<p style="color:var(--muted);font-size:12px;padding:6px 0">Brak opinii dla tego produktu.</p>';
     return;
   }
   list.innerHTML = reviews.map(r => `
-    <div style="padding:10px 0;border-bottom:1px solid #f0f0f0">
+    <div style="padding:10px 0;border-bottom:1px solid var(--border)">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div>${renderStars(r.rating, false)} <b style="font-size:12px;margin-left:4px">${esc(r.reviewer_name)}</b></div>
-        <div style="font-size:10px;color:#999">${new Date(r.created_at).toLocaleDateString('pl-PL')}${r.is_own ? ` · <a href="#" onclick="deleteOwnReview('${r.id}');return false" style="color:#c00">usuń</a>` : ''}</div>
+        <div style="font-size:10px;color:var(--muted)">${new Date(r.created_at).toLocaleDateString('pl-PL')}${r.is_own ? ` · <a href="#" onclick="deleteOwnReview('${r.id}');return false" style="color:#c00">usuń</a>` : ''}</div>
       </div>
-      ${r.comment ? `<div style="font-size:12px;color:#555;margin-top:4px">${esc(r.comment)}</div>` : ''}
+      ${r.comment ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:4px">${esc(r.comment)}</div>` : ''}
     </div>`).join('');
 }
 
@@ -321,17 +338,8 @@ async function loadRecommended(p){
     let items=await Api.listProducts(params).catch(()=>[]);
     items=items.filter(x=>x.id!==p.id).slice(0,4);
     if(!items.length){ wrap.style.display='none'; return; }
-    grid.innerHTML=items.map(rp=>{
-      const img = rp.images && rp.images[0] ? Api.img(rp.images[0]) : 'https://via.placeholder.com/300x220?text=No+image';
-      const slugUrl = encodeURIComponent(rp.slug);
-      return `<div class="card">
-        <div style="position:relative"><a href="product.html?slug=${slugUrl}"><img src="${esc(img)}" alt="${esc(rp.name)}"></a></div>
-        <h3><a href="product.html?slug=${slugUrl}">${esc(rp.name)}</a></h3>
-        <div class="price">
-          <div>net price: <b>${Number(rp.price_net).toFixed(2)} PLN</b></div>
-        </div>
-      </div>`;
-    }).join('');
+    grid.innerHTML = items.map(renderProductCard).join('');
+    refreshWishlistHearts();
   }catch{ wrap.style.display='none'; }
 }
 function openZoom(){

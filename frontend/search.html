@@ -8,6 +8,9 @@
 <link rel="apple-touch-icon" href="assets/favicon-180.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#333333">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -25,11 +28,24 @@
     <input id="q" data-i18n-ph="searchPh" placeholder="Szukaj — nazwa produktu, kategoria...">
     <button type="submit" data-i18n="search">Szukaj</button>
   </form>
-  <a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b> — <span data-cart-net>0.00 zł</span></a>
+  <div class="header-actions">
+    <a href="wishlist.html" class="hdr-icon-btn" id="wishlistNavLink" style="display:none" aria-label="Lista życzeń">
+      <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.35-9.5-8.5C1.2 9.5 2.5 6 6 6c2 0 3.4 1.3 4.5 2.8C11.6 7.3 13 6 15 6c3.5 0 4.8 3.5 3.5 6.5C16.5 16.65 12 21 12 21z"/></svg>
+      <span>Ulubione</span>
+      <span class="badge" id="wishlistCountBadge" style="display:none"></span>
+    </a>
+    <a href="cart.html" class="cart" aria-label="Koszyk">
+      <svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>
+      <span class="cart-copy">
+        <span class="cart-label">Koszyk (<b data-cart-count>0</b>)</span>
+        <span class="cart-total" data-cart-net>0.00 zł</span>
+      </span>
+    </a>
+  </div>
 </div></div>
 
-<div class="container" style="padding:16px 10px">
-  <h1 id="heading" style="font-size:16px;margin:0 0 12px"></h1>
+<div class="container" style="padding:24px 16px">
+  <h1 id="heading" style="font-size:18px;font-weight:700;margin:0 0 20px;color:var(--text-primary)"></h1>
   <div class="grid" id="grid"></div>
 </div>
 
@@ -47,51 +63,16 @@ async function runSearch(){
   const grid = document.getElementById('grid');
   if(!q){ grid.innerHTML=''; return; }
 
-  grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;padding:20px;color:#888">Ładowanie…</p>';
+  grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted)">Ładowanie…</p>';
   const prods = await Api.listProducts({search:q, limit:48}).catch(()=>[]);
 
   if(!prods.length){
-    grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;padding:40px;background:#fff;border:1px solid #ddd;color:#888">Brak wyników.</p>';
+    grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--muted)">Brak wyników.</p>';
     return;
   }
 
-  grid.innerHTML = prods.map(p=>{
-    const out = p.stock_status==='out_of_stock' || p.stock_quantity===0;
-    const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/300x220?text=No+image';
-    const slugUrl = encodeURIComponent(p.slug);
-    const ribbon = p.is_on_sale ? 'SALE' : (p.is_bestseller ? 'BESTSELLER' : (p.is_popular ? 'POPULAR' : 'NEW'));
-    return `<div class="card">
-      <div style="position:relative">
-        <div class="ribbon">${ribbon}</div>
-        <button class="wl-heart" data-id="${p.id}" onclick="toggleWishlist(this,'${p.id}')" title="Add to wishlist">♡</button>
-        <a href="product.html?slug=${slugUrl}"><img src="${esc(img)}" alt="${esc(p.name)}"></a>
-      </div>
-      <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
-      ${p.review_count ? `<div style="font-size:11px;color:#f5a623">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:#888">(${p.review_count})</span></div>` : ''}
-      <div class="package-bar">in a package: ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
-      <div class="price">
-        <div>net price: <b>${Number(p.price_net).toFixed(2)} PLN</b></div>
-        <div>gross price: <b>${Number(p.price_gross).toFixed(2)} PLN</b></div>
-      </div>
-      <button class="add" onclick="location.href='product.html?slug=${slugUrl}'" ${out?'disabled style="opacity:.5"':''}>View product</button>
-    </div>`;
-  }).join('');
+  grid.innerHTML = prods.map(renderProductCard).join('');
   refreshWishlistHearts();
-}
-function refreshWishlistHearts(){
-  Wishlist.ids().then(ids=>{
-    document.querySelectorAll('.wl-heart').forEach(btn=>{
-      const saved = ids.has(btn.dataset.id);
-      btn.textContent = saved ? '♥' : '♡';
-      btn.classList.toggle('active', saved);
-    });
-  });
-}
-async function toggleWishlist(btn, id){
-  const saved = await Wishlist.toggle(id);
-  if(saved === null) return;
-  btn.textContent = saved ? '♥' : '♡';
-  btn.classList.toggle('active', saved);
 }
 
 document.getElementById('searchForm').addEventListener('submit', e=>{

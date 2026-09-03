@@ -8,6 +8,9 @@
 <link rel="apple-touch-icon" href="assets/favicon-180.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#333333">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <style>
 .order-card{background:#fff;border:1px solid #ddd;margin-bottom:12px}
@@ -29,7 +32,7 @@
 .otl-step:first-child .otl-line{display:none}
 .otl-dot{width:22px;height:22px;border-radius:50%;background:#e5e7eb;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-size:11px;font-weight:bold;position:relative;z-index:1}
 .otl-dot.done{background:#166534}
-.otl-dot.current{background:#0099cc}
+.otl-dot.current{background:var(--accent)}
 .cancelled-note{background:#f1f5f9;color:#64748b;padding:8px 12px;border-radius:4px;font-size:12px;text-align:center;margin:4px 0 14px}
 </style>
 </head>
@@ -41,7 +44,20 @@
 <div class="header"><div class="container">
   <a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
   <div style="flex:1"></div>
-  <a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b></a>
+  <div class="header-actions">
+    <a href="wishlist.html" class="hdr-icon-btn" id="wishlistNavLink" style="display:none" aria-label="Lista życzeń">
+      <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.35-9.5-8.5C1.2 9.5 2.5 6 6 6c2 0 3.4 1.3 4.5 2.8C11.6 7.3 13 6 15 6c3.5 0 4.8 3.5 3.5 6.5C16.5 16.65 12 21 12 21z"/></svg>
+      <span>Ulubione</span>
+      <span class="badge" id="wishlistCountBadge" style="display:none"></span>
+    </a>
+    <a href="cart.html" class="cart" aria-label="Koszyk">
+      <svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>
+      <span class="cart-copy">
+        <span class="cart-label">Koszyk (<b data-cart-count>0</b>)</span>
+        <span class="cart-total" data-cart-net>0.00 zł</span>
+      </span>
+    </a>
+  </div>
 </div></div>
 
 <div class="container" style="padding:16px 10px">
@@ -72,7 +88,7 @@ function renderTimeline(status){
     return `<div class="otl-step">
       <div class="otl-line ${i<=idx?'done':''}"></div>
       <div class="otl-dot ${done?'done':''} ${current?'current':''}">${done?'✓':s.icon}</div>
-      <div style="${current?'font-weight:bold;color:#0099cc':''}">${s.label}</div>
+      <div style="${current?'font-weight:bold;color:var(--accent)':''}">${s.label}</div>
     </div>`;
   }).join('') + `</div>`;
 }
@@ -123,7 +139,7 @@ async function load(){
             <span>Razem brutto</span><span>${Number(o.total_gross).toFixed(2)} zł</span>
           </div>
           <div style="margin-top:10px;text-align:right;display:flex;gap:8px;justify-content:flex-end">
-            <button onclick="reorderAll('${o.id}')" style="font-size:11px;color:#0099cc;background:none;border:1px solid #99d6ec;padding:5px 10px;cursor:pointer">↻ Zamów ponownie</button>
+            <button onclick="reorderAll('${o.id}')" style="font-size:11px;color:var(--accent);background:none;border:1px solid #99d6ec;padding:5px 10px;cursor:pointer">↻ Zamów ponownie</button>
             ${canCancel ? `<button onclick="cancelOrder('${o.id}')" style="font-size:11px;color:#c00;background:none;border:1px solid #fca5a5;padding:5px 10px;cursor:pointer">Anuluj zamówienie</button>` : ''}
             ${o.status === 'cancelled' ? `<button onclick="hideOrder('${o.id}')" style="font-size:11px;color:#888;background:none;border:1px solid #ddd;padding:5px 10px;cursor:pointer">🗑 Usuń z listy</button>` : ''}
           </div>
