@@ -20,7 +20,7 @@ services:
         generateValue: true   # Render auto-generates a secure random value
 
       - key: DATABASE_URL
-        value: postgresql://user:password@ep-xxx.eu-central-1.aws.neon.tech/neondb?sslmode=require  # paste your Neon connection string here
+        value: sqlite:///./wholesale.db   # default; swap for Render Postgres URL if you add one
 
       # ── App mode ─────────────────────────────────────────────────────────
       - key: ENV
