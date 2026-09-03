@@ -350,3 +350,9 @@ window.refreshUser = refreshUser;
 window.renderAuthHeader = renderAuthHeader;
 window.renderFooter = renderFooter;
 window.updateCartUI = updateCartUI;
+
+// PWA install support — static asset caching + offline shell only (see sw.js
+// for why /api/* is deliberately excluded from caching).
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{ navigator.serviceWorker.register('/sw.js').catch(()=>{}); });
+}
