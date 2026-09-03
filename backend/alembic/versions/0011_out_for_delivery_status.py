@@ -7,8 +7,6 @@ Create Date: 2026-09-03
 """
 from typing import Sequence, Union
 
-from alembic import op
-
 revision: str = '0011_out_for_delivery_status'
 down_revision: Union[str, None] = '0010_order_hide'
 branch_labels: Union[str, Sequence[str], None] = None
@@ -16,19 +14,14 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    bind = op.get_bind()
-    if bind.dialect.name == 'postgresql':
-        # SQLite stores order status as a plain VARCHAR with no CHECK constraint,
-        # so new Python-side enum members need no DDL there. Postgres uses a real
-        # native ENUM type, which needs an explicit ALTER TYPE to accept the new
-        # value; ADD VALUE cannot run inside the transaction Alembic normally
-        # wraps a migration in, hence the autocommit block.
-        with op.get_context().autocommit_block():
-            op.execute("ALTER TYPE order_status ADD VALUE IF NOT EXISTS 'out_for_delivery'")
+    # orders.status has always been a plain sa.String(32) column (see
+    # 0001_initial_schema.py) on both SQLite and Postgres — the Python-side
+    # OrderStatus enum on the model is validated at the application layer only,
+    # there is no native database ENUM type backing it. So a new Python-side
+    # member (out_for_delivery) needs no DDL change at all: this migration only
+    # exists to keep the alembic revision chain unbroken.
+    pass
 
 
 def downgrade() -> None:
-    # Postgres does not support removing a value from an existing enum type;
-    # downgrading this would require recreating the type, which is not worth
-    # the risk for a purely additive status value.
     pass
