@@ -119,7 +119,7 @@ def _validate_tiers(tiers):
                 pass
 
 
-def _to_product_response(product: Product, db: Session, hide_prices: bool = False) -> ProductResponse:
+def _to_product_response(product: Product, db: Session, hide_prices: bool = False, is_staff: bool = False) -> ProductResponse:
     cat = db.query(Category).filter(Category.id == product.category_id).first()
     images_list = _parse_images(product.images)
     tiers = (
@@ -154,7 +154,7 @@ def _to_product_response(product: Product, db: Session, hide_prices: bool = Fals
         stock_status=product.stock_status,
         is_active=product.is_active,
         pack_increment=product.pack_increment,
-        cost_price=float(product.cost_price) if product.cost_price is not None and not hide_prices else None,
+        cost_price=float(product.cost_price) if product.cost_price is not None and is_staff else None,
         stall_location=product.stall_location,
         counter_number=product.counter_number,
         is_bestseller=product.is_bestseller,
@@ -172,7 +172,7 @@ def _to_product_response(product: Product, db: Session, hide_prices: bool = Fals
     )
 
 
-def _to_list_response(product: Product, db: Session, hide_prices: bool = False, purchase_count: Optional[int] = None) -> ProductListResponse:
+def _to_list_response(product: Product, db: Session, hide_prices: bool = False, purchase_count: Optional[int] = None, is_staff: bool = False) -> ProductListResponse:
     cat = db.query(Category).filter(Category.id == product.category_id).first()
     images_list = _parse_images(product.images)
     tiers = db.query(ProductPriceTier).filter(ProductPriceTier.product_id == product.id).order_by(ProductPriceTier.min_quantity).all()
@@ -196,7 +196,7 @@ def _to_list_response(product: Product, db: Session, hide_prices: bool = False, 
         stock_status=product.stock_status,
         is_active=product.is_active,
         pack_increment=product.pack_increment,
-        cost_price=float(product.cost_price) if product.cost_price is not None and not hide_prices else None,
+        cost_price=float(product.cost_price) if product.cost_price is not None and is_staff else None,
         stall_location=product.stall_location,
         counter_number=product.counter_number,
         is_bestseller=product.is_bestseller,
@@ -211,6 +211,27 @@ def _to_list_response(product: Product, db: Session, hide_prices: bool = False, 
         purchase_count=purchase_count,
         price_tiers=tiers if not hide_prices else [],
     )
+
+
+def _get_optional_user(request: Request, db: Session) -> Optional[User]:
+    """Best-effort auth for public product routes: returns the caller if a valid
+    access token is present, else None. Used to gate cost_price (internal margin
+    data) to staff only — separate from _should_hide_prices, which only controls
+    whether *sale* prices are shown to guests, not whether cost is shown to buyers."""
+    auth = request.headers.get("Authorization")
+    if not auth or not auth.startswith("Bearer "):
+        return None
+    from app.core.auth import decode_token, get_user_by_id
+    import uuid
+    payload = decode_token(auth.split(" ", 1)[1])
+    if not payload or payload.get("type") != "access":
+        return None
+    try:
+        uid = uuid.UUID(payload.get("sub"))
+    except (ValueError, TypeError):
+        return None
+    user = get_user_by_id(db, uid)
+    return user if user and user.is_active else None
 
 
 def _should_hide_prices(request: Request, db: Session) -> bool:
@@ -259,6 +280,8 @@ def list_products(
     limit: int = Query(20, ge=1, le=100),
 ):
     hide = _should_hide_prices(request, db)
+    _user = _get_optional_user(request, db)
+    is_staff = _user is not None and _user.role in (UserRole.admin, UserRole.seller)
     q = db.query(Product)
     if not include_inactive:
         q = q.filter(Product.is_active == True)  # noqa
@@ -298,12 +321,12 @@ def list_products(
         q = q.order_by(func.coalesce(purchase_sq.c.total_qty, 0).desc(), Product.created_at.desc())
         offset = (page - 1) * limit
         rows = q.add_columns(func.coalesce(purchase_sq.c.total_qty, 0)).offset(offset).limit(limit).all()
-        return [_to_list_response(p, db, hide_prices=hide, purchase_count=int(qty)) for p, qty in rows]
+        return [_to_list_response(p, db, hide_prices=hide, purchase_count=int(qty), is_staff=is_staff) for p, qty in rows]
 
     q = q.order_by(Product.created_at.desc())
     offset = (page - 1) * limit
     products = q.offset(offset).limit(limit).all()
-    return [_to_list_response(p, db, hide_prices=hide) for p in products]
+    return [_to_list_response(p, db, hide_prices=hide, is_staff=is_staff) for p in products]
 
 
 @router.get("/slug/{slug}", response_model=ProductResponse)
@@ -312,7 +335,9 @@ def get_by_slug(slug: str, request: Request, db: Session = Depends(get_db)):
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
     hide = _should_hide_prices(request, db)
-    return _to_product_response(prod, db, hide_prices=hide)
+    _user = _get_optional_user(request, db)
+    is_staff = _user is not None and _user.role in (UserRole.admin, UserRole.seller)
+    return _to_product_response(prod, db, hide_prices=hide, is_staff=is_staff)
 
 
 @router.get("/{product_id}", response_model=ProductResponse)
@@ -321,7 +346,9 @@ def get_product(product_id: UUID, request: Request, db: Session = Depends(get_db
     if not prod:
         raise HTTPException(status_code=404, detail="Product not found")
     hide = _should_hide_prices(request, db)
-    return _to_product_response(prod, db, hide_prices=hide)
+    _user = _get_optional_user(request, db)
+    is_staff = _user is not None and _user.role in (UserRole.admin, UserRole.seller)
+    return _to_product_response(prod, db, hide_prices=hide, is_staff=is_staff)
 
 
 # ---------- Seller CRUD ----------
@@ -391,7 +418,7 @@ def create_product(
         db.add(tier)
     db.commit()
     db.refresh(product)
-    return _to_product_response(product, db, hide_prices=False)
+    return _to_product_response(product, db, hide_prices=False, is_staff=True)
 
 
 @router.put("/{product_id}", response_model=ProductResponse)
@@ -489,7 +516,7 @@ def update_product(
             db.add(tier)
     db.commit()
     db.refresh(prod)
-    return _to_product_response(prod, db, hide_prices=False)
+    return _to_product_response(prod, db, hide_prices=False, is_staff=True)
 
 
 @router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -531,7 +558,7 @@ def toggle_stock(
         prod.stock_quantity = payload.stock_quantity
     db.commit()
     db.refresh(prod)
-    return _to_product_response(prod, db)
+    return _to_product_response(prod, db, is_staff=True)
 
 
 @router.get("/{product_id}/pending-orders", tags=["products"])
@@ -644,4 +671,4 @@ async def archive_product(
             except Exception as e:
                 logger.error(f"Failed to send product archived notification to {buyer_info['buyer'].email}: {e}")
     
-    return _to_product_response(prod, db)
+    return _to_product_response(prod, db, is_staff=True)

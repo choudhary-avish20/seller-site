@@ -153,6 +153,7 @@ tr:hover td{background:#fafafa}
     <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
     <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia</div>
     <div class="nav-item" data-view="sellers" onclick="switchView('sellers')"><span class="icon">🧑‍💼</span> Sprzedawcy</div>
+    <div class="nav-item" data-view="buyers" onclick="switchView('buyers')"><span class="icon">🧑</span> Kupujący</div>
     <div class="nav-item" data-view="contact" onclick="switchView('contact')"><span class="icon">📇</span> Dane kontaktowe</div>
     <div class="nav-item" data-view="terms" onclick="switchView('terms')"><span class="icon">📜</span> Regulamin</div>
     <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙</span> Ustawienia</div>
@@ -369,6 +370,7 @@ tr:hover td{background:#fafafa}
 let products = [];
 let categories = [];
 let orders = [];
+let orderStatusFilter = 'all';
 let editingProductId = null;
 let pendingImages = []; // {url, file?, uploading?}
 let currentView = 'products';
@@ -387,11 +389,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   localStorage.setItem('user', JSON.stringify(user));
   document.getElementById('topUser').textContent = user.full_name;
 
-  // Seller approval is an admin-only action server-side — hide the nav item for sellers
-  // rather than let them click into it and hit a 403.
+  // Seller/buyer approval are admin-only actions server-side — hide the nav
+  // items for sellers rather than let them click in and hit a 403.
   if (user.role !== 'admin') {
-    const navItem = document.querySelector('[data-view="sellers"]');
-    if (navItem) navItem.style.display = 'none';
+    document.querySelectorAll('[data-view="sellers"], [data-view="buyers"]').forEach(el => el.style.display = 'none');
   }
 
   categories = await Api.getCategoryTree({include_inactive:true}).catch(() => []);
@@ -409,6 +410,7 @@ function switchView(view) {
   else if (view === 'categories') renderCategoriesView();
   else if (view === 'orders') renderOrdersView();
   else if (view === 'sellers') renderSellersView();
+  else if (view === 'buyers') renderBuyersView();
   else if (view === 'contact') renderContactSettingsView();
   else if (view === 'terms') renderTermsView();
   else if (view === 'settings') renderSettingsView();
@@ -431,6 +433,7 @@ async function renderProductsView() {
       <div class="stat-card"><div class="val">${stats.active}</div><div class="lbl">Aktywne</div><div class="trend">widoczne w sklepie</div></div>
       <div class="stat-card"><div class="val">${stats.inStock}</div><div class="lbl">W magazynie</div></div>
       <div class="stat-card"><div class="val">${stats.inactive}</div><div class="lbl">Archiwum</div></div>
+      <div class="stat-card"><div class="val">${stats.lowStock}</div><div class="lbl">Niski stan magazynowy</div><div class="trend">wymaga uzupełnienia</div></div>
     </div>
 
     <div class="sec-head">
@@ -449,6 +452,7 @@ async function renderProductsView() {
         <option value="">Każdy stan mag.</option>
         <option value="in_stock">W magazynie</option>
         <option value="out_of_stock">Brak</option>
+        <option value="low_stock">⚠️ Niski stan</option>
       </select>
     </div>
 
@@ -472,12 +476,19 @@ async function renderProductsView() {
   filterProducts();
 }
 
+function isLowStock(p) {
+  const inc = p.pack_increment || 1;
+  const packsLeft = Math.floor((p.stock_quantity || 0) / inc);
+  return p.is_active && packsLeft > 0 && packsLeft <= 2;
+}
+
 function calcStats(prods) {
   return {
     total: prods.length,
     active: prods.filter(p => p.is_active).length,
     inactive: prods.filter(p => !p.is_active).length,
     inStock: prods.filter(p => p.stock_status === 'in_stock' && p.is_active).length,
+    lowStock: prods.filter(isLowStock).length,
   };
 }
 
@@ -490,7 +501,8 @@ function filterProducts() {
   if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search));
   if (status === 'active') filtered = filtered.filter(p => p.is_active);
   if (status === 'inactive') filtered = filtered.filter(p => !p.is_active);
-  if (stock) filtered = filtered.filter(p => p.stock_status === stock);
+  if (stock === 'low_stock') filtered = filtered.filter(isLowStock);
+  else if (stock) filtered = filtered.filter(p => p.stock_status === stock);
 
   const tbody = document.getElementById('prodTbody');
   if (!tbody) return;
@@ -505,9 +517,10 @@ function filterProducts() {
     const imgHtml = imgs.length
       ? `<img class="prod-img" src="${Api.img(imgs[0])}" alt="" loading="lazy">`
       : `<div class="prod-img-placeholder">📷</div>`;
-    const stockBadge = p.stock_status === 'in_stock'
+    const stockBadge = (p.stock_status === 'in_stock'
       ? `<span class="badge badge-stock">W mag. (${p.stock_quantity})</span>`
-      : `<span class="badge badge-nostock">Brak</span>`;
+      : `<span class="badge badge-nostock">Brak</span>`)
+      + (isLowStock(p) ? ` <span class="badge" style="background:#fff7ed;color:#c2410c">⚠️ Niski stan</span>` : '');
     const activeBadge = p.is_active
       ? `<span class="badge badge-active">Aktywny</span>`
       : `<span class="badge badge-inactive">Archiwum</span>`;
@@ -788,6 +801,17 @@ async function renderOrdersView() {
       <div class="stat-card"><div class="val">${pending}</div><div class="lbl">Oczekujące</div><div class="trend">do realizacji</div></div>
       <div class="stat-card"><div class="val">${fmtPrice(totalNet)} zł</div><div class="lbl">Łączna wartość netto</div></div>
     </div>
+    <div class="filter-bar">
+      <label style="font-size:12px;font-weight:bold">Status:</label>
+      <select id="orderStatusFilterSel" onchange="orderStatusFilter=this.value; renderOrderRows()">
+        <option value="all">Wszystkie</option>
+        <option value="pending">Oczekujące</option>
+        <option value="confirmed">Potwierdzone</option>
+        <option value="shipped">Wysłane</option>
+        <option value="delivered">Zrealizowane</option>
+        <option value="cancelled">Anulowane</option>
+      </select>
+    </div>
     <div class="tbl-wrap">
       <table>
         <thead>
@@ -806,17 +830,19 @@ async function renderOrdersView() {
       </table>
     </div>`;
 
+  document.getElementById('orderStatusFilterSel').value = orderStatusFilter;
   renderOrderRows();
 }
 
 function renderOrderRows() {
   const tbody = document.getElementById('ordersTbody');
   if (!tbody) return;
-  if (!orders.length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">Brak zamówień</td></tr>`;
+  const visible = orderStatusFilter === 'all' ? orders : orders.filter(o => o.status === orderStatusFilter);
+  if (!visible.length) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty">${orders.length ? 'Brak zamówień o wybranym statusie' : 'Brak zamówień'}</td></tr>`;
     return;
   }
-  tbody.innerHTML = orders.map(o => {
+  tbody.innerHTML = visible.map(o => {
     const d    = new Date(o.created_at).toLocaleString('pl-PL', {dateStyle:'short', timeStyle:'short'});
     const name = esc(o.recipient_name || o.company_name || '—');
     const phone = esc(o.recipient_phone || '—');
@@ -1102,6 +1128,88 @@ async function rejectSellerAction(id) {
   try {
     await Api.approveSeller(id, { status: 'rejected', rejection_reason: reason });
     renderSellersView();
+  } catch (e) {
+    alert('Błąd odrzucania: ' + e.message);
+  }
+}
+
+// ── Buyers view (full visibility into every registered buyer) ─────────────
+async function renderBuyersView() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<div class="empty">Ładowanie kupujących…</div>';
+  let buyers;
+  try { buyers = await Api.getAllBuyers(); }
+  catch (e) { main.innerHTML = `<div class="alert alert-warn">Błąd: ${e.message}</div>`; return; }
+
+  const pendingCount = buyers.filter(b => b.status === 'pending').length;
+
+  main.innerHTML = `
+    <div class="page-title">🧑 Kupujący</div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="val">${buyers.length}</div><div class="lbl">Wszyscy kupujący</div></div>
+      <div class="stat-card"><div class="val">${pendingCount}</div><div class="lbl">Oczekujący na akceptację</div></div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Imię i nazwisko</th>
+            <th>E-mail</th>
+            <th>Firma</th>
+            <th>Status</th>
+            <th>Zarejestrowano</th>
+            <th>Akcje</th>
+          </tr>
+        </thead>
+        <tbody id="buyersTbody"></tbody>
+      </table>
+    </div>`;
+
+  const tbody = document.getElementById('buyersTbody');
+  if (!buyers.length) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Brak zarejestrowanych kupujących</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = buyers.map(b => {
+    const d = new Date(b.created_at).toLocaleString('pl-PL', {dateStyle:'short', timeStyle:'short'});
+    const badge = b.status === 'approved'
+      ? `<span class="badge badge-approved">Zatwierdzony</span>`
+      : b.status === 'rejected'
+      ? `<span class="badge badge-rejected">Odrzucony</span>`
+      : `<span class="badge badge-pending">Oczekujący</span>`;
+    const actions = b.status === 'pending'
+      ? `<div class="actions">
+          <button class="btn btn-primary btn-sm" onclick="approveBuyerAction('${b.id}')">✅ Zatwierdź</button>
+          <button class="btn btn-danger btn-sm" onclick="rejectBuyerAction('${b.id}')">✕ Odrzuć</button>
+        </div>`
+      : '—';
+    return `
+      <tr>
+        <td><b>${esc(b.full_name)}</b></td>
+        <td><a href="mailto:${esc(b.email)}" style="color:#0099cc">${esc(b.email)}</a></td>
+        <td>${esc(b.company_name || '—')}</td>
+        <td>${badge}</td>
+        <td style="font-size:11px;color:#888">${d}</td>
+        <td>${actions}</td>
+      </tr>`;
+  }).join('');
+}
+
+async function approveBuyerAction(id) {
+  try {
+    await Api.approveBuyer(id, { status: 'approved' });
+    renderBuyersView();
+  } catch (e) {
+    alert('Błąd zatwierdzania: ' + e.message);
+  }
+}
+
+async function rejectBuyerAction(id) {
+  const reason = prompt('Podaj powód odrzucenia:');
+  if (!reason) return;
+  try {
+    await Api.approveBuyer(id, { status: 'rejected', rejection_reason: reason });
+    renderBuyersView();
   } catch (e) {
     alert('Błąd odrzucania: ' + e.message);
   }

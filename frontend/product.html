@@ -111,7 +111,7 @@ async function load(){
       </div>
       <div style="font-size:11px;color:#666">The minimum order quantity for this product is ${inc}</div>
       <button class="btn-cart" id="addBtn"><span>🛒</span> Add to cart</button>
-      <div style="margin-top:8px"><a href="#" style="font-size:11px;color:#666">♡ Add to wishlist</a></div>
+      <div style="margin-top:8px"><a href="#" id="wishlistBtn" style="font-size:11px;color:#666">♡ Add to wishlist</a></div>
       <div class="social"><a href="#">Tweet</a><a href="#">Share</a><a href="#">Google+</a><a href="#">Pinterest</a></div>
       <div style="margin-top:6px"><a href="#" onclick="window.print();return false" style="font-size:11px">🖨 Print</a></div>
       `}
@@ -139,6 +139,17 @@ async function load(){
       };
     }
     document.getElementById('more').textContent = p.description || 'No description';
+    const wishlistBtn = document.getElementById('wishlistBtn');
+    if(wishlistBtn){
+      Wishlist.has(p.id).then(has=>{ if(has) wishlistBtn.textContent = '♥ Saved to wishlist'; });
+      wishlistBtn.onclick = async (e) => {
+        e.preventDefault();
+        const nowSaved = await Wishlist.toggle(p.id);
+        if(nowSaved === null) return; // not logged in — redirected
+        wishlistBtn.textContent = nowSaved ? '♥ Saved to wishlist' : '♡ Add to wishlist';
+      };
+    }
+    RecentlyViewed.track(p.id);
     loadRecommended(p);
   }catch(e){
     document.getElementById('info').innerHTML='<p style="color:red">'+e.message+'</p>';
