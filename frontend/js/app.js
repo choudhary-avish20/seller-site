@@ -67,6 +67,11 @@ const API = (()=>{
     getWishlist:()=>req('/wishlist'),
     addToWishlist:(productId)=>req('/wishlist/'+productId,{method:'POST'}),
     removeFromWishlist:(productId)=>req('/wishlist/'+productId,{method:'DELETE'}),
+    // Saved delivery addresses
+    getAddresses:()=>req('/addresses'),
+    createAddress:(d)=>req('/addresses',{method:'POST',body:JSON.stringify(d)}),
+    setDefaultAddress:(id)=>req('/addresses/'+id+'/default',{method:'PATCH'}),
+    deleteAddress:(id)=>req('/addresses/'+id,{method:'DELETE'}),
     // Category CRUD (admin/seller only)
     createCategory:(d)=>req('/categories',{method:'POST',body:JSON.stringify(d)}),
     updateCategory:(id,d)=>req('/categories/'+id,{method:'PUT',body:JSON.stringify(d)}),
