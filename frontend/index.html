@@ -190,6 +190,7 @@ async function loadProducts(categoryId, opts={}){
         <a href="product.html?slug=${slugUrl}"><img src="${esc(img)}" alt="${esc(p.name)}"></a>
       </div>
       <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
+      ${p.review_count ? `<div style="font-size:11px;color:#f5a623">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:#888">(${p.review_count})</span></div>` : ''}
       <div class="package-bar" data-i18n="pack">in a package: ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
       ${lowStock ? `<div class="stock-low">Only ${packsLeft} pack${packsLeft>1?'s':''} left!</div>` : ''}
       <div class="price">

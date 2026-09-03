@@ -17,6 +17,7 @@ from app.models.product import Product, StockStatus
 from app.models.product_variant import ProductVariant
 from app.models.product_price_tier import ProductPriceTier
 from app.models.category import Category
+from app.models.review import Review
 from app.models.user import User, UserRole
 from app.services.email import send_product_archived_email
 from app.schemas.product import (
@@ -119,6 +120,14 @@ def _validate_tiers(tiers):
                 pass
 
 
+def _get_rating_stats(product_id, db: Session) -> tuple[Optional[float], int]:
+    from sqlalchemy import func
+    row = db.query(func.avg(Review.rating), func.count(Review.id)).filter(Review.product_id == product_id).first()
+    avg_rating = round(float(row[0]), 1) if row and row[0] is not None else None
+    count = int(row[1]) if row else 0
+    return avg_rating, count
+
+
 def _to_product_response(product: Product, db: Session, hide_prices: bool = False, is_staff: bool = False) -> ProductResponse:
     cat = db.query(Category).filter(Category.id == product.category_id).first()
     images_list = _parse_images(product.images)
@@ -139,6 +148,7 @@ def _to_product_response(product: Product, db: Session, hide_prices: bool = Fals
         float(product.price_net), float(product.vat_rate), product.is_on_sale,
         float(product.sale_price_net) if product.sale_price_net is not None else None,
     )
+    _avg_rating, _review_count = _get_rating_stats(product.id, db)
     return ProductResponse(
         id=product.id,
         category_id=product.category_id,
@@ -169,6 +179,8 @@ def _to_product_response(product: Product, db: Session, hide_prices: bool = Fals
         category_slug=cat.slug if cat else None,
         variants=variants,
         price_tiers=tiers if not hide_prices else [],
+        avg_rating=_avg_rating,
+        review_count=_review_count,
     )
 
 
@@ -182,6 +194,7 @@ def _to_list_response(product: Product, db: Session, hide_prices: bool = False, 
         float(product.price_net), float(product.vat_rate), product.is_on_sale,
         float(product.sale_price_net) if product.sale_price_net is not None else None,
     )
+    _avg_rating, _review_count = _get_rating_stats(product.id, db)
     return ProductListResponse(
         id=product.id,
         category_id=product.category_id,
@@ -210,6 +223,8 @@ def _to_list_response(product: Product, db: Session, hide_prices: bool = False, 
         category_slug=cat.slug if cat else None,
         purchase_count=purchase_count,
         price_tiers=tiers if not hide_prices else [],
+        avg_rating=_avg_rating,
+        review_count=_review_count,
     )
 
 

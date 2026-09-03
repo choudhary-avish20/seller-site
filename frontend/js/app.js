@@ -72,6 +72,10 @@ const API = (()=>{
     createAddress:(d)=>req('/addresses',{method:'POST',body:JSON.stringify(d)}),
     setDefaultAddress:(id)=>req('/addresses/'+id+'/default',{method:'PATCH'}),
     deleteAddress:(id)=>req('/addresses/'+id,{method:'DELETE'}),
+    // Product reviews
+    getReviews:(productId)=>req('/reviews/product/'+productId),
+    submitReview:(productId,d)=>req('/reviews/product/'+productId,{method:'POST',body:JSON.stringify(d)}),
+    deleteReview:(id)=>req('/reviews/'+id,{method:'DELETE'}),
     // Category CRUD (admin/seller only)
     createCategory:(d)=>req('/categories',{method:'POST',body:JSON.stringify(d)}),
     updateCategory:(id,d)=>req('/categories/'+id,{method:'PUT',body:JSON.stringify(d)}),

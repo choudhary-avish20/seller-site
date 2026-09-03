@@ -10,3 +10,4 @@ from app.models.site_settings import SiteSettings  # noqa: F401
 from app.models.email_verification_token import EmailVerificationToken  # noqa: F401
 from app.models.wishlist_item import WishlistItem  # noqa: F401
 from app.models.address import Address  # noqa: F401
+from app.models.review import Review  # noqa: F401

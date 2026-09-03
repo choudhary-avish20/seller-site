@@ -65,6 +65,7 @@ async function runSearch(){
         <a href="product.html?slug=${slugUrl}"><img src="${esc(img)}" alt="${esc(p.name)}"></a>
       </div>
       <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
+      ${p.review_count ? `<div style="font-size:11px;color:#f5a623">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:#888">(${p.review_count})</span></div>` : ''}
       <div class="package-bar">in a package: ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
       <div class="price">
         <div>net price: <b>${Number(p.price_net).toFixed(2)} PLN</b></div>

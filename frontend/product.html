@@ -30,6 +30,20 @@
   <div style="padding:8px 10px;background:#f5f5f5;font-weight:bold;border-bottom:1px solid #ddd">MORE INFORMATION</div>
   <div id="more" style="padding:10px;font-size:12px;color:#555;white-space:pre-line"></div>
 </div>
+<div style="margin-top:14px;border:1px solid #ddd;background:#fff" id="reviewsSection">
+  <div style="padding:8px 10px;background:#f5f5f5;font-weight:bold;border-bottom:1px solid #ddd;display:flex;justify-content:space-between;align-items:center">
+    <span>OPINIE KLIENTÓW</span>
+    <span id="ratingSummary" style="font-weight:normal;font-size:12px;color:#666"></span>
+  </div>
+  <div id="reviewForm" style="padding:14px;border-bottom:1px solid #eee;display:none">
+    <div style="font-size:12px;font-weight:bold;margin-bottom:6px">Dodaj opinię</div>
+    <div id="starPicker" style="font-size:22px;color:#ddd;cursor:pointer;margin-bottom:8px"></div>
+    <textarea id="reviewComment" rows="2" placeholder="Twoja opinia (opcjonalnie)…" style="width:100%;border:1px solid #ccc;padding:6px 8px;font-family:inherit;font-size:12px"></textarea>
+    <button onclick="submitReview()" style="margin-top:8px;padding:7px 16px;background:#333;color:#fff;border:0;font-size:12px;font-weight:bold;cursor:pointer">Wyślij opinię</button>
+    <span id="reviewMsg" style="font-size:11px;color:#166534;margin-left:8px"></span>
+  </div>
+  <div id="reviewsList" style="padding:10px"></div>
+</div>
 <div style="margin-top:14px" id="recoSection">
   <div style="font-size:14px;font-weight:bold;color:#333;margin-bottom:8px">You may also like</div>
   <div class="grid" id="recoGrid"></div>
@@ -151,10 +165,79 @@ async function load(){
       };
     }
     RecentlyViewed.track(p.id);
+    loadReviews(p);
     loadRecommended(p);
   }catch(e){
     document.getElementById('info').innerHTML='<p style="color:red">'+e.message+'</p>';
   }
+}
+
+let currentProduct = null;
+let selectedStars = 0;
+
+function renderStars(n, interactive){
+  const full = '★'.repeat(Math.round(n)), empty = '☆'.repeat(5 - Math.round(n));
+  if(!interactive) return `<span style="color:#f5a623">${full}</span><span style="color:#ddd">${empty}</span>`;
+  return [1,2,3,4,5].map(i => `<span data-star="${i}" onclick="pickStar(${i})" style="color:${i<=n?'#f5a623':'#ddd'}">★</span>`).join('');
+}
+function pickStar(n){
+  selectedStars = n;
+  document.getElementById('starPicker').innerHTML = renderStars(n, true);
+}
+
+async function loadReviews(p){
+  currentProduct = p;
+  const summary = document.getElementById('ratingSummary');
+  summary.innerHTML = p.review_count
+    ? `${renderStars(p.avg_rating, false)} ${p.avg_rating} (${p.review_count} opinii)`
+    : 'Brak opinii — bądź pierwszy!';
+
+  const me = await refreshUser().catch(()=>null);
+  const form = document.getElementById('reviewForm');
+  if(me && me.role === 'buyer'){
+    form.style.display = 'block';
+    document.getElementById('starPicker').innerHTML = renderStars(0, true);
+  }
+
+  let reviews = [];
+  try{ reviews = await Api.getReviews(p.id); }catch{}
+  const list = document.getElementById('reviewsList');
+  if(!reviews.length){
+    list.innerHTML = '<p style="color:#888;font-size:12px;padding:6px 0">Brak opinii dla tego produktu.</p>';
+    return;
+  }
+  list.innerHTML = reviews.map(r => `
+    <div style="padding:10px 0;border-bottom:1px solid #f0f0f0">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>${renderStars(r.rating, false)} <b style="font-size:12px;margin-left:4px">${esc(r.reviewer_name)}</b></div>
+        <div style="font-size:10px;color:#999">${new Date(r.created_at).toLocaleDateString('pl-PL')}${r.is_own ? ` · <a href="#" onclick="deleteOwnReview('${r.id}');return false" style="color:#c00">usuń</a>` : ''}</div>
+      </div>
+      ${r.comment ? `<div style="font-size:12px;color:#555;margin-top:4px">${esc(r.comment)}</div>` : ''}
+    </div>`).join('');
+}
+
+async function submitReview(){
+  if(!selectedStars){ document.getElementById('reviewMsg').textContent = 'Wybierz liczbę gwiazdek.'; document.getElementById('reviewMsg').style.color = '#c00'; return; }
+  try{
+    await Api.submitReview(currentProduct.id, { rating: selectedStars, comment: document.getElementById('reviewComment').value.trim() || null });
+    document.getElementById('reviewMsg').textContent = 'Dziękujemy za opinię!';
+    document.getElementById('reviewMsg').style.color = '#166534';
+    document.getElementById('reviewComment').value = '';
+    const p = await Api.getProductById(currentProduct.id);
+    loadReviews(p);
+  }catch(e){
+    document.getElementById('reviewMsg').textContent = e.message || 'Błąd wysyłki opinii.';
+    document.getElementById('reviewMsg').style.color = '#c00';
+  }
+}
+
+async function deleteOwnReview(id){
+  if(!confirm('Usunąć swoją opinię?')) return;
+  try{
+    await Api.deleteReview(id);
+    const p = await Api.getProductById(currentProduct.id);
+    loadReviews(p);
+  }catch(e){ alert('Błąd: '+e.message); }
 }
 
 async function loadRecommended(p){
