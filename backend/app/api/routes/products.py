@@ -276,6 +276,26 @@ def _should_hide_prices(request: Request, db: Session) -> bool:
     return False
 
 
+def _category_and_descendant_ids(db: Session, category_id: UUID) -> list:
+    """A parent category (e.g. "Kids' Clothing") often holds no products of
+    its own — everything actually lives on its subcategories ("Kids' Socks",
+    "Kids' Underwear"). Filtering products by an exact category_id match
+    alone made every parent category page look empty. Walks the category
+    tree breadth-first from category_id (arbitrary depth, not just one level)
+    and returns it plus every descendant id, so a parent-category filter
+    includes products filed anywhere underneath it."""
+    ids = [category_id]
+    frontier = [category_id]
+    while frontier:
+        children = db.query(Category.id).filter(Category.parent_id.in_(frontier)).all()
+        child_ids = [c[0] for c in children]
+        if not child_ids:
+            break
+        ids.extend(child_ids)
+        frontier = child_ids
+    return ids
+
+
 # ---------- Public ----------
 @router.get("", response_model=List[ProductListResponse])
 def list_products(
@@ -305,7 +325,7 @@ def list_products(
     if is_active is not None:
         q = q.filter(Product.is_active == is_active)
     if category_id:
-        q = q.filter(Product.category_id == category_id)
+        q = q.filter(Product.category_id.in_(_category_and_descendant_ids(db, category_id)))
     if bestseller is not None:
         q = q.filter(Product.is_bestseller == bestseller)
     if popular is not None:
