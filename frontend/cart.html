@@ -41,6 +41,7 @@
 .ct-total-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px}
 .ct-total-row.grand{font-weight:bold;font-size:16px;border-top:2px solid #333;margin-top:6px;padding-top:8px}
 .ct-checkout-btn{display:block;width:100%;padding:13px;background:#333;color:#fff;text-align:center;font-weight:bold;font-size:14px;margin-top:12px;letter-spacing:.02em}
+.ct-coupon-box{padding-bottom:12px;margin-bottom:8px;border-bottom:1px solid #eee}
 .ct-checkout-btn:hover{background:#000}
 .ct-cod-note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:9px 11px;font-size:11px;margin-top:12px;display:flex;gap:6px;align-items:flex-start}
 </style>
@@ -71,7 +72,15 @@
       <div class="ct-box">
         <div class="ct-box-head">Podsumowanie</div>
         <div class="ct-box-body">
+          <div class="ct-coupon-box">
+            <div style="display:flex;gap:6px">
+              <input id="couponInput" placeholder="Kod rabatowy" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px">
+              <button id="couponBtn" onclick="applyCouponCode()" style="padding:8px 14px;border:1px solid #333;background:#fff;border-radius:4px;font-size:13px;cursor:pointer">Zastosuj</button>
+            </div>
+            <div id="couponMsg" style="font-size:12px;margin-top:6px"></div>
+          </div>
           <div class="ct-total-row"><span>Suma netto</span><b id="net">0.00 zł</b></div>
+          <div class="ct-total-row" id="discountRow" style="display:none;color:#1a7f37"><span>Rabat</span><b id="discount">-0.00 zł</b></div>
           <div class="ct-total-row grand"><span>Do zapłaty brutto</span><b id="gross">0.00 zł</b></div>
           <a href="checkout.html" class="ct-checkout-btn">Przejdź do kasy →</a>
           <div class="ct-cod-note"><span>💵</span><span>Płatność wyłącznie za pobraniem — zapłacisz gotówką kurierowi przy odbiorze.</span></div>
@@ -130,9 +139,51 @@ function render(){
       </div>`;
   }).join('');
 
+  renderTotals();
+}
+
+function renderTotals(){
   const t = Cart.totals();
+  const {amount, belowMin, coupon} = Cart.couponDiscount();
   document.getElementById('net').textContent = t.net.toFixed(2)+' zł';
-  document.getElementById('gross').textContent = t.gross.toFixed(2)+' zł';
+  const discountRow = document.getElementById('discountRow');
+  if(coupon && !belowMin && amount > 0){
+    const ratio = t.net > 0 ? amount / t.net : 0;
+    const grossDiscount = t.gross * ratio;
+    discountRow.style.display = 'flex';
+    document.getElementById('discount').textContent = '-'+amount.toFixed(2)+' zł';
+    document.getElementById('gross').textContent = (t.gross - grossDiscount).toFixed(2)+' zł';
+    document.getElementById('couponInput').value = coupon.code;
+    document.getElementById('couponMsg').innerHTML = `<span style="color:#1a7f37">Kupon ${esc(coupon.code)} zastosowany</span> · <a href="#" onclick="removeCoupon();return false">usuń</a>`;
+  } else {
+    discountRow.style.display = 'none';
+    document.getElementById('gross').textContent = t.gross.toFixed(2)+' zł';
+    if(coupon && belowMin){
+      document.getElementById('couponInput').value = coupon.code;
+      document.getElementById('couponMsg').innerHTML = `<span style="color:#c00">Kupon ${esc(coupon.code)} wymaga wyższej wartości zamówienia</span> · <a href="#" onclick="removeCoupon();return false">usuń</a>`;
+    }
+  }
+}
+
+async function applyCouponCode(){
+  const code = document.getElementById('couponInput').value.trim();
+  const msg = document.getElementById('couponMsg');
+  if(!code) return;
+  msg.textContent = 'Sprawdzanie...';
+  try{
+    const res = await Cart.applyCoupon(code);
+    if(!res.valid){ msg.innerHTML = `<span style="color:#c00">${esc(res.message||'Nieprawidłowy kod')}</span>`; renderTotals(); return; }
+    renderTotals();
+  }catch(err){
+    if(err.status===401){ msg.innerHTML = `<span style="color:#c00">Zaloguj się, aby użyć kodu rabatowego</span>`; return; }
+    msg.innerHTML = `<span style="color:#c00">Nie udało się sprawdzić kodu, spróbuj ponownie</span>`;
+  }
+}
+function removeCoupon(){
+  Cart.clearCoupon();
+  document.getElementById('couponInput').value = '';
+  document.getElementById('couponMsg').textContent = '';
+  renderTotals();
 }
 
 function changeQty(id, varId, qty){

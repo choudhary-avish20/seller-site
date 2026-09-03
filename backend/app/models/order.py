@@ -48,6 +48,9 @@ class Order(UUIDPKMixin, TimestampMixin, Base):
         Enum(PaymentMethod, name="payment_method"), default=PaymentMethod.cod, nullable=False
     )
 
+    coupon_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    discount_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+
     buyer: Mapped["User"] = relationship(back_populates="orders")
     items: Mapped[list["OrderItem"]] = relationship(
         back_populates="order", cascade="all, delete-orphan"

@@ -76,6 +76,12 @@ const API = (()=>{
     getReviews:(productId)=>req('/reviews/product/'+productId),
     submitReview:(productId,d)=>req('/reviews/product/'+productId,{method:'POST',body:JSON.stringify(d)}),
     deleteReview:(id)=>req('/reviews/'+id,{method:'DELETE'}),
+    // Coupons / discount codes
+    validateCoupon:(code,orderNet)=>req('/coupons/validate',{method:'POST',body:JSON.stringify({code,order_net:orderNet})}),
+    listCoupons:()=>req('/coupons'),
+    createCoupon:(d)=>req('/coupons',{method:'POST',body:JSON.stringify(d)}),
+    updateCoupon:(id,d)=>req('/coupons/'+id,{method:'PATCH',body:JSON.stringify(d)}),
+    deleteCoupon:(id)=>req('/coupons/'+id,{method:'DELETE'}),
     // Category CRUD (admin/seller only)
     createCategory:(d)=>req('/categories',{method:'POST',body:JSON.stringify(d)}),
     updateCategory:(id,d)=>req('/categories/'+id,{method:'PUT',body:JSON.stringify(d)}),
@@ -147,6 +153,28 @@ const Cart={
       net+=n*it.packQuantity; gross+=g*it.packQuantity;
     });
     return {net,gross}
+  },
+  // Applied coupon — kept separate from the line-items array so clearing/editing
+  // the cart doesn't silently drop it; checkout re-validates it server-side anyway.
+  couponKey:'cart_coupon_v1',
+  getCoupon(){ try{return JSON.parse(localStorage.getItem(this.couponKey)||'null')}catch{return null} },
+  setCoupon(c){ localStorage.setItem(this.couponKey, JSON.stringify(c)); },
+  clearCoupon(){ localStorage.removeItem(this.couponKey); },
+  async applyCoupon(code){
+    const {net}=this.totals();
+    const res = await Api.validateCoupon(code, net);
+    if(res.valid) this.setCoupon({code:res.code, discount_type:res.discount_type, discount_value:res.discount_value, min_order_net:res.min_order_net});
+    else this.clearCoupon();
+    return res;
+  },
+  // Recomputed live from the stored coupon rule against the CURRENT cart total, so a
+  // percent coupon stays correct as quantities change (server re-validates at checkout).
+  couponDiscount(){
+    const c=this.getCoupon(); if(!c) return {amount:0, belowMin:false};
+    const {net}=this.totals();
+    if(c.min_order_net!=null && net < c.min_order_net) return {amount:0, belowMin:true, coupon:c};
+    const amount = c.discount_type==='percent' ? +(net*c.discount_value/100).toFixed(2) : Math.min(c.discount_value, net);
+    return {amount, belowMin:false, coupon:c};
   }
 };
 function updateCartUI(){

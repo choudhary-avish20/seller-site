@@ -11,6 +11,8 @@ from app.api.dependencies import get_current_user
 from app.core.config import settings
 from app.core.auth import create_verification_token
 from app.db.session import get_db
+from app.api.routes.coupons import get_valid_coupon
+from app.models.coupon import Coupon
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.order_item import OrderItem
 from app.models.product import Product, StockStatus
@@ -183,11 +185,23 @@ async def create_order(
             "price_gross": price_gross,
         })
 
+    coupon: Coupon | None = None
+    discount_amount = 0.0
+    if payload.coupon_code:
+        coupon, discount_amount, coupon_error = get_valid_coupon(db, payload.coupon_code, total_net)
+        if coupon_error:
+            raise HTTPException(status_code=400, detail=coupon_error)
+        if discount_amount > 0 and total_net > 0:
+            total_gross = round(total_gross - (discount_amount / total_net) * total_gross, 2)
+        total_net = round(total_net - discount_amount, 2)
+
     order = Order(
         buyer_id=current_user.id,
         status=OrderStatus.pending,
         total_net=round(total_net, 2),
         total_gross=round(total_gross, 2),
+        coupon_code=coupon.code if coupon else None,
+        discount_amount=discount_amount,
         shipping_address=payload.shipping_address.strip(),
         notes=payload.notes.strip() if payload.notes else None,
         company_name=payload.company_name.strip() if payload.company_name else current_user.company_name,
@@ -200,6 +214,9 @@ async def create_order(
     )
     db.add(order)
     db.flush()
+
+    if coupon:
+        coupon.used_count += 1
 
     for entry in items_to_create:
         p = entry["product"]

@@ -180,8 +180,14 @@
         <div class="co-box-head">🛒 Twoje zamówienie</div>
         <div class="co-box-body">
           <div id="summaryItems"></div>
+          <div style="display:flex;gap:6px;margin-top:12px">
+            <input id="co_couponInput" placeholder="Kod rabatowy" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px">
+            <button type="button" onclick="applyCouponCode()" style="padding:8px 14px;border:1px solid #333;background:#fff;border-radius:4px;font-size:13px;cursor:pointer">Zastosuj</button>
+          </div>
+          <div id="co_couponMsg" style="font-size:12px;margin-top:6px"></div>
           <div style="margin-top:10px">
             <div class="total-row"><span>Suma netto</span><span id="sumNet">—</span></div>
+            <div class="total-row" id="co_discountRow" style="display:none;color:#1a7f37"><span>Rabat</span><span id="sumDiscount">—</span></div>
             <div class="total-row grand"><span>Do zapłaty brutto</span><span id="sumGross">—</span></div>
           </div>
         </div>
@@ -280,9 +286,51 @@ function renderSummary(items) {
       </div>`;
   }).join('');
 
+  renderCheckoutTotals();
+}
+
+function renderCheckoutTotals(){
   const t = Cart.totals();
-  document.getElementById('sumNet').textContent   = t.net.toFixed(2)   + ' zł';
-  document.getElementById('sumGross').textContent = t.gross.toFixed(2) + ' zł';
+  const {amount, belowMin, coupon} = Cart.couponDiscount();
+  document.getElementById('sumNet').textContent = t.net.toFixed(2) + ' zł';
+  const row = document.getElementById('co_discountRow');
+  const msg = document.getElementById('co_couponMsg');
+  if(coupon && !belowMin && amount > 0){
+    const ratio = t.net > 0 ? amount / t.net : 0;
+    row.style.display = 'flex';
+    document.getElementById('sumDiscount').textContent = '-' + amount.toFixed(2) + ' zł';
+    document.getElementById('sumGross').textContent = (t.gross - t.gross * ratio).toFixed(2) + ' zł';
+    document.getElementById('co_couponInput').value = coupon.code;
+    msg.innerHTML = `<span style="color:#1a7f37">Kupon ${esc(coupon.code)} zastosowany</span> · <a href="#" onclick="removeCouponCode();return false">usuń</a>`;
+  } else {
+    row.style.display = 'none';
+    document.getElementById('sumGross').textContent = t.gross.toFixed(2) + ' zł';
+    if(coupon && belowMin){
+      document.getElementById('co_couponInput').value = coupon.code;
+      msg.innerHTML = `<span style="color:#c00">Kupon ${esc(coupon.code)} wymaga wyższej wartości zamówienia</span> · <a href="#" onclick="removeCouponCode();return false">usuń</a>`;
+    }
+  }
+}
+
+async function applyCouponCode(){
+  const code = document.getElementById('co_couponInput').value.trim();
+  const msg = document.getElementById('co_couponMsg');
+  if(!code) return;
+  msg.textContent = 'Sprawdzanie...';
+  try{
+    const res = await Cart.applyCoupon(code);
+    if(!res.valid){ msg.innerHTML = `<span style="color:#c00">${esc(res.message||'Nieprawidłowy kod')}</span>`; renderCheckoutTotals(); return; }
+    renderCheckoutTotals();
+  }catch(err){
+    if(err.status===401){ msg.innerHTML = `<span style="color:#c00">Zaloguj się, aby użyć kodu rabatowego</span>`; return; }
+    msg.innerHTML = `<span style="color:#c00">Nie udało się sprawdzić kodu, spróbuj ponownie</span>`;
+  }
+}
+function removeCouponCode(){
+  Cart.clearCoupon();
+  document.getElementById('co_couponInput').value = '';
+  document.getElementById('co_couponMsg').textContent = '';
+  renderCheckoutTotals();
 }
 
 // ── Place order ────────────────────────────────────────────────────────────
@@ -331,6 +379,7 @@ async function placeOrder() {
     company_tax_id: nip || null,
     notes: notes || null,
     payment_method: 'cod',
+    coupon_code: (Cart.couponDiscount().coupon && !Cart.couponDiscount().belowMin) ? Cart.getCoupon().code : null,
   };
 
   const btn = document.getElementById('placeBtn');
@@ -340,6 +389,7 @@ async function placeOrder() {
   try {
     const order = await Api.createOrder(payload);
     Cart.save([]); // clear cart
+    Cart.clearCoupon();
 
     if (document.getElementById('f_save_addr').checked) {
       // Best-effort — a failure here shouldn't block the order the buyer already placed.

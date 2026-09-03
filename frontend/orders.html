@@ -78,6 +78,9 @@ async function load(){
         </div>
         <div class="order-body">
           ${items}
+          ${o.coupon_code && Number(o.discount_amount) > 0 ? `<div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #eee;color:#1a7f37;font-size:13px">
+            <span>Kupon ${esc(o.coupon_code)}</span><span>-${Number(o.discount_amount).toFixed(2)} zł</span>
+          </div>` : ''}
           <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #eee;font-weight:bold">
             <span>Razem brutto</span><span>${Number(o.total_gross).toFixed(2)} zł</span>
           </div>
