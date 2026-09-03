@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,6 +25,9 @@ class Settings(BaseSettings):
 
     # CORS - allow all dev origins (vanilla at 8000/vanilla, 3001, etc.)
     # For production, restrict to specific domains via .env; never include "null".
+    # Accepts a JSON array OR a comma-separated string, e.g.:
+    #   CORS_ORIGINS=["https://example.com"]
+    #   CORS_ORIGINS=https://example.com,https://other.com
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
@@ -39,6 +43,19 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
         # "null" intentionally omitted — it allows file:// origins which is a security risk
     ]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v: object) -> object:
+        """Accept a JSON array string or a comma-separated string in addition to a plain list."""
+        if not isinstance(v, str):
+            return v
+        v = v.strip()
+        if v.startswith("["):
+            import json
+            return json.loads(v)
+        # comma-separated: "https://a.com, https://b.com"
+        return [origin.strip() for origin in v.split(",") if origin.strip()]
 
     # Wholesale business settings
     REQUIRE_LOGIN_TO_SEE_PRICES: bool = False  # if True, guests cannot see net/gross prices

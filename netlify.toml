@@ -1,0 +1,20 @@
+[build]
+  # Netlify will serve the frontend folder as the site root
+  publish = "frontend"
+
+  # Injects window.__API_URL__ into the page at deploy time.
+  # Set VITE_API_URL (or API_URL) in Netlify dashboard → Site Settings → Environment Variables
+  # to your Render backend URL, e.g. https://seller-site-backend.onrender.com
+  # The build command writes a tiny config.js that app.js picks up automatically.
+  command = "echo \"window.__API_URL__='${API_URL}';\" > frontend/config.js"
+
+# No framework — plain HTML/CSS/JS
+
+# Optional: set security headers
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
