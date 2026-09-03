@@ -1,7 +1,7 @@
 import enum
 import uuid
 
-from sqlalchemy import Enum, ForeignKey, Numeric, String, Text
+from sqlalchemy import Boolean, Enum, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -50,6 +50,11 @@ class Order(UUIDPKMixin, TimestampMixin, Base):
 
     coupon_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     discount_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0, nullable=False)
+
+    # Lets a buyer clear a cancelled order out of their own order list without
+    # touching the underlying record — sellers/admins always see every order
+    # regardless of this flag, so nothing is lost from their side.
+    hidden_by_buyer: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     buyer: Mapped["User"] = relationship(back_populates="orders")
     items: Mapped[list["OrderItem"]] = relationship(

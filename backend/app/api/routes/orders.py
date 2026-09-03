@@ -270,9 +270,16 @@ def list_orders(
 ):
     q = db.query(Order)
     if current_user.role in (UserRole.admin, UserRole.seller):
+        # Staff always see every order regardless of hidden_by_buyer — that flag
+        # only controls the buyer's own list, never the seller's records.
         orders = q.order_by(Order.created_at.desc()).all()
     else:
-        orders = db.query(Order).filter(Order.buyer_id == current_user.id).order_by(Order.created_at.desc()).all()
+        orders = (
+            db.query(Order)
+            .filter(Order.buyer_id == current_user.id, Order.hidden_by_buyer.is_(False))
+            .order_by(Order.created_at.desc())
+            .all()
+        )
 
     # Collect all buyer ids and fetch in one query to avoid N+1
     buyer_ids = list({o.buyer_id for o in orders})
@@ -378,6 +385,26 @@ async def update_order_status(
             )
 
     return resp
+
+
+@router.patch("/{order_id}/hide", status_code=status.HTTP_204_NO_CONTENT)
+def hide_order(
+    order_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lets a buyer clear a cancelled order out of their own list. This never
+    deletes the order — sellers/admins keep full visibility for their records."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.buyer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if order.status != OrderStatus.cancelled:
+        raise HTTPException(status_code=400, detail="Only cancelled orders can be removed from your list")
+    order.hidden_by_buyer = True
+    db.commit()
+    return None
 
 
 def _e(value) -> str:
