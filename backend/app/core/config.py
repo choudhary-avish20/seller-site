@@ -53,7 +53,16 @@ class Settings(BaseSettings):
         v = v.strip()
         if v.startswith("["):
             import json
-            return json.loads(v)
+            try:
+                return json.loads(v)
+            except json.JSONDecodeError as e:
+                # A malformed value here must never crash the whole app with a bare
+                # traceback — fail with a message that says exactly what to fix.
+                raise ValueError(
+                    f"CORS_ORIGINS is not valid JSON: {v!r} ({e}). "
+                    'Use a JSON array like ["https://example.com"] or a comma-separated '
+                    "list like https://example.com,https://other.com"
+                ) from e
         # comma-separated: "https://a.com, https://b.com"
         return [origin.strip() for origin in v.split(",") if origin.strip()]
 
@@ -79,14 +88,20 @@ class Settings(BaseSettings):
 settings = Settings()
 
 if settings.ENV == "production":
-    # These two checks close the gap where the app silently boots in an insecure
-    # state if an operator forgets to override the dev defaults for a real deploy.
+    # These checks close the gap where the app silently boots in an insecure state
+    # if an operator forgets to override the dev defaults for a real deploy. All
+    # problems are collected and reported together — so a misconfigured deploy
+    # doesn't take multiple redeploy attempts to reveal each issue one at a time.
+    _problems = []
     if settings.SECRET_KEY == "change-me-in-prod":
-        raise RuntimeError(
-            "Refusing to start: SECRET_KEY is still the default placeholder. "
-            "Set a real SECRET_KEY environment variable before running with ENV=production."
+        _problems.append(
+            "SECRET_KEY is still the default placeholder. Set a real SECRET_KEY "
+            "environment variable (a long random string)."
         )
     if settings.DEBUG:
+        _problems.append("DEBUG=true is set. Set DEBUG=false in production.")
+    if _problems:
         raise RuntimeError(
-            "Refusing to start: DEBUG=true with ENV=production. Set DEBUG=false in production."
+            "Refusing to start with ENV=production due to " + str(len(_problems)) +
+            " misconfiguration(s):\n- " + "\n- ".join(_problems)
         )
