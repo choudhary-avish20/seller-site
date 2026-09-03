@@ -1,4 +1,6 @@
 fastapi==0.115.0
+boto3==1.35.36       # S3-compatible client for Cloudflare R2 image uploads
+botocore==1.35.36    # boto3 dependency — pinned to match
 starlette==0.38.6
 uvicorn[standard]==0.30.6
 sqlalchemy==2.0.35
