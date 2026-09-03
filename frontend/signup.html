@@ -20,6 +20,22 @@
 <button type="submit" style="width:100%;padding:10px;background:#333;color:#fff;border:0;font-weight:bold;cursor:pointer">Utwórz konto</button>
 </form>
 
+<!-- Email confirmation modal -->
+<div id="confirmModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:999;align-items:center;justify-content:center">
+  <div style="background:#fff;border:1px solid #ddd;padding:24px;max-width:360px;width:90%;text-align:center">
+    <div style="font-size:36px;margin-bottom:10px">📧</div>
+    <h2 style="font-size:15px;font-weight:bold;margin-bottom:8px">Potwierdź rejestrację</h2>
+    <p style="font-size:12px;color:#555;line-height:1.6;margin-bottom:18px">
+      Wyślemy link aktywacyjny na adres<br><strong id="confirmEmail"></strong>.<br><br>
+      Czy chcesz kontynuować?
+    </p>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button id="confirmYes" style="padding:9px 22px;background:#333;color:#fff;border:0;font-weight:bold;cursor:pointer;font-size:13px">Tak, utwórz konto</button>
+      <button id="confirmNo"  style="padding:9px 22px;background:#fff;color:#333;border:1px solid #ccc;cursor:pointer;font-size:13px">Nie, wróć do sklepu</button>
+    </div>
+  </div>
+</div>
+
 <!-- Shown after successful registration — hides the form -->
 <div id="check-email" style="display:none;text-align:center;padding:8px 0">
   <div style="font-size:40px;margin-bottom:10px">📧</div>
@@ -41,7 +57,10 @@
 // Already signed in? Don't show the signup form again — go straight to the store.
 refreshUser().then(u => { if (u) location.href = 'index.html'; });
 
-document.getElementById('f').addEventListener('submit', async e => {
+// Stash form values here so the modal confirm can use them without re-reading inputs
+let _pendingSignup = null;
+
+document.getElementById('f').addEventListener('submit', e => {
   e.preventDefault();
   const err = document.getElementById('err');
   err.style.display = 'none';
@@ -53,21 +72,43 @@ document.getElementById('f').addEventListener('submit', async e => {
   if (p !== p2)            { err.textContent = 'Hasła nie są zgodne';               err.style.display = 'block'; return; }
   if (p.length < 8)        { err.textContent = 'Hasło min 8 znaków';                err.style.display = 'block'; return; }
 
-  const btn = e.target.querySelector('button[type=submit]');
+  // Show confirmation modal — no DB write yet
+  _pendingSignup = { email: em, password: p, full_name: n, role: 'buyer' };
+  document.getElementById('confirmEmail').textContent = em;
+  document.getElementById('confirmModal').style.display = 'flex';
+});
+
+// User confirmed → call the API and create the account
+document.getElementById('confirmYes').addEventListener('click', async () => {
+  document.getElementById('confirmModal').style.display = 'none';
+  const err = document.getElementById('err');
+  err.style.display = 'none';
+
+  const btn = document.querySelector('#f button[type=submit]');
   btn.disabled = true; btn.textContent = 'Tworzenie konta…';
+
   try {
-    await Api.signup({ email: em, password: p, full_name: n, role: 'buyer' });
+    await Api.signup(_pendingSignup);
     // Show "check email" banner — do NOT auto-login, user must verify first
     document.getElementById('f').style.display = 'none';
     document.getElementById('loginLink').style.display = 'none';
-    document.getElementById('regEmail').textContent = em;
+    document.getElementById('regEmail').textContent = _pendingSignup.email;
     document.getElementById('check-email').style.display = 'block';
   } catch (ex) {
     err.textContent = ex.message;
     err.style.display = 'block';
     btn.disabled = false;
     btn.textContent = 'Utwórz konto';
+  } finally {
+    _pendingSignup = null;
   }
+});
+
+// User declined → discard everything and go back to the store unauthenticated
+document.getElementById('confirmNo').addEventListener('click', () => {
+  document.getElementById('confirmModal').style.display = 'none';
+  _pendingSignup = null;
+  location.href = 'index.html';
 });
 </script>
 </body></html>
