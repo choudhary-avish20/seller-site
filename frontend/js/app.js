@@ -102,10 +102,20 @@ window.Api = API;
 window.API = API;
 window.getImageUrl = (u)=> (API.img ? API.img(u) : (u && u.startsWith('/') ? API.base+u : u));
 
+// Polish plural forms are three-way (1 / 2-4 except 12-14 / everything else),
+// not the singular-vs-everything-else split English gets away with.
+function plPluralPL(n, one, few, many){
+  if(n === 1) return one;
+  const lastDigit = n % 10, lastTwo = n % 100;
+  if(lastDigit >= 2 && lastDigit <= 4 && !(lastTwo >= 12 && lastTwo <= 14)) return few;
+  return many;
+}
+window.plPluralPL = plPluralPL;
+
 // i18n
 const I18N={
-  pl:{b2b:'B2B only — zamówienia dla podmiotów gospodarczych',cat:'Kategorie',sale:'WYPRZEDAŻ',new:'Nowości',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Szukaj — nazwa produktu, kategoria...',search:'Szukaj',cart:'Koszyk',net:'net',gross:'gross',pack:'w paczce:',add:'Dodaj do koszyka',login:'Zaloguj się',logout:'Wyloguj',signup:'Rejestracja'},
-  en:{b2b:'B2B only — orders for business entities',cat:'Categories',sale:'SALE',new:'NEWS',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Search — product, category...',search:'Search',cart:'Cart',net:'net',gross:'gross',pack:'in a package:',add:'Add to cart',login:'Sign in',logout:'Sign out',signup:'Sign up'}
+  pl:{b2b:'B2B only — zamówienia dla podmiotów gospodarczych',cat:'Kategorie',sale:'WYPRZEDAŻ',new:'Nowości',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Szukaj — nazwa produktu, kategoria...',search:'Szukaj',cart:'Koszyk',net:'net',gross:'gross',pack:'w paczce:',add:'Dodaj do koszyka',login:'Zaloguj się',logout:'Wyloguj',signup:'Rejestracja',contact:'Kontakt z nami',signinReminderTitle:'Zapisz swoje zamówienia i ulubione',signinReminderBody:'Zaloguj się, aby zachować listę życzeń i łatwiej zarządzać zamówieniami hurtowymi.',signinReminderCta:'Zaloguj się',signinReminderLater:'Może później'},
+  en:{b2b:'B2B only — orders for business entities',cat:'Categories',sale:'SALE',new:'NEWS',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Search — product, category...',search:'Search',cart:'Cart',net:'net',gross:'gross',pack:'in a package:',add:'Add to cart',login:'Sign in',logout:'Sign out',signup:'Sign up',contact:'Contact us',signinReminderTitle:'Save your orders and favourites',signinReminderBody:'Sign in to keep your wishlist and manage your wholesale orders more easily.',signinReminderCta:'Sign in',signinReminderLater:'Maybe later'}
 };
 let lang=localStorage.getItem('lang')||(navigator.language.startsWith('pl')?'pl':'pl');
 function t(k){return (I18N[lang]&&I18N[lang][k])||I18N.pl[k]||k}
@@ -281,7 +291,7 @@ function renderProductCard(p){
       <input id="qty-${p.id}" value="${inc}" data-inc="${inc}" inputmode="numeric">
       <button onclick="cardChg('${p.id}',1)" aria-label="Zwiększ ilość">+</button>
     </div>
-    <button class="add" onclick="cardAddToCart('${p.id}')" ${out?'disabled style="opacity:.5;cursor:not-allowed"':''}>${out?'Niedostępny':'Dodaj do koszyka'}</button>
+    <button class="add" onclick="cardAddToCart(this,'${p.id}')" ${out?'disabled style="opacity:.5;cursor:not-allowed"':''}>${out?'Niedostępny':'Dodaj do koszyka'}</button>
   </div>`;
 }
 
@@ -296,24 +306,50 @@ function cardChg(id, dir){
   inp.value = v;
 }
 
-function cardAddToCart(id){
+// Cart.add() is a synchronous, local-only write — it cannot be "in
+// progress" for any perceptible time, so there is no real async gap to
+// show an "Adding…" state during. Showing the button's success state right
+// after the (synchronous) call actually succeeds is the honest reading of
+// "only show success after the operation confirms success" here.
+function cardAddToCart(btn, id){
   const p = window._productRegistry.get(id);
   if(!p) return;
   const inc = p.pack_increment || 1;
   const inp = document.getElementById('qty-'+id);
   let qty = parseInt((inp && inp.value) || inc, 10);
   qty = Math.ceil(qty/inc)*inc;
-  Cart.add(p, qty);
-  showToast(`Dodano do koszyka: ${p.name}`);
+  try{
+    Cart.add(p, qty);
+  }catch(e){
+    showToast('Nie udało się dodać produktu do koszyka.');
+    return;
+  }
+  flashAddedState(btn);
+  showCartToast(p, qty);
 }
+
+// Briefly swaps a "Dodaj do koszyka" button to "✓ Dodano" and back —
+// shared by the catalogue card button and the product-detail CTA.
+function flashAddedState(btn){
+  if(!btn) return;
+  if(!btn.dataset.origLabel) btn.dataset.origLabel = btn.innerHTML;
+  clearTimeout(btn._flashTimer);
+  btn.disabled = true;
+  btn.textContent = '✓ Dodano';
+  btn._flashTimer = setTimeout(() => {
+    btn.disabled = false;
+    btn.innerHTML = btn.dataset.origLabel;
+  }, 1400);
+}
+window.flashAddedState = flashAddedState;
 
 async function toggleWishlistCard(btn, id){
   const saved = await Wishlist.toggle(id);
   if(saved === null) return; // guest — redirected to login
   btn.textContent = saved ? '♥' : '♡';
   btn.classList.toggle('active', saved);
-  if(saved) showToast('Dodano do listy życzeń');
-  if(typeof updateWishlistBadge === 'function') updateWishlistBadge();
+  showToast(saved ? 'Dodano do listy życzeń' : 'Usunięto z listy życzeń', saved ? { label: 'Zobacz listę', href: 'wishlist.html' } : null);
+  renderWishlistMenu(getCachedUser());
 }
 
 function refreshWishlistHearts(){
@@ -326,28 +362,127 @@ function refreshWishlistHearts(){
   });
 }
 
-// Lightweight, dependency-free toast — used for add-to-cart/wishlist feedback
-// instead of blocking alert() dialogs.
+// Lightweight, dependency-free toast — used for wishlist/password feedback
+// instead of blocking alert() dialogs. Optional `action` adds a single
+// inline link (e.g. "View wishlist") without needing a second toast type.
 let _toastTimer = null;
-function showToast(msg){
+function showToast(msg, action){
   let el = document.getElementById('_toast');
   if(!el){
     el = document.createElement('div');
     el.id = '_toast';
-    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(0);background:var(--text-primary,#211d1a);color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:200;opacity:0;transition:opacity 200ms ease,transform 200ms ease;pointer-events:none';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
     document.body.appendChild(el);
   }
-  el.textContent = msg;
+  el.innerHTML = `<span>${esc(msg)}</span>` + (action ? `<a href="${esc(action.href)}" class="toast-action">${esc(action.label)}</a>` : '');
+  el.classList.add('toast-visible');
   clearTimeout(_toastTimer);
-  requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.transform='translateX(-50%) translateY(-6px)'; });
-  _toastTimer = setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(0)'; }, 2200);
+  _toastTimer = setTimeout(() => el.classList.remove('toast-visible'), 3200);
 }
+window.showToast = showToast;
+
+// ── Add-to-cart confirmation toast ───────────────────────────────────────
+// Richer than showToast() (product thumbnail, qty, two actions) since this
+// is explicitly the most important post-add moment. Reuses the SAME
+// #cart-count/#cart-net elements everywhere else (via Cart.add() already
+// having updated them through updateCartUI()) — this toast carries no cart
+// state of its own, just a link to the real cart page.
+let _cartToastTimer = null;
+function showCartToast(product, qty){
+  let el = document.getElementById('_cartToast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = '_cartToast';
+    el.setAttribute('role', 'status');
+    el.setAttribute('aria-live', 'polite');
+    document.body.appendChild(el);
+  }
+  const img = product.images && product.images[0] ? Api.img(product.images[0]) : '';
+  el.innerHTML = `
+    <div class="ct-toast-head">
+      <span class="ct-toast-check" aria-hidden="true">✓</span>
+      <span>Dodano do koszyka</span>
+      <button class="ct-toast-close" type="button" aria-label="Zamknij" onclick="hideCartToast()">×</button>
+    </div>
+    <div class="ct-toast-body">
+      ${img ? `<img src="${esc(img)}" alt="">` : ''}
+      <div class="ct-toast-info">
+        <div class="ct-toast-name">${esc(product.name)}</div>
+        <div class="ct-toast-qty">${qty} szt.</div>
+      </div>
+    </div>
+    <div class="ct-toast-actions">
+      <button type="button" class="ct-toast-secondary" onclick="hideCartToast()">Kontynuuj zakupy</button>
+      <a class="ct-toast-primary" href="cart.html">Przejdź do koszyka</a>
+    </div>`;
+  el.classList.add('visible');
+  clearTimeout(_cartToastTimer);
+  _cartToastTimer = setTimeout(hideCartToast, 5500);
+}
+function hideCartToast(){
+  const el = document.getElementById('_cartToast');
+  if(el) el.classList.remove('visible');
+  clearTimeout(_cartToastTimer);
+}
+window.showCartToast = showCartToast;
+window.hideCartToast = hideCartToast;
+document.addEventListener('keydown', (e) => { if(e.key === 'Escape') hideCartToast(); });
+
 window.renderProductCard = renderProductCard;
 window.cardChg = cardChg;
 window.cardAddToCart = cardAddToCart;
 window.toggleWishlistCard = toggleWishlistCard;
 window.refreshWishlistHearts = refreshWishlistHearts;
-window.showToast = showToast;
+
+// ── Guest sign-in reminder ────────────────────────────────────────────────
+// A once-per-session, dismissible nudge — never a login gate. Armed from
+// renderAuthHeader() on every page load; sessionStorage (not localStorage)
+// means it can show again in a future visit but never twice in one session,
+// and logging in during the wait cancels it since the timer re-checks
+// access_token right before displaying.
+const SIGNIN_REMINDER_KEY = 'signin_reminder_shown_v1';
+const SIGNIN_REMINDER_DELAY_MS = 60000;
+const SIGNIN_REMINDER_SKIP_PAGES = ['login.html','signup.html','admin-login.html','admin-dashboard.html','register-seller.html','verify-email.html'];
+
+function initSignInReminder(u){
+  if(u) return; // signed in — never show
+  if(SIGNIN_REMINDER_SKIP_PAGES.includes(location.pathname.split('/').pop())) return;
+  let shown = false;
+  try{ shown = sessionStorage.getItem(SIGNIN_REMINDER_KEY) === '1'; }catch{}
+  if(shown) return;
+  setTimeout(() => {
+    if(localStorage.getItem('access_token')) return; // logged in during the wait
+    try{ if(sessionStorage.getItem(SIGNIN_REMINDER_KEY) === '1') return; }catch{}
+    showSignInReminder();
+  }, SIGNIN_REMINDER_DELAY_MS);
+}
+
+function showSignInReminder(){
+  try{ sessionStorage.setItem(SIGNIN_REMINDER_KEY, '1'); }catch{}
+  const el = document.createElement('div');
+  el.id = '_signinReminder';
+  el.className = 'signin-reminder';
+  el.setAttribute('role', 'complementary');
+  el.setAttribute('aria-label', t('signinReminderTitle'));
+  el.innerHTML = `
+    <button type="button" class="signin-reminder-close" aria-label="Zamknij">×</button>
+    <div class="signin-reminder-title">${esc(t('signinReminderTitle'))}</div>
+    <div class="signin-reminder-body">${esc(t('signinReminderBody'))}</div>
+    <div class="signin-reminder-actions">
+      <a class="signin-reminder-cta" href="login.html">${esc(t('signinReminderCta'))}</a>
+      <button type="button" class="signin-reminder-later">${esc(t('signinReminderLater'))}</button>
+    </div>`;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('visible'));
+  const dismiss = () => { el.classList.remove('visible'); setTimeout(() => el.remove(), 250); };
+  el.querySelector('.signin-reminder-close').addEventListener('click', dismiss);
+  el.querySelector('.signin-reminder-later').addEventListener('click', dismiss);
+  document.addEventListener('keydown', function onEsc(e){
+    if(e.key === 'Escape'){ dismiss(); document.removeEventListener('keydown', onEsc); }
+  });
+}
+window.initSignInReminder = initSignInReminder;
 
 // auth helpers
 async function doLogout(){
@@ -369,60 +504,74 @@ function safeNextUrl(fallback){
 }
 window.safeNextUrl = safeNextUrl;
 
-// Shared header auth state. Every consumer-facing page includes a single
-// <a id="top-login"> in its topbar; this is the one place that decides
-// whether it reads "Sign in" or "email • Sign out", so pages can't drift
-// out of sync with each other (or, on a page with two separate login
-// indicators, with themselves) the way this used to be duplicated ad-hoc
-// per page. No-ops on pages that don't opt in (e.g. the admin dashboard,
-// which manages its own header).
+// Cached copy of the last-fetched user (refreshUser() already persists this
+// under 'user' on every call) — lets popovers re-render on a wishlist toggle
+// etc. without an extra /auth/me round trip.
+function getCachedUser(){
+  try{ return JSON.parse(localStorage.getItem('user') || 'null'); }catch{ return null; }
+}
+window.getCachedUser = getCachedUser;
+
+// Shared header auth state. Reads the one auth source of truth
+// (refreshUser()/access_token) and drives every header element that depends
+// on it: the "My orders" catnav link, the wishlist box visibility, the
+// wishlist popover contents, and the account dropdown. No-ops safely on
+// pages missing some of these elements (e.g. the admin dashboard, which
+// manages its own header).
 async function renderAuthHeader(){
-  const link = document.getElementById('top-login');
   const myOrders = document.getElementById('myOrdersLink');
-  const wishlistLink = document.getElementById('wishlistNavLink');
-  if(!link && !myOrders && !wishlistLink) return null;
-  const topUser = document.getElementById('topUser');
   const u = await refreshUser().catch(()=>null);
-  if(u){
-    if(link){ link.textContent = u.email+' • '+t('logout'); link.href='#'; link.onclick=()=>{doLogout();return false}; }
-    if(topUser) topUser.textContent = u.full_name || u.email;
-    if(myOrders) myOrders.style.display = u.role==='buyer' ? '' : 'none';
-    if(wishlistLink) wishlistLink.style.display = u.role==='buyer' ? '' : 'none';
-    // Seller/admin: show a link back to the dashboard from any store page
-    if((u.role==='admin' || u.role==='seller') && link && !document.getElementById('adminPanelLink')){
-      const a = document.createElement('a');
-      a.id = 'adminPanelLink';
-      a.href = 'admin-dashboard.html';
-      a.textContent = '⚙ Panel admina';
-      a.style.cssText = 'font-weight:600;color:#c00;margin-left:4px';
-      link.parentNode.insertBefore(a, link);
-    }
-  } else {
-    if(link){ link.textContent = t('login'); link.href='login.html'; link.onclick=null; }
-    if(topUser) topUser.textContent = '';
-    if(myOrders) myOrders.style.display = 'none';
-    if(wishlistLink) wishlistLink.style.display = 'none';
-    // Remove the admin link if the user logged out
-    const adminLink = document.getElementById('adminPanelLink');
-    if(adminLink) adminLink.remove();
-  }
-  updateWishlistBadge();
+  if(myOrders) myOrders.style.display = (u && u.role==='buyer') ? '' : 'none';
   renderAccountMenu(u);
+  renderWishlistMenu(u);
+  initSignInReminder(u);
   return u;
 }
 document.addEventListener('DOMContentLoaded', renderAuthHeader);
 
-// Wishlist header box — mirrors the cart box's own "label / count" layout so
-// the two sit together as a matched pair. Hidden entirely for non-buyers,
-// same visibility rule as the rest of the buyer-only header chrome.
-async function updateWishlistBadge(){
-  const countEl = document.getElementById('wishlistCountText');
-  if(!countEl || !localStorage.getItem('access_token')) return;
-  try{
-    const ids = await Wishlist.ids();
-    const n = ids.size;
-    countEl.textContent = n === 0 ? 'Twoja lista jest pusta' : (n + (n===1?' produkt':' produktów'));
-  }catch{ countEl.textContent = ''; }
+// ── Shared dropdown wiring ──────────────────────────────────────────────
+// Both the account menu and the wishlist popover are a `.acct-trigger`
+// button next to a `.acct-panel` (the panel carries data-trigger="<button
+// id>" so these generic, wire-once listeners can find and reset whichever
+// trigger goes with whichever panel — no per-dropdown closures to leak or
+// re-attach when a page re-renders its header (e.g. the PL/EN toggle calls
+// renderAuthHeader() again).
+function wireDropdown(triggerId, panelId){
+  const trigger = document.getElementById(triggerId);
+  const panel = document.getElementById(panelId);
+  if(!trigger || !panel) return;
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    document.querySelectorAll('.acct-panel.open').forEach(p => {
+      if(p !== panel){
+        p.classList.remove('open');
+        const t = document.getElementById(p.dataset.trigger);
+        if(t) t.setAttribute('aria-expanded', 'false');
+      }
+    });
+    const isOpen = panel.classList.toggle('open');
+    trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+  if(!window._dropdownGlobalListenersWired){
+    window._dropdownGlobalListenersWired = true;
+    document.addEventListener('click', (e) => {
+      document.querySelectorAll('.acct-panel.open').forEach(p => {
+        const t = document.getElementById(p.dataset.trigger);
+        if(!p.contains(e.target) && e.target !== t){
+          p.classList.remove('open');
+          if(t) t.setAttribute('aria-expanded', 'false');
+        }
+      });
+    });
+    document.addEventListener('keydown', (e) => {
+      if(e.key !== 'Escape') return;
+      document.querySelectorAll('.acct-panel.open').forEach(p => {
+        p.classList.remove('open');
+        const t = document.getElementById(p.dataset.trigger);
+        if(t) t.setAttribute('aria-expanded', 'false');
+      });
+    });
+  }
 }
 
 // ── Account dropdown ────────────────────────────────────────────────────
@@ -459,7 +608,7 @@ function renderAccountMenu(u){
         </span>
         <svg class="acct-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
       </button>
-      <div class="acct-panel" id="acctPanel">
+      <div class="acct-panel" id="acctPanel" data-trigger="acctTriggerBtn">
         <div class="acct-panel-head">
           <div class="acct-name">${esc(u.full_name || 'Twoje konto')}</div>
           <div class="acct-email">${esc(u.email)}</div>
@@ -498,41 +647,7 @@ function renderAccountMenu(u){
       </div>
     </div>`;
 
-  const trigger = document.getElementById('acctTriggerBtn');
-  const panel = document.getElementById('acctPanel');
-  trigger.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const isOpen = panel.classList.toggle('open');
-    trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-  });
-
-  // renderAccountMenu() can re-run on the same page (e.g. the PL/EN toggle
-  // calls renderAuthHeader() again), which would re-inject fresh trigger/panel
-  // nodes each time. Wiring outside-click/Escape as delegated, once-only
-  // listeners — rather than closures over this call's specific elements —
-  // means they keep working against whichever panel is currently in the DOM
-  // instead of piling up stale document-level listeners on every re-render.
-  if(!window._acctMenuGlobalListenersWired){
-    window._acctMenuGlobalListenersWired = true;
-    document.addEventListener('click', (e) => {
-      const openPanel = document.querySelector('.acct-panel.open');
-      if(!openPanel) return;
-      const openTrigger = document.getElementById('acctTriggerBtn');
-      if(!openPanel.contains(e.target) && e.target !== openTrigger) {
-        openPanel.classList.remove('open');
-        if(openTrigger) openTrigger.setAttribute('aria-expanded', 'false');
-      }
-    });
-    document.addEventListener('keydown', (e) => {
-      if(e.key !== 'Escape') return;
-      const openPanel = document.querySelector('.acct-panel.open');
-      if(!openPanel) return;
-      openPanel.classList.remove('open');
-      const openTrigger = document.getElementById('acctTriggerBtn');
-      if(openTrigger) openTrigger.setAttribute('aria-expanded', 'false');
-    });
-  }
-
+  wireDropdown('acctTriggerBtn', 'acctPanel');
   document.getElementById('acctSignOutBtn').addEventListener('click', () => doLogout());
 
   const pwForm = document.getElementById('acctPwForm');
@@ -559,6 +674,59 @@ function renderAccountMenu(u){
   });
 }
 window.renderAccountMenu = renderAccountMenu;
+
+// ── Wishlist popover ────────────────────────────────────────────────────
+// Injected into a `#wishlistMenuSlot` div next to the account menu slot.
+// Reads the same Wishlist/Api.getWishlist() source of truth as the wishlist
+// page itself — no separate count or item list is tracked here. Hidden
+// entirely for guests/sellers/admins, same rule the old static wishlist box
+// used.
+async function renderWishlistMenu(u){
+  const slot = document.getElementById('wishlistMenuSlot');
+  if(!slot) return;
+  if(!u || u.role !== 'buyer'){ slot.innerHTML = ''; return; }
+
+  let items = [];
+  try{ items = await Api.getWishlist(); }catch{}
+  const n = items.length;
+  const countText = n + ' ' + plPluralPL(n, 'produkt', 'produkty', 'produktów');
+  const preview = items.slice(0, 3);
+
+  const bodyHtml = n === 0
+    ? `<div class="wish-empty">Twoja lista życzeń jest pusta.</div>`
+    : `<div class="wish-items">${preview.map(it => {
+        const p = it.product;
+        const img = p.images && p.images[0] ? Api.img(p.images[0]) : '';
+        return `<a class="wish-item" href="product.html?slug=${encodeURIComponent(p.slug)}">
+          ${img ? `<img src="${esc(img)}" alt="">` : `<span class="wish-item-ph">📦</span>`}
+          <span class="wish-item-name">${esc(p.name)}</span>
+        </a>`;
+      }).join('')}${n > preview.length ? `<div class="wish-more">+${n - preview.length} więcej</div>` : ''}</div>`;
+
+  slot.innerHTML = `
+    <div class="acct-menu">
+      <button class="acct-trigger cart" id="wishTriggerBtn" type="button" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.35-9.5-8.5C1.2 9.5 2.5 6 6 6c2 0 3.4 1.3 4.5 2.8C11.6 7.3 13 6 15 6c3.5 0 4.8 3.5 3.5 6.5C16.5 16.65 12 21 12 21z"/></svg>
+        <span class="cart-copy">
+          <span class="cart-label">Ulubione</span>
+          <span class="cart-total" id="wishlistCountText">${countText}</span>
+        </span>
+      </button>
+      <div class="acct-panel wish-panel" id="wishPanel" data-trigger="wishTriggerBtn">
+        <div class="acct-panel-head"><div class="acct-name">Lista życzeń</div></div>
+        ${bodyHtml}
+        <div class="wish-panel-footer">
+          <a href="wishlist.html" class="acct-item wish-view-all">Zobacz listę życzeń →</a>
+        </div>
+      </div>
+    </div>`;
+
+  wireDropdown('wishTriggerBtn', 'wishPanel');
+}
+window.renderWishlistMenu = renderWishlistMenu;
+// Kept for backward compatibility with any inline call sites — refreshes
+// the same wishlist popover rather than tracking a second count anywhere.
+function updateWishlistBadge(){ renderWishlistMenu(getCachedUser()); }
 window.updateWishlistBadge = updateWishlistBadge;
 
 // Shared site footer + floating WhatsApp contact button. Every page includes

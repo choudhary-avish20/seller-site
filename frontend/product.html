@@ -91,17 +91,11 @@
 </style>
 </head>
 <body>
-<div class="topbar"><div class="container"><div data-i18n="b2b">B2B only — zamówienia dla podmiotów gospodarczych</div><div><span class="lang"><button data-lang="pl" class="active">PL</button><button data-lang="en">EN</button></span> <a href="login.html" id="top-login" data-i18n="login">Zaloguj</a></div></div></div>
+<div class="topbar"><div class="container"><span class="lang" style="position:static"></span><a href="contact.html" class="topbar-contact"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg><span data-i18n="contact">Kontakt z nami</span></a></div></div>
 <div class="header"><div class="container"><a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
 <form class="search" id="searchForm"><input id="q" placeholder="Szukaj..."><button>Szukaj</button></form>
 <div class="header-actions">
-    <a href="wishlist.html" class="cart" id="wishlistNavLink" style="display:none" aria-label="Lista życzeń">
-      <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.35-9.5-8.5C1.2 9.5 2.5 6 6 6c2 0 3.4 1.3 4.5 2.8C11.6 7.3 13 6 15 6c3.5 0 4.8 3.5 3.5 6.5C16.5 16.65 12 21 12 21z"/></svg>
-      <span class="cart-copy">
-        <span class="cart-label">Ulubione</span>
-        <span class="cart-total" id="wishlistCountText">0 produktów</span>
-      </span>
-    </a>
+    <div id="wishlistMenuSlot"></div>
     <a href="cart.html" class="cart" aria-label="Koszyk">
       <svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>
       <span class="cart-copy">
@@ -260,7 +254,7 @@ async function load(){
       `}
     `;
     if(!hide){
-      document.getElementById('addBtn').onclick=()=>{
+      document.getElementById('addBtn').onclick=(e)=>{
         const inp=document.getElementById('qty');
         let q=parseInt(inp.value||inc,10);
         q=Math.ceil(q/inc)*inc;
@@ -268,7 +262,8 @@ async function load(){
         // live from packQuantity every time the cart is rendered or the qty changes,
         // so it never goes stale the way a snapshot taken at add-to-cart time would.
         Cart.add(p, q);
-        showToast(`Dodano do koszyka: ${q} szt. — ${esc(p.name)}`);
+        flashAddedState(e.currentTarget);
+        showCartToast(p, q);
       };
       window.chg=(dir)=>{
         const inp=document.getElementById('qty');
@@ -305,6 +300,7 @@ async function load(){
         const nowSaved = await Wishlist.toggle(p.id);
         if(nowSaved === null) return; // not logged in — redirected
         setWishState(nowSaved);
+        showToast(nowSaved ? 'Dodano do listy życzeń' : 'Usunięto z listy życzeń', nowSaved ? { label: 'Zobacz listę', href: 'wishlist.html' } : null);
         if(typeof updateWishlistBadge === 'function') updateWishlistBadge();
       };
     }
