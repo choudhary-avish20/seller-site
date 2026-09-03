@@ -34,7 +34,12 @@
 <script src="js/app.js"></script>
 <script>
 // Already signed in? Don't show the login form again — go straight where they meant to go.
-refreshUser().then(u => { if (u) location.href = safeNextUrl('index.html'); });
+refreshUser().then(u => {
+  if (!u) return;
+  location.href = (u.role === 'admin' || u.role === 'seller')
+    ? 'admin-dashboard.html'
+    : safeNextUrl('index.html');
+});
 
 document.getElementById('f').addEventListener('submit', async e => {
   e.preventDefault();
@@ -50,7 +55,9 @@ document.getElementById('f').addEventListener('submit', async e => {
     await Api.login(document.getElementById('email').value, document.getElementById('pwd').value);
     const u = await Api.getMe();
     localStorage.setItem('user', JSON.stringify(u));
-    location.href = safeNextUrl('index.html');
+    location.href = (u.role === 'admin' || u.role === 'seller')
+      ? 'admin-dashboard.html'
+      : safeNextUrl('index.html');
   } catch (ex) {
     // 403 with "verify" in message = unverified email
     const isUnverified = ex.status === 403 &&
