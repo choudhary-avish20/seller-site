@@ -189,17 +189,24 @@ button,input,select,textarea{font-family:inherit}
 .lang button{padding:4px 9px;font-size:11px;border:0;cursor:pointer;background:var(--surface);color:var(--text-primary)}
 .lang button.active{background:var(--text-primary);color:#fff}
 
-/* ── Site footer (injected by renderFooter() in app.js on every page) ── */
-.site-footer{background:var(--text-primary);color:#cfc8c1;margin-top:56px;font-size:12px}
-.site-footer .container{padding:40px 16px 20px}
-.footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.2fr;gap:24px}
-@media(max-width:760px){.footer-grid{grid-template-columns:1fr 1fr}}
-.footer-col h4{color:#fff;font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:14px;font-weight:700}
-.footer-col a{display:block;color:#cfc8c1;margin-bottom:9px;transition:color var(--t-fast)}
+/* ── Trust strip + site footer (both injected by renderFooter() in app.js) ──
+   NOTE: the outer element these mount into is `#site-footer` (an id, not a
+   class) on every page — selectors below target it by id for that reason. */
+#site-footer{margin-top:64px}
+.trust-strip{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.trust-strip .container{display:flex;flex-wrap:wrap;justify-content:center;gap:36px;padding:20px 16px}
+.trust-item{display:flex;align-items:center;gap:9px;font-size:12.5px;font-weight:500;color:var(--text-secondary);white-space:nowrap}
+.trust-item .ico{font-size:17px;line-height:1}
+@media(max-width:640px){.trust-strip .container{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;gap:24px}}
+
+.footer-main{background:var(--text-primary);color:#d9d2ca;font-size:12px}
+.footer-main .container{padding:44px 16px 22px}
+.footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.2fr;gap:28px}
+@media(max-width:760px){.footer-grid{grid-template-columns:1fr 1fr;gap:28px 20px}}
+.footer-col h4{color:#fff;font-size:12px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:16px;font-weight:700}
+.footer-col a{display:block;color:#d9d2ca;margin-bottom:10px;transition:color var(--t-fast)}
 .footer-col a:hover{color:#fff}
-.footer-col p{color:#a89f97;line-height:1.7;margin-bottom:10px}
-.footer-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.footer-badge{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#cfc8c1;font-size:10px;padding:4px 9px;border-radius:20px;white-space:nowrap}
-.footer-bottom{border-top:1px solid rgba(255,255,255,.12);margin-top:28px;padding-top:18px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;color:#a89f97;font-size:11px}
+.footer-col p{color:#b8afa6;line-height:1.7;margin-bottom:10px}
+.footer-bottom{border-top:1px solid rgba(255,255,255,.14);margin-top:32px;padding-top:20px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;color:#b8afa6;font-size:11.5px}
 .wa-float{position:fixed;bottom:20px;right:20px;z-index:60;width:52px;height:52px;border-radius:50%;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:var(--shadow-md);text-decoration:none}
 .wa-float:hover{background:#1ebe57;color:#fff}
