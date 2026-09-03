@@ -1,20 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import asyncio
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_admin
 from app.core.config import settings
 from app.core.rate_limit import rate_limit
-from app.db.session import get_db
+from app.db.session import get_db, SessionLocal
 from app.core.auth import (
     authenticate_user,
     create_user,
+    create_user_async,
     create_tokens,
     decode_token,
     get_user_by_email,
     get_user_by_id,
     get_password_hash,
     verify_password,
+    verify_password_async,
+    get_password_hash_async,
     create_verification_token,
     verify_email_token,
     invalidate_user_verification_tokens,
@@ -35,8 +41,29 @@ from app.schemas.auth import (
 )
 from app.services.email import send_verification_email
 
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+async def _send_verification_email_task(user_id: str, email: str, full_name: str) -> None:
+    """Background task: opens its own DB session, creates the verification token,
+    commits it, then sends the email. Runs after the HTTP response has been returned."""
+    db = SessionLocal()
+    try:
+        from uuid import UUID
+        from app.models.user import User as UserModel
+        user = db.query(UserModel).filter(UserModel.id == UUID(user_id)).first()
+        if not user:
+            logger.error("Background email task: user %s not found", user_id)
+            return
+        raw_token = create_verification_token(db, user)
+        db.commit()
+        await send_verification_email(email, full_name, raw_token)
+    except Exception:
+        logger.exception("Background email task failed for user %s", user_id)
+    finally:
+        db.close()
 
 
 @router.post(
@@ -45,7 +72,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(rate_limit("signup", max_requests=5, window_seconds=3600))],
 )
-async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
+async def signup(
+    user_data: UserCreate,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
     if get_user_by_email(db, user_data.email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -62,7 +93,7 @@ async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
                 else "Cannot self-register as admin."
             ),
         )
-    user = create_user(
+    user = await create_user_async(
         db=db,
         email=user_data.email,
         password=user_data.password,
@@ -75,17 +106,16 @@ async def signup(user_data: UserCreate, db: Session = Depends(get_db)):
     )
     db.commit()
     db.refresh(user)
-    
-    # Send verification email
-    try:
-        verification_token = create_verification_token(db, user)
-        await send_verification_email(user.email, user.full_name, verification_token)
-        db.commit()
-    except Exception as e:
-        # Log the error but don't fail the signup
-        import logging
-        logging.getLogger(__name__).error(f"Failed to send verification email to {user.email}: {e}")
-    
+
+    # Queue the verification email as a background task so the response is
+    # returned to the client immediately — SMTP latency no longer blocks signup.
+    background_tasks.add_task(
+        _send_verification_email_task,
+        str(user.id),
+        user.email,
+        user.full_name,
+    )
+
     return user
 
 
@@ -124,9 +154,9 @@ def _check_user_allowed_to_authenticate(user: User, db: Session) -> None:
     response_model=Token,
     dependencies=[Depends(rate_limit("login", max_requests=10, window_seconds=300))],
 )
-def login(credentials: UserLogin, db: Session = Depends(get_db)):
-    user = authenticate_user(db, credentials.email, credentials.password)
-    if not user:
+async def login(credentials: UserLogin, db: Session = Depends(get_db)):
+    user = get_user_by_email(db, credentials.email)
+    if not user or not await verify_password_async(credentials.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -165,18 +195,18 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
 
 
 @router.post("/change-password", response_model=MessageResponse)
-def change_password(
+async def change_password(
     payload: PasswordChangeRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Change password for the currently authenticated user."""
-    if not verify_password(payload.current_password, current_user.hashed_password):
+    if not await verify_password_async(payload.current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Current password is incorrect",
         )
-    current_user.hashed_password = get_password_hash(payload.new_password)
+    current_user.hashed_password = await get_password_hash_async(payload.new_password)
     db.commit()
     return MessageResponse(message="Password updated successfully")
 
@@ -202,8 +232,9 @@ def verify_email(token: str = Query(...), db: Session = Depends(get_db)):
 
 @router.post("/resend-verification", response_model=ResendVerificationResponse)
 async def resend_verification(
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """Resend email verification for authenticated user."""
     if current_user.email_verified:
@@ -211,27 +242,20 @@ async def resend_verification(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email is already verified",
         )
-    
-    # Invalidate existing tokens
+
+    # Invalidate existing tokens so only the new one is live
     invalidate_user_verification_tokens(db, current_user.id)
-    
-    # Create new verification token
-    verification_token = create_verification_token(db, current_user)
-    
-    try:
-        await send_verification_email(current_user.email, current_user.full_name, verification_token)
-        db.commit()
-        return ResendVerificationResponse(
-            message="Verification email sent successfully"
-        )
-    except Exception as e:
-        db.rollback()
-        import logging
-        logging.getLogger(__name__).error(f"Failed to send verification email to {current_user.email}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send verification email. Please try again later.",
-        )
+    db.commit()
+
+    # Queue the email as a background task — returns immediately to the caller
+    background_tasks.add_task(
+        _send_verification_email_task,
+        str(current_user.id),
+        current_user.email,
+        current_user.full_name,
+    )
+
+    return ResendVerificationResponse(message="Verification email sent successfully")
 
 
 @router.get("/config", tags=["config"])

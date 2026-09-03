@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -21,6 +22,19 @@ def get_password_hash(password: str) -> str:
     salt = secrets.token_bytes(16)
     hash_val = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000).hex()
     return f"{salt.hex()}${hash_val}"
+
+
+async def verify_password_async(plain_password: str, hashed_password: str) -> bool:
+    """Async wrapper — runs the CPU-bound PBKDF2 check in a thread pool so the
+    event loop is not blocked during the ~1-3 s hashing operation."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, verify_password, plain_password, hashed_password)
+
+
+async def get_password_hash_async(password: str) -> str:
+    """Async wrapper — runs the CPU-bound PBKDF2 hash in a thread pool."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, get_password_hash, password)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -87,6 +101,38 @@ def create_user(
     phone: Optional[str] = None,
 ) -> User:
     hashed_password = get_password_hash(password)
+    buyer_status = BuyerStatus.approved
+    if role == UserRole.buyer and settings.REQUIRE_BUYER_APPROVAL:
+        buyer_status = BuyerStatus.pending
+    user = User(
+        email=email,
+        hashed_password=hashed_password,
+        full_name=full_name,
+        role=role,
+        buyer_status=buyer_status,
+        company_name=company_name,
+        company_tax_id=company_tax_id,
+        company_address=company_address,
+        phone=phone,
+    )
+    db.add(user)
+    db.flush()
+    return user
+
+
+async def create_user_async(
+    db: Session,
+    email: str,
+    password: str,
+    full_name: str,
+    role: UserRole = UserRole.buyer,
+    company_name: Optional[str] = None,
+    company_tax_id: Optional[str] = None,
+    company_address: Optional[str] = None,
+    phone: Optional[str] = None,
+) -> User:
+    """Async version of create_user — hashes the password off the event loop."""
+    hashed_password = await get_password_hash_async(password)
     buyer_status = BuyerStatus.approved
     if role == UserRole.buyer and settings.REQUIRE_BUYER_APPROVAL:
         buyer_status = BuyerStatus.pending
