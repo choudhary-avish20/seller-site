@@ -149,7 +149,8 @@ tr:hover td{background:#fafafa}
   <!-- Sidebar -->
   <div class="dash-sidebar">
     <div class="logo-area"><img src="assets/wolkago-logo-light.png" alt="WolkaGo"><div class="sub">Panel sprzedawcy</div></div>
-    <div class="nav-item active" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
+    <div class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')"><span class="icon">📊</span> Statystyki</div>
+    <div class="nav-item" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
     <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
     <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia</div>
     <div class="nav-item" data-view="sellers" onclick="switchView('sellers')"><span class="icon">🧑‍💼</span> Sprzedawcy</div>
@@ -400,7 +401,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   categories = await Api.getCategoryTree({include_inactive:true}).catch(() => []);
 
-  switchView('products');
+  switchView('dashboard');
 });
 
 // ── Navigation ─────────────────────────────────────────────────────────────
@@ -409,7 +410,8 @@ function switchView(view) {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
-  if (view === 'products') renderProductsView();
+  if (view === 'dashboard') renderDashboardView();
+  else if (view === 'products') renderProductsView();
   else if (view === 'categories') renderCategoriesView();
   else if (view === 'orders') renderOrdersView();
   else if (view === 'sellers') renderSellersView();
@@ -423,6 +425,103 @@ function switchView(view) {
 }
 
 // ── Products view ──────────────────────────────────────────────────────────
+// ── Dashboard (computed client-side from data the other tabs already fetch —
+// no new backend endpoints needed) ─────────────────────────────────────────
+async function renderDashboardView() {
+  const main = document.getElementById('mainContent');
+  main.innerHTML = '<div class="empty">Ładowanie statystyk…</div>';
+
+  let allOrders = [], allProducts = [];
+  try {
+    [allOrders, allProducts] = await Promise.all([Api.listOrders(), Api.listProducts({ include_inactive: true })]);
+  } catch (e) {
+    main.innerHTML = `<div class="alert alert-warn">Błąd ładowania statystyk: ${e.message}</div>`;
+    return;
+  }
+  let buyerCount = null;
+  try { buyerCount = (await Api.getAllBuyers()).length; } catch { /* seller role — no access, just omit */ }
+
+  const delivered = allOrders.filter(o => o.status === 'delivered');
+  const inPipeline = allOrders.filter(o => !['delivered', 'cancelled'].includes(o.status));
+  const revenueDelivered = delivered.reduce((s, o) => s + parseFloat(o.total_gross || 0), 0);
+  const revenuePipeline = inPipeline.reduce((s, o) => s + parseFloat(o.total_gross || 0), 0);
+  const avgOrderValue = allOrders.length ? allOrders.reduce((s, o) => s + parseFloat(o.total_gross || 0), 0) / allOrders.length : 0;
+
+  const statusCounts = { pending: 0, confirmed: 0, shipped: 0, delivered: 0, cancelled: 0 };
+  allOrders.forEach(o => { if (o.status in statusCounts) statusCounts[o.status]++; });
+
+  // Top products by units sold (pack_quantity summed across all order items).
+  const unitsByProduct = {};
+  allOrders.forEach(o => (o.items || []).forEach(it => {
+    unitsByProduct[it.product_id] = (unitsByProduct[it.product_id] || 0) + it.pack_quantity;
+  }));
+  const topProducts = Object.entries(unitsByProduct)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([pid, units]) => ({ product: allProducts.find(p => p.id === pid), units }))
+    .filter(x => x.product);
+
+  // Orders per day for the last 7 days.
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
+    days.push(d);
+  }
+  const ordersPerDay = days.map(d => {
+    const next = new Date(d); next.setDate(next.getDate() + 1);
+    const count = allOrders.filter(o => { const t = new Date(o.created_at); return t >= d && t < next; }).length;
+    return { label: d.toLocaleDateString('pl-PL', { weekday: 'short', day: 'numeric' }), count };
+  });
+  const maxDay = Math.max(1, ...ordersPerDay.map(d => d.count));
+
+  main.innerHTML = `
+    <div class="page-title">📊 Statystyki</div>
+    <div class="stat-row">
+      <div class="stat-card"><div class="val">${fmtPrice(revenueDelivered)} zł</div><div class="lbl">Przychód (zrealizowane)</div></div>
+      <div class="stat-card"><div class="val">${fmtPrice(revenuePipeline)} zł</div><div class="lbl">W realizacji</div><div class="trend">${inPipeline.length} zamówień</div></div>
+      <div class="stat-card"><div class="val">${allOrders.length}</div><div class="lbl">Wszystkie zamówienia</div></div>
+      <div class="stat-card"><div class="val">${fmtPrice(avgOrderValue)} zł</div><div class="lbl">Śr. wartość zamówienia</div></div>
+      ${buyerCount !== null ? `<div class="stat-card"><div class="val">${buyerCount}</div><div class="lbl">Kupujący</div></div>` : ''}
+    </div>
+
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-top:8px">
+      <div style="flex:1;min-width:280px;background:#fff;border:1px solid #ddd;padding:16px">
+        <div style="font-size:13px;font-weight:bold;margin-bottom:12px">Zamówienia wg statusu</div>
+        ${Object.entries(statusCounts).map(([status, count]) => {
+          const labels = { pending:'Oczekujące', confirmed:'Potwierdzone', shipped:'Wysłane', delivered:'Zrealizowane', cancelled:'Anulowane' };
+          const pct = allOrders.length ? Math.round(count / allOrders.length * 100) : 0;
+          return `<div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span>${labels[status]}</span><span>${count}</span></div>
+            <div style="background:#f0f0f0;height:6px;border-radius:3px"><div style="background:#0099cc;height:6px;border-radius:3px;width:${pct}%"></div></div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <div style="flex:1;min-width:280px;background:#fff;border:1px solid #ddd;padding:16px">
+        <div style="font-size:13px;font-weight:bold;margin-bottom:12px">Zamówienia — ostatnie 7 dni</div>
+        <div style="display:flex;align-items:flex-end;gap:8px;height:100px">
+          ${ordersPerDay.map(d => `
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <div style="font-size:11px;font-weight:bold">${d.count}</div>
+              <div style="background:#0099cc;width:100%;border-radius:2px 2px 0 0;height:${Math.max(4, d.count/maxDay*70)}px"></div>
+              <div style="font-size:9px;color:#888;white-space:nowrap">${d.label}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;background:#fff;border:1px solid #ddd;padding:16px">
+      <div style="font-size:13px;font-weight:bold;margin-bottom:12px">🏆 Najczęściej kupowane produkty</div>
+      ${topProducts.length ? topProducts.map((x, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #f5f5f5">
+          <span style="font-weight:bold;color:#999;width:16px">${i+1}.</span>
+          ${x.product.images && x.product.images[0] ? `<img src="${Api.img(x.product.images[0])}" style="width:32px;height:32px;object-fit:contain;border:1px solid #eee">` : ''}
+          <span style="flex:1;font-size:12px">${esc(x.product.name)}</span>
+          <b style="font-size:12px">${x.units} paczek</b>
+        </div>`).join('') : '<p style="color:#888;font-size:12px">Brak danych sprzedażowych.</p>'}
+    </div>`;
+}
+
 async function renderProductsView() {
   const main = document.getElementById('mainContent');
   main.innerHTML = '<div class="empty">Ładowanie produktów…</div>';
