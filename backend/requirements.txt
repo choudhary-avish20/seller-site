@@ -8,8 +8,8 @@ alembic==1.13.2
 psycopg2-binary==2.9.12  # PostgreSQL driver for Neon / any Postgres instance — 2.9.9 has no
                           # prebuilt wheel for Python 3.13 and fails to compile from source
                           # (references a removed CPython internal API); 2.9.10+ ships one.
-pydantic==2.9.2
-pydantic-settings==2.5.2
+pydantic==2.10.6
+pydantic-settings==2.6.1
 python-jose[cryptography]==3.3.0
 python-multipart==0.0.9
 email-validator==2.2.0
