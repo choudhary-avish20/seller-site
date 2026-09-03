@@ -1132,7 +1132,31 @@ function orderActionButtons(o) {
   const cancelBtn = (o.status !== 'delivered' && o.status !== 'cancelled')
     ? `<button class="btn btn-danger btn-sm" onclick="setOrderStatus('${o.id}','cancelled')">✕ Anuluj</button>`
     : '';
-  return nextBtn + cancelBtn;
+  // Only a cancelled order can be permanently deleted — it carries zero revenue
+  // (already excluded from every stat) and its stock was already restored, so
+  // nothing of business record value is lost. Any order that ever actually
+  // happened stays undeletable to keep order history/analytics intact.
+  const deleteBtn = o.status === 'cancelled'
+    ? `<button class="btn btn-sm" style="color:#888" onclick="deleteOrderAction('${o.id}')">🗑 Usuń</button>`
+    : '';
+  return nextBtn + cancelBtn + deleteBtn;
+}
+
+async function deleteOrderAction(id) {
+  if (!confirm('Trwale usunąć to anulowane zamówienie? Tej operacji nie można cofnąć.')) return;
+  try {
+    await Api.deleteOrder(id);
+    orders = orders.filter(o => o.id !== id);
+    renderOrderRows();
+    const vals = document.querySelectorAll('#mainContent .stat-card .val');
+    if (vals[0]) vals[0].textContent = orders.length;
+    const pending = orders.filter(o => o.status === 'pending').length;
+    if (vals[1]) vals[1].textContent = pending;
+    const totalNet = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + parseFloat(o.total_net || 0), 0);
+    if (vals[2]) vals[2].textContent = fmtPrice(totalNet) + ' zł';
+  } catch (e) {
+    alert('Nie udało się usunąć zamówienia: ' + e.message);
+  }
 }
 
 function toggleOrderDetail(id) {

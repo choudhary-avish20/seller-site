@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, require_seller_or_admin
 from app.core.config import settings
 from app.core.auth import create_verification_token
 from app.db.session import get_db
@@ -404,6 +404,28 @@ def hide_order(
     if order.status != OrderStatus.cancelled:
         raise HTTPException(status_code=400, detail="Only cancelled orders can be removed from your list")
     order.hidden_by_buyer = True
+    db.commit()
+    return None
+
+
+@router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_order(
+    order_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_seller_or_admin),
+):
+    """Permanently deletes an order. Only cancelled orders are eligible — a
+    cancelled order carries zero revenue (already excluded from every revenue
+    stat) and its stock was already restored, so nothing of business record
+    value is lost. Any order that ever actually happened commercially
+    (pending/confirmed/shipped/out_for_delivery/delivered) can never be
+    deleted here, to keep the seller's order history and analytics intact."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.cancelled:
+        raise HTTPException(status_code=400, detail="Only cancelled orders can be deleted")
+    db.delete(order)
     db.commit()
     return None
 
