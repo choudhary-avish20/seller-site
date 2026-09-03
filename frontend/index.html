@@ -55,7 +55,6 @@
     <div class="tabs">
       <div class="tab active" data-filter="new" data-i18n="new" onclick="selectTab('new',this)">NEWS</div>
       <div class="tab" data-filter="popular" onclick="selectTab('popular',this)">POPULAR</div>
-      <div class="tab" data-filter="frequent" onclick="selectTab('frequent',this)">MOST FREQUENTLY PURCHASED</div>
       <div class="tab" data-filter="bestseller" onclick="selectTab('bestseller',this)">BESTSELLERS</div>
       <div class="tab" data-filter="sale" onclick="selectTab('sale',this)">PROMOTIONS</div>
     </div>
@@ -186,7 +185,6 @@ async function loadProducts(categoryId, opts={}){
   if(currentFilter==='popular') params.popular = true;
   else if(currentFilter==='bestseller') params.bestseller = true;
   else if(currentFilter==='sale') params.on_sale = true;
-  else if(currentFilter==='frequent') params.sort = 'most_purchased';
   if(priceMinFilter!=null) params.price_min = priceMinFilter;
   if(priceMaxFilter!=null) params.price_max = priceMaxFilter;
   const prods=await Api.listProducts(params).catch(()=>[]);

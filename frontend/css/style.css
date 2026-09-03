@@ -57,21 +57,7 @@ a{color:#333;text-decoration:none} a:hover{color:#000}
 .add:hover{background:#0066cc}
 /* Product detail */
 .detail{display:flex;gap:14px;flex-wrap:wrap}
-.detail-img{flex:1;min-width:280px;border:1px solid #ddd;background:#fff;position:relative;padding:0}
-.detail-img img{width:100%;display:block}
-.detail-info{flex:1;min-width:280px}
-.detail-info h1{font-size:18px;margin-bottom:6px}
-.meta{font-size:12px;color:#666;margin:4px 0}
-.meta b{color:#333}
-.grey-bar{background:#e9e9e9;padding:6px 8px;font-size:12px;text-align:center;margin:10px 0}
-.price-block{font-size:12px;line-height:1.8}
-.price-block b{font-size:13px}
-.qty-block{margin:12px 0;display:flex;align-items:center;gap:6px}
-.btn-cart{background:linear-gradient(#4aa3ff,#0066cc);color:#fff;border:1px solid #0052a3;padding:10px 14px;font-weight:bold;border-radius:3px;cursor:pointer;display:flex;align-items:center;gap:8px}
-.btn-cart:hover{background:#005fb3}
 .small{font-size:11px;color:#666}
-.social{margin-top:10px;display:flex;gap:6px}
-.social a{padding:5px 8px;border:1px solid #ddd;background:#f5f5f5;font-size:11px}
 @media(max-width:700px){.detail{flex-direction:column}}
 .lang{position:fixed;top:6px;right:10px;z-index:50;display:flex;border:1px solid #333;background:#fff}
 .lang button{padding:4px 8px;font-size:11px;border:0;cursor:pointer;background:#fff}

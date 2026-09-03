@@ -104,8 +104,8 @@ window.getImageUrl = (u)=> (API.img ? API.img(u) : (u && u.startsWith('/') ? API
 
 // i18n
 const I18N={
-  pl:{b2b:'B2B only — zamówienia dla podmiotów gospodarczych',cat:'Kategorie',sale:'WYPRZEDAŻ',new:'Nowości',popular:'POPULAR',frequent:'MOST FREQUENTLY PURCHASED',promo:'PROMOTIONS',searchPh:'Szukaj — nazwa produktu, kategoria...',search:'Szukaj',cart:'Koszyk',net:'net',gross:'gross',pack:'w paczce:',add:'Add to cart',login:'Zaloguj się',logout:'Wyloguj',signup:'Rejestracja'},
-  en:{b2b:'B2B only — orders for business entities',cat:'Categories',sale:'SALE',new:'NEWS',popular:'POPULAR',frequent:'MOST FREQUENTLY PURCHASED',promo:'PROMOTIONS',searchPh:'Search — product, category...',search:'Search',cart:'Cart',net:'net',gross:'gross',pack:'in a package:',add:'Add to cart',login:'Sign in',logout:'Sign out',signup:'Sign up'}
+  pl:{b2b:'B2B only — zamówienia dla podmiotów gospodarczych',cat:'Kategorie',sale:'WYPRZEDAŻ',new:'Nowości',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Szukaj — nazwa produktu, kategoria...',search:'Szukaj',cart:'Koszyk',net:'net',gross:'gross',pack:'w paczce:',add:'Add to cart',login:'Zaloguj się',logout:'Wyloguj',signup:'Rejestracja'},
+  en:{b2b:'B2B only — orders for business entities',cat:'Categories',sale:'SALE',new:'NEWS',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Search — product, category...',search:'Search',cart:'Cart',net:'net',gross:'gross',pack:'in a package:',add:'Add to cart',login:'Sign in',logout:'Sign out',signup:'Sign up'}
 };
 let lang=localStorage.getItem('lang')||(navigator.language.startsWith('pl')?'pl':'pl');
 function t(k){return (I18N[lang]&&I18N[lang][k])||I18N.pl[k]||k}
