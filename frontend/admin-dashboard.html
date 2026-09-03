@@ -156,6 +156,9 @@ tr:hover td{background:#fafafa}
     <div class="nav-item" data-view="buyers" onclick="switchView('buyers')"><span class="icon">🧑</span> Kupujący</div>
     <div class="nav-item" data-view="contact" onclick="switchView('contact')"><span class="icon">📇</span> Dane kontaktowe</div>
     <div class="nav-item" data-view="terms" onclick="switchView('terms')"><span class="icon">📜</span> Regulamin</div>
+    <div class="nav-item" data-view="privacy" onclick="switchView('privacy')"><span class="icon">🔒</span> Prywatność</div>
+    <div class="nav-item" data-view="faq" onclick="switchView('faq')"><span class="icon">❓</span> FAQ</div>
+    <div class="nav-item" data-view="shipping" onclick="switchView('shipping')"><span class="icon">🚚</span> Dostawa</div>
     <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙</span> Ustawienia</div>
     <div class="sidebar-footer" style="border-top:1px solid #444;margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px">
       <div class="nav-item" onclick="doLogout()"><span class="icon">🚪</span> Wyloguj</div>
@@ -412,7 +415,10 @@ function switchView(view) {
   else if (view === 'sellers') renderSellersView();
   else if (view === 'buyers') renderBuyersView();
   else if (view === 'contact') renderContactSettingsView();
-  else if (view === 'terms') renderTermsView();
+  else if (view === 'terms') renderContentPageView('terms');
+  else if (view === 'privacy') renderContentPageView('privacy');
+  else if (view === 'faq') renderContentPageView('faq');
+  else if (view === 'shipping') renderContentPageView('shipping');
   else if (view === 'settings') renderSettingsView();
 }
 
@@ -1299,41 +1305,53 @@ async function saveContactSettings() {
 }
 
 // ── Terms & Conditions (Regulamin) ─────────────────────────────────────────
-async function renderTermsView() {
+// ── Generic long-form content page editor (Regulamin, Polityka prywatności,
+// FAQ, Koszty dostawy) — one implementation shared by all four, since they're
+// identical apart from which settings field/public page/label they target.
+const CONTENT_PAGES = {
+  terms:    { field: 'terms_content',    icon: '📜', title: 'Regulamin',              url: 'terms.html',    warn: true },
+  privacy:  { field: 'privacy_content',  icon: '🔒', title: 'Polityka prywatności',    url: 'privacy.html',  warn: true },
+  faq:      { field: 'faq_content',      icon: '❓', title: 'FAQ',                     url: 'faq.html',      warn: false },
+  shipping: { field: 'shipping_content', icon: '🚚', title: 'Koszty i czas dostawy',   url: 'shipping.html', warn: false },
+};
+
+async function renderContentPageView(key) {
+  const cfg = CONTENT_PAGES[key];
   const main = document.getElementById('mainContent');
-  main.innerHTML = '<div class="empty">Ładowanie regulaminu…</div>';
+  main.innerHTML = `<div class="empty">Ładowanie…</div>`;
 
   let s;
   try { s = await Api.getSettings(); }
-  catch (e) { main.innerHTML = `<div class="alert alert-warn">Błąd ładowania regulaminu: ${e.message}</div>`; return; }
+  catch (e) { main.innerHTML = `<div class="alert alert-warn">Błąd ładowania: ${e.message}</div>`; return; }
 
   main.innerHTML = `
-    <div class="page-title">📜 Regulamin</div>
-    <div class="alert alert-info">Ten tekst jest widoczny publicznie na stronie <a href="terms.html" target="_blank" style="color:#1e40af;font-weight:bold">Regulamin</a>, do której linkuje strona główna i formularz zamówienia.</div>
-    <div class="alert alert-warn">To jest przykładowy szablon — pola w nawiasach kwadratowych, np. [NIP], należy zastąpić prawdziwymi danymi firmy. Przed publikacją zalecana jest weryfikacja treści przez radcę prawnego lub adwokata.</div>
-    <div class="form-err" id="termsErr"></div>
+    <div class="page-title">${cfg.icon} ${esc(cfg.title)}</div>
+    <div class="alert alert-info">Ten tekst jest widoczny publicznie na stronie <a href="${cfg.url}" target="_blank" style="color:#1e40af;font-weight:bold">${esc(cfg.title)}</a>, do której linkuje stopka strony.</div>
+    ${cfg.warn ? `<div class="alert alert-warn">To jest przykładowy szablon — pola w nawiasach kwadratowych, np. [NIP], należy zastąpić prawdziwymi danymi firmy. Przed publikacją zalecana jest weryfikacja treści przez radcę prawnego lub adwokata.</div>` : ''}
+    <div class="form-err" id="cpErr"></div>
     <div style="background:#fff;border:1px solid #ddd;padding:20px;max-width:760px">
       <div class="f-row">
-        <label>Treść regulaminu</label>
-        <textarea id="s_terms" rows="24" style="font-family:monospace;font-size:12px;white-space:pre-wrap">${esc(s.terms_content)}</textarea>
-        <div class="hint">Zwykły tekst — bez znaczników HTML. Puste linie oddzielają akapity.</div>
+        <label>Treść</label>
+        <textarea id="s_cp" rows="24" style="font-family:monospace;font-size:12px;white-space:pre-wrap">${esc(s[cfg.field])}</textarea>
+        <div class="hint">Zwykły tekst — bez znaczników HTML. Puste linie oddzielają akapity${key==='faq' ? ' (dla FAQ: pierwsza linia akapitu to pytanie, reszta to odpowiedź)' : ''}.</div>
       </div>
-      <button class="btn btn-primary" id="termsSaveBtn" onclick="saveTerms()">💾 Zapisz</button>
+      <button class="btn btn-primary" id="cpSaveBtn" onclick="saveContentPage('${key}')">💾 Zapisz</button>
     </div>`;
 }
 
-async function saveTerms() {
-  const err = document.getElementById('termsErr');
+async function saveContentPage(key) {
+  const cfg = CONTENT_PAGES[key];
+  const err = document.getElementById('cpErr');
   err.style.display = 'none';
 
-  const btn = document.getElementById('termsSaveBtn');
+  const btn = document.getElementById('cpSaveBtn');
   btn.disabled = true; btn.textContent = 'Zapisywanie…';
   try {
-    await Api.updateSettings({ terms_content: document.getElementById('s_terms').value });
+    await Api.updateSettings({ [cfg.field]: document.getElementById('s_cp').value });
     btn.textContent = '✅ Zapisano';
     setTimeout(() => { btn.textContent = '💾 Zapisz'; btn.disabled = false; }, 1200);
   } catch (e) {
-    err.textContent = e.message || 'Błąd zapisu regulaminu.';
+    err.textContent = e.message || 'Błąd zapisu.';
     err.style.display = 'block';
     btn.disabled = false; btn.textContent = '💾 Zapisz';
   }

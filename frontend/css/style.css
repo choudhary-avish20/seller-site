@@ -77,3 +77,18 @@ a{color:#333;text-decoration:none} a:hover{color:#000}
 .lang button{padding:4px 8px;font-size:11px;border:0;cursor:pointer;background:#fff}
 .lang button.active{background:#333;color:#fff}
 .header-actions{display:flex;gap:8px;align-items:center;font-size:12px}
+
+/* ── Site footer (injected by renderFooter() in app.js on every page) ── */
+.site-footer{background:#222;color:#ccc;margin-top:40px;font-size:12px}
+.site-footer .container{padding:32px 10px 18px}
+.footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr 1.2fr;gap:24px}
+@media(max-width:760px){.footer-grid{grid-template-columns:1fr 1fr}}
+.footer-col h4{color:#fff;font-size:12px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:12px}
+.footer-col a{display:block;color:#ccc;margin-bottom:8px}
+.footer-col a:hover{color:#fff}
+.footer-col p{color:#999;line-height:1.6;margin-bottom:10px}
+.footer-badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.footer-badge{background:#333;border:1px solid #444;color:#bbb;font-size:10px;padding:4px 9px;border-radius:2px;white-space:nowrap}
+.footer-bottom{border-top:1px solid #3a3a3a;margin-top:24px;padding-top:16px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;color:#888;font-size:11px}
+.wa-float{position:fixed;bottom:20px;right:20px;z-index:60;width:52px;height:52px;border-radius:50%;background:#25D366;color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 3px 10px rgba(0,0,0,.3);text-decoration:none}
+.wa-float:hover{background:#1ebe57;color:#fff}

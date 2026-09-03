@@ -240,8 +240,76 @@ async function renderAuthHeader(){
 }
 document.addEventListener('DOMContentLoaded', renderAuthHeader);
 
+// Shared site footer + floating WhatsApp contact button. Every page includes
+// a single <div id="site-footer"></div> placeholder before </body>; this is
+// the one place that builds it, so footer links/content can't drift between
+// pages the way the old per-page header auth checks used to. No-ops safely
+// if the placeholder or the contact-info API call is missing.
+async function renderFooter(){
+  const el = document.getElementById('site-footer');
+  if(!el) return;
+  let s = {};
+  try{ s = await Api.getSettings(); }catch{}
+
+  el.innerHTML = `
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <h4>WolkaGo</h4>
+          <p>Hurtownia odzieży z Wólki Kosowskiej. Sprzedaż wyłącznie dla firm — płatność za pobraniem, dostawa własnym transportem.</p>
+          <div class="footer-badges">
+            <span class="footer-badge">💵 Płatność za pobraniem</span>
+            <span class="footer-badge">🚚 Własny transport</span>
+            <span class="footer-badge">🏢 Tylko B2B</span>
+          </div>
+        </div>
+        <div class="footer-col">
+          <h4>Sklep</h4>
+          <a href="index.html">Strona główna</a>
+          <a href="index.html?filter=sale">Wyprzedaż</a>
+          <a href="index.html?filter=bestseller">Bestsellery</a>
+          <a href="wishlist.html">Lista życzeń</a>
+          <a href="orders.html">Moje zamówienia</a>
+        </div>
+        <div class="footer-col">
+          <h4>Informacje</h4>
+          <a href="faq.html">FAQ</a>
+          <a href="shipping.html">Koszty i czas dostawy</a>
+          <a href="terms.html">Regulamin</a>
+          <a href="privacy.html">Polityka prywatności</a>
+          <a href="contact.html">Kontakt</a>
+        </div>
+        <div class="footer-col">
+          <h4>Kontakt</h4>
+          ${s.phone ? `<a href="tel:${esc(s.phone.replace(/[^\d+]/g,''))}">📞 ${esc(s.phone)}</a>` : ''}
+          ${s.email ? `<a href="mailto:${esc(s.email)}">✉️ ${esc(s.email)}</a>` : ''}
+          ${s.address ? `<p>📍 ${esc(s.address)}</p>` : ''}
+          ${s.working_hours ? `<p>🕒 ${esc(s.working_hours)}</p>` : ''}
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© ${new Date().getFullYear()} WolkaGo. Wszystkie prawa zastrzeżone.</span>
+        <span>Zbudowane na FastAPI + Python</span>
+      </div>
+    </div>`;
+
+  if(s.whatsapp_number && !document.getElementById('waFloat')){
+    const a = document.createElement('a');
+    a.id = 'waFloat';
+    a.className = 'wa-float';
+    a.href = 'https://wa.me/' + s.whatsapp_number.replace(/[^\d]/g,'');
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.title = 'Napisz do nas na WhatsApp';
+    a.textContent = '💬';
+    document.body.appendChild(a);
+  }
+}
+document.addEventListener('DOMContentLoaded', renderFooter);
+
 window.Cart = Cart;
 window.doLogout = doLogout;
 window.refreshUser = refreshUser;
 window.renderAuthHeader = renderAuthHeader;
+window.renderFooter = renderFooter;
 window.updateCartUI = updateCartUI;
