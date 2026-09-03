@@ -407,21 +407,158 @@ async function renderAuthHeader(){
     if(adminLink) adminLink.remove();
   }
   updateWishlistBadge();
+  renderAccountMenu(u);
   return u;
 }
 document.addEventListener('DOMContentLoaded', renderAuthHeader);
 
-// Small numeric badge on the header wishlist icon — hidden at 0 so the icon
-// stays clean for guests/empty lists.
+// Wishlist header box — mirrors the cart box's own "label / count" layout so
+// the two sit together as a matched pair. Hidden entirely for non-buyers,
+// same visibility rule as the rest of the buyer-only header chrome.
 async function updateWishlistBadge(){
-  const badge = document.getElementById('wishlistCountBadge');
-  if(!badge || !localStorage.getItem('access_token')) { if(badge) badge.style.display = 'none'; return; }
+  const countEl = document.getElementById('wishlistCountText');
+  if(!countEl || !localStorage.getItem('access_token')) return;
   try{
     const ids = await Wishlist.ids();
-    if(ids.size > 0){ badge.textContent = ids.size; badge.style.display = 'flex'; }
-    else badge.style.display = 'none';
-  }catch{ badge.style.display = 'none'; }
+    const n = ids.size;
+    countEl.textContent = n === 0 ? 'Twoja lista jest pusta' : (n + (n===1?' produkt':' produktów'));
+  }catch{ countEl.textContent = ''; }
 }
+
+// ── Account dropdown ────────────────────────────────────────────────────
+// Injected into a `#accountMenuSlot` div already present in each page's
+// header. Consolidates the features already scattered around the store
+// (My Orders, Wishlist, Sign out) plus change-password — which the backend
+// has always supported for any logged-in user (`POST /auth/change-password`)
+// but no buyer-facing page ever exposed — into one panel, so a buyer has a
+// single, obvious place to manage their account instead of hunting for a
+// text link buried in the utility bar.
+function renderAccountMenu(u){
+  const slot = document.getElementById('accountMenuSlot');
+  if(!slot) return;
+
+  if(!u){
+    slot.innerHTML = `<a href="login.html" class="cart" aria-label="Zaloguj się">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+      <span class="cart-copy">
+        <span class="cart-label">Konto</span>
+        <span class="cart-total">Zaloguj się</span>
+      </span>
+    </a>`;
+    return;
+  }
+
+  const isBuyer = u.role === 'buyer';
+  slot.innerHTML = `
+    <div class="acct-menu">
+      <button class="acct-trigger cart" id="acctTriggerBtn" type="button" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        <span class="cart-copy">
+          <span class="cart-label">Konto</span>
+          <span class="cart-total">${esc(u.full_name || u.email)}</span>
+        </span>
+        <svg class="acct-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="acct-panel" id="acctPanel">
+        <div class="acct-panel-head">
+          <div class="acct-name">${esc(u.full_name || 'Twoje konto')}</div>
+          <div class="acct-email">${esc(u.email)}</div>
+        </div>
+        <div class="acct-items">
+          ${isBuyer ? `<a class="acct-item" href="orders.html">
+            <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a4 4 0 018 0v2"/></svg>
+            Moje zamówienia
+          </a>` : ''}
+          ${isBuyer ? `<a class="acct-item" href="wishlist.html">
+            <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.35-9.5-8.5C1.2 9.5 2.5 6 6 6c2 0 3.4 1.3 4.5 2.8C11.6 7.3 13 6 15 6c3.5 0 4.8 3.5 3.5 6.5C16.5 16.65 12 21 12 21z"/></svg>
+            Lista życzeń
+          </a>` : ''}
+          ${(u.role==='admin'||u.role==='seller') ? `<a class="acct-item" href="admin-dashboard.html">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            Panel admina
+          </a>` : ''}
+          <button class="acct-item" id="acctPwToggle" type="button">
+            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+            Zmień hasło
+          </button>
+          <div class="acct-divider"></div>
+          <button class="acct-item danger" id="acctSignOutBtn" type="button">
+            <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+            Wyloguj się
+          </button>
+        </div>
+        <div class="acct-pwform" id="acctPwForm">
+          <div class="acct-pwform-inner">
+            <input type="password" id="acctPwCurrent" placeholder="Obecne hasło" autocomplete="current-password">
+            <input type="password" id="acctPwNew" placeholder="Nowe hasło (min. 8 znaków)" autocomplete="new-password">
+            <button type="button" id="acctPwSubmit">Zapisz nowe hasło</button>
+            <div class="acct-pw-msg" id="acctPwMsg"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const trigger = document.getElementById('acctTriggerBtn');
+  const panel = document.getElementById('acctPanel');
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = panel.classList.toggle('open');
+    trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+
+  // renderAccountMenu() can re-run on the same page (e.g. the PL/EN toggle
+  // calls renderAuthHeader() again), which would re-inject fresh trigger/panel
+  // nodes each time. Wiring outside-click/Escape as delegated, once-only
+  // listeners — rather than closures over this call's specific elements —
+  // means they keep working against whichever panel is currently in the DOM
+  // instead of piling up stale document-level listeners on every re-render.
+  if(!window._acctMenuGlobalListenersWired){
+    window._acctMenuGlobalListenersWired = true;
+    document.addEventListener('click', (e) => {
+      const openPanel = document.querySelector('.acct-panel.open');
+      if(!openPanel) return;
+      const openTrigger = document.getElementById('acctTriggerBtn');
+      if(!openPanel.contains(e.target) && e.target !== openTrigger) {
+        openPanel.classList.remove('open');
+        if(openTrigger) openTrigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if(e.key !== 'Escape') return;
+      const openPanel = document.querySelector('.acct-panel.open');
+      if(!openPanel) return;
+      openPanel.classList.remove('open');
+      const openTrigger = document.getElementById('acctTriggerBtn');
+      if(openTrigger) openTrigger.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  document.getElementById('acctSignOutBtn').addEventListener('click', () => doLogout());
+
+  const pwForm = document.getElementById('acctPwForm');
+  document.getElementById('acctPwToggle').addEventListener('click', () => {
+    pwForm.classList.toggle('open');
+  });
+  document.getElementById('acctPwSubmit').addEventListener('click', async () => {
+    const msg = document.getElementById('acctPwMsg');
+    const current = document.getElementById('acctPwCurrent').value;
+    const next = document.getElementById('acctPwNew').value;
+    if(!current || !next){ msg.style.color = 'var(--sale)'; msg.textContent = 'Wypełnij oba pola.'; return; }
+    if(next.length < 8){ msg.style.color = 'var(--sale)'; msg.textContent = 'Nowe hasło musi mieć min. 8 znaków.'; return; }
+    try{
+      await Api.changePassword({ current_password: current, new_password: next });
+      msg.style.color = 'var(--success)';
+      msg.textContent = 'Hasło zostało zmienione.';
+      document.getElementById('acctPwCurrent').value = '';
+      document.getElementById('acctPwNew').value = '';
+      showToast('Hasło zostało zmienione');
+    }catch(e){
+      msg.style.color = 'var(--sale)';
+      msg.textContent = e.message || 'Nie udało się zmienić hasła.';
+    }
+  });
+}
+window.renderAccountMenu = renderAccountMenu;
 window.updateWishlistBadge = updateWishlistBadge;
 
 // Shared site footer + floating WhatsApp contact button. Every page includes
