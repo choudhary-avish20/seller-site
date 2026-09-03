@@ -104,8 +104,8 @@ window.getImageUrl = (u)=> (API.img ? API.img(u) : (u && u.startsWith('/') ? API
 
 // i18n
 const I18N={
-  pl:{b2b:'B2B only — zamówienia dla podmiotów gospodarczych',cat:'Kategorie',sale:'WYPRZEDAŻ',new:'Nowości',popular:'POPULAR',frequent:'MOST FREQUENTLY PURCHASED',promo:'PROMOTIONS',searchPh:'Szukaj — nazwa produktu, kategoria...',search:'Szukaj',cart:'Koszyk',net:'net',gross:'gross',pack:'w paczce:',add:'Add to cart',login:'Zaloguj się',logout:'Wyloguj',signup:'Rejestracja'},
-  en:{b2b:'B2B only — orders for business entities',cat:'Categories',sale:'SALE',new:'NEWS',popular:'POPULAR',frequent:'MOST FREQUENTLY PURCHASED',promo:'PROMOTIONS',searchPh:'Search — product, category...',search:'Search',cart:'Cart',net:'net',gross:'gross',pack:'in a package:',add:'Add to cart',login:'Sign in',logout:'Sign out',signup:'Sign up'}
+  pl:{b2b:'B2B only — zamówienia dla podmiotów gospodarczych',cat:'Kategorie',sale:'WYPRZEDAŻ',new:'Nowości',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Szukaj — nazwa produktu, kategoria...',search:'Szukaj',cart:'Koszyk',net:'net',gross:'gross',pack:'w paczce:',add:'Add to cart',login:'Zaloguj się',logout:'Wyloguj',signup:'Rejestracja'},
+  en:{b2b:'B2B only — orders for business entities',cat:'Categories',sale:'SALE',new:'NEWS',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Search — product, category...',search:'Search',cart:'Cart',net:'net',gross:'gross',pack:'in a package:',add:'Add to cart',login:'Sign in',logout:'Sign out',signup:'Sign up'}
 };
 let lang=localStorage.getItem('lang')||(navigator.language.startsWith('pl')?'pl':'pl');
 function t(k){return (I18N[lang]&&I18N[lang][k])||I18N.pl[k]||k}
@@ -230,6 +230,125 @@ const RecentlyViewed = {
 };
 window.RecentlyViewed = RecentlyViewed;
 
+// ── Shared product card ──────────────────────────────────────────────────
+// One card component used by the homepage grid, search results, wishlist,
+// and "you may also like" — so every catalogue surface looks and behaves
+// identically instead of each page carrying its own hand-rolled markup.
+// Cards register their product data in _productRegistry so cardChg()/
+// cardAddToCart()/toggleWishlistCard() can look a product up by id no matter
+// which section on the page rendered it.
+window._productRegistry = window._productRegistry || new Map();
+
+function renderProductCard(p){
+  window._productRegistry.set(p.id, p);
+  const out = p.stock_status === 'out_of_stock' || p.stock_quantity === 0;
+  const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/400x400?text=No+image';
+  const img2 = p.images && p.images[1] ? Api.img(p.images[1]) : null;
+  const inc = p.pack_increment || 1;
+  const showSale = p.is_on_sale && p.sale_price_net != null;
+  const slugUrl = encodeURIComponent(p.slug);
+  const packsLeft = Math.floor((p.stock_quantity || 0) / inc);
+  const lowStock = packsLeft > 0 && packsLeft <= 2;
+
+  let badge;
+  if(showSale && p.discount_percent) badge = `<span class="pill pill-sale">-${p.discount_percent}%</span>`;
+  else if(p.is_bestseller) badge = `<span class="pill">Bestseller</span>`;
+  else if(p.is_popular) badge = `<span class="pill">Popular</span>`;
+  else badge = `<span class="pill">New</span>`;
+
+  const netGross = showSale
+    ? `<div><s>${Number(p.price_net).toFixed(2)} PLN</s> <b style="color:var(--sale)">${Number(p.sale_price_net).toFixed(2)} PLN</b> netto</div>
+       <div style="color:var(--text-secondary)">${Number(p.sale_price_gross).toFixed(2)} PLN brutto</div>`
+    : `<div><b>${Number(p.price_net).toFixed(2)} PLN</b> netto</div>
+       <div style="color:var(--text-secondary)">${Number(p.price_gross).toFixed(2)} PLN brutto</div>`;
+
+  return `<div class="card">
+    <div class="card-media">
+      <a href="product.html?slug=${slugUrl}" class="card-img-wrap">
+        <img class="img-a" src="${esc(img)}" alt="${esc(p.name)}" loading="lazy">
+        ${img2 ? `<img class="img-b" src="${esc(img2)}" alt="" loading="lazy">` : ''}
+      </a>
+      <div class="badge-row">${badge}</div>
+      <button class="wl-heart" data-id="${p.id}" onclick="toggleWishlistCard(this,'${p.id}')" aria-label="Dodaj do listy życzeń" title="Dodaj do listy życzeń">♡</button>
+    </div>
+    <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
+    ${p.review_count ? `<div style="font-size:11px;color:#f5a623">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:var(--muted)">(${p.review_count})</span></div>` : ''}
+    <div class="package-bar">Pack of ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
+    ${lowStock ? `<div class="stock-low">Only ${packsLeft} pack${packsLeft>1?'s':''} left</div>` : ''}
+    <div class="price">${netGross}</div>
+    <div class="qty">
+      <button onclick="cardChg('${p.id}',-1)" aria-label="Zmniejsz ilość">−</button>
+      <input id="qty-${p.id}" value="${inc}" data-inc="${inc}" inputmode="numeric">
+      <button onclick="cardChg('${p.id}',1)" aria-label="Zwiększ ilość">+</button>
+    </div>
+    <button class="add" onclick="cardAddToCart('${p.id}')" ${out?'disabled style="opacity:.5;cursor:not-allowed"':''}>${out?'Niedostępny':'Add to cart'}</button>
+  </div>`;
+}
+
+function cardChg(id, dir){
+  const p = window._productRegistry.get(id);
+  const inc = p ? (p.pack_increment || 1) : 1;
+  const inp = document.getElementById('qty-'+id);
+  if(!inp) return;
+  let v = parseInt(inp.value || inc, 10) + dir*inc;
+  if(v < inc) v = inc;
+  v = Math.ceil(v/inc)*inc;
+  inp.value = v;
+}
+
+function cardAddToCart(id){
+  const p = window._productRegistry.get(id);
+  if(!p) return;
+  const inc = p.pack_increment || 1;
+  const inp = document.getElementById('qty-'+id);
+  let qty = parseInt((inp && inp.value) || inc, 10);
+  qty = Math.ceil(qty/inc)*inc;
+  Cart.add(p, qty);
+  showToast(`Dodano do koszyka: ${p.name}`);
+}
+
+async function toggleWishlistCard(btn, id){
+  const saved = await Wishlist.toggle(id);
+  if(saved === null) return; // guest — redirected to login
+  btn.textContent = saved ? '♥' : '♡';
+  btn.classList.toggle('active', saved);
+  if(saved) showToast('Dodano do listy życzeń');
+  if(typeof updateWishlistBadge === 'function') updateWishlistBadge();
+}
+
+function refreshWishlistHearts(){
+  Wishlist.ids().then(ids=>{
+    document.querySelectorAll('.wl-heart').forEach(btn=>{
+      const savedItem = ids.has(btn.dataset.id);
+      btn.textContent = savedItem ? '♥' : '♡';
+      btn.classList.toggle('active', savedItem);
+    });
+  });
+}
+
+// Lightweight, dependency-free toast — used for add-to-cart/wishlist feedback
+// instead of blocking alert() dialogs.
+let _toastTimer = null;
+function showToast(msg){
+  let el = document.getElementById('_toast');
+  if(!el){
+    el = document.createElement('div');
+    el.id = '_toast';
+    el.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(0);background:var(--text-primary,#211d1a);color:#fff;padding:11px 20px;border-radius:8px;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:200;opacity:0;transition:opacity 200ms ease,transform 200ms ease;pointer-events:none';
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  clearTimeout(_toastTimer);
+  requestAnimationFrame(()=>{ el.style.opacity='1'; el.style.transform='translateX(-50%) translateY(-6px)'; });
+  _toastTimer = setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(0)'; }, 2200);
+}
+window.renderProductCard = renderProductCard;
+window.cardChg = cardChg;
+window.cardAddToCart = cardAddToCart;
+window.toggleWishlistCard = toggleWishlistCard;
+window.refreshWishlistHearts = refreshWishlistHearts;
+window.showToast = showToast;
+
 // auth helpers
 async function doLogout(){
   localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); localStorage.removeItem('user'); localStorage.removeItem('cart_v1');
@@ -287,9 +406,160 @@ async function renderAuthHeader(){
     const adminLink = document.getElementById('adminPanelLink');
     if(adminLink) adminLink.remove();
   }
+  updateWishlistBadge();
+  renderAccountMenu(u);
   return u;
 }
 document.addEventListener('DOMContentLoaded', renderAuthHeader);
+
+// Wishlist header box — mirrors the cart box's own "label / count" layout so
+// the two sit together as a matched pair. Hidden entirely for non-buyers,
+// same visibility rule as the rest of the buyer-only header chrome.
+async function updateWishlistBadge(){
+  const countEl = document.getElementById('wishlistCountText');
+  if(!countEl || !localStorage.getItem('access_token')) return;
+  try{
+    const ids = await Wishlist.ids();
+    const n = ids.size;
+    countEl.textContent = n === 0 ? 'Twoja lista jest pusta' : (n + (n===1?' produkt':' produktów'));
+  }catch{ countEl.textContent = ''; }
+}
+
+// ── Account dropdown ────────────────────────────────────────────────────
+// Injected into a `#accountMenuSlot` div already present in each page's
+// header. Consolidates the features already scattered around the store
+// (My Orders, Wishlist, Sign out) plus change-password — which the backend
+// has always supported for any logged-in user (`POST /auth/change-password`)
+// but no buyer-facing page ever exposed — into one panel, so a buyer has a
+// single, obvious place to manage their account instead of hunting for a
+// text link buried in the utility bar.
+function renderAccountMenu(u){
+  const slot = document.getElementById('accountMenuSlot');
+  if(!slot) return;
+
+  if(!u){
+    slot.innerHTML = `<a href="login.html" class="cart" aria-label="Zaloguj się">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+      <span class="cart-copy">
+        <span class="cart-label">Konto</span>
+        <span class="cart-total">Zaloguj się</span>
+      </span>
+    </a>`;
+    return;
+  }
+
+  const isBuyer = u.role === 'buyer';
+  slot.innerHTML = `
+    <div class="acct-menu">
+      <button class="acct-trigger cart" id="acctTriggerBtn" type="button" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>
+        <span class="cart-copy">
+          <span class="cart-label">Konto</span>
+          <span class="cart-total">${esc(u.full_name || u.email)}</span>
+        </span>
+        <svg class="acct-caret" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="acct-panel" id="acctPanel">
+        <div class="acct-panel-head">
+          <div class="acct-name">${esc(u.full_name || 'Twoje konto')}</div>
+          <div class="acct-email">${esc(u.email)}</div>
+        </div>
+        <div class="acct-items">
+          ${isBuyer ? `<a class="acct-item" href="orders.html">
+            <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a4 4 0 018 0v2"/></svg>
+            Moje zamówienia
+          </a>` : ''}
+          ${isBuyer ? `<a class="acct-item" href="wishlist.html">
+            <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.35-9.5-8.5C1.2 9.5 2.5 6 6 6c2 0 3.4 1.3 4.5 2.8C11.6 7.3 13 6 15 6c3.5 0 4.8 3.5 3.5 6.5C16.5 16.65 12 21 12 21z"/></svg>
+            Lista życzeń
+          </a>` : ''}
+          ${(u.role==='admin'||u.role==='seller') ? `<a class="acct-item" href="admin-dashboard.html">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+            Panel admina
+          </a>` : ''}
+          <button class="acct-item" id="acctPwToggle" type="button">
+            <svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg>
+            Zmień hasło
+          </button>
+          <div class="acct-divider"></div>
+          <button class="acct-item danger" id="acctSignOutBtn" type="button">
+            <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+            Wyloguj się
+          </button>
+        </div>
+        <div class="acct-pwform" id="acctPwForm">
+          <div class="acct-pwform-inner">
+            <input type="password" id="acctPwCurrent" placeholder="Obecne hasło" autocomplete="current-password">
+            <input type="password" id="acctPwNew" placeholder="Nowe hasło (min. 8 znaków)" autocomplete="new-password">
+            <button type="button" id="acctPwSubmit">Zapisz nowe hasło</button>
+            <div class="acct-pw-msg" id="acctPwMsg"></div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const trigger = document.getElementById('acctTriggerBtn');
+  const panel = document.getElementById('acctPanel');
+  trigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isOpen = panel.classList.toggle('open');
+    trigger.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  });
+
+  // renderAccountMenu() can re-run on the same page (e.g. the PL/EN toggle
+  // calls renderAuthHeader() again), which would re-inject fresh trigger/panel
+  // nodes each time. Wiring outside-click/Escape as delegated, once-only
+  // listeners — rather than closures over this call's specific elements —
+  // means they keep working against whichever panel is currently in the DOM
+  // instead of piling up stale document-level listeners on every re-render.
+  if(!window._acctMenuGlobalListenersWired){
+    window._acctMenuGlobalListenersWired = true;
+    document.addEventListener('click', (e) => {
+      const openPanel = document.querySelector('.acct-panel.open');
+      if(!openPanel) return;
+      const openTrigger = document.getElementById('acctTriggerBtn');
+      if(!openPanel.contains(e.target) && e.target !== openTrigger) {
+        openPanel.classList.remove('open');
+        if(openTrigger) openTrigger.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if(e.key !== 'Escape') return;
+      const openPanel = document.querySelector('.acct-panel.open');
+      if(!openPanel) return;
+      openPanel.classList.remove('open');
+      const openTrigger = document.getElementById('acctTriggerBtn');
+      if(openTrigger) openTrigger.setAttribute('aria-expanded', 'false');
+    });
+  }
+
+  document.getElementById('acctSignOutBtn').addEventListener('click', () => doLogout());
+
+  const pwForm = document.getElementById('acctPwForm');
+  document.getElementById('acctPwToggle').addEventListener('click', () => {
+    pwForm.classList.toggle('open');
+  });
+  document.getElementById('acctPwSubmit').addEventListener('click', async () => {
+    const msg = document.getElementById('acctPwMsg');
+    const current = document.getElementById('acctPwCurrent').value;
+    const next = document.getElementById('acctPwNew').value;
+    if(!current || !next){ msg.style.color = 'var(--sale)'; msg.textContent = 'Wypełnij oba pola.'; return; }
+    if(next.length < 8){ msg.style.color = 'var(--sale)'; msg.textContent = 'Nowe hasło musi mieć min. 8 znaków.'; return; }
+    try{
+      await Api.changePassword({ current_password: current, new_password: next });
+      msg.style.color = 'var(--success)';
+      msg.textContent = 'Hasło zostało zmienione.';
+      document.getElementById('acctPwCurrent').value = '';
+      document.getElementById('acctPwNew').value = '';
+      showToast('Hasło zostało zmienione');
+    }catch(e){
+      msg.style.color = 'var(--sale)';
+      msg.textContent = e.message || 'Nie udało się zmienić hasła.';
+    }
+  });
+}
+window.renderAccountMenu = renderAccountMenu;
+window.updateWishlistBadge = updateWishlistBadge;
 
 // Shared site footer + floating WhatsApp contact button. Every page includes
 // a single <div id="site-footer"></div> placeholder before </body>; this is

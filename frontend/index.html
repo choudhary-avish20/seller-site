@@ -8,6 +8,9 @@
 <link rel="apple-touch-icon" href="assets/favicon-180.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#333333">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -27,35 +30,38 @@
     <input id="q" data-i18n-ph="searchPh" placeholder="Szukaj — nazwa produktu, kategoria...">
     <button type="submit" data-i18n="search">Szukaj</button>
   </form>
-  <a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b> Produkt <span data-i18n="net">(net)</span> — <span data-cart-net>0.00 zł</span> <span data-i18n="net">net</span></a>
+  <div class="header-actions">
+    <a href="wishlist.html" class="cart" id="wishlistNavLink" style="display:none" aria-label="Lista życzeń">
+      <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.35-9.5-8.5C1.2 9.5 2.5 6 6 6c2 0 3.4 1.3 4.5 2.8C11.6 7.3 13 6 15 6c3.5 0 4.8 3.5 3.5 6.5C16.5 16.65 12 21 12 21z"/></svg>
+      <span class="cart-copy">
+        <span class="cart-label">Ulubione</span>
+        <span class="cart-total" id="wishlistCountText">0 produktów</span>
+      </span>
+    </a>
+    <a href="cart.html" class="cart" aria-label="Koszyk">
+      <svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>
+      <span class="cart-copy">
+        <span class="cart-label">Koszyk (<b data-cart-count>0</b>)</span>
+        <span class="cart-total" data-cart-net>0.00 zł</span>
+      </span>
+    </a>
+    <div id="accountMenuSlot"></div>
+  </div>
 </div></div>
 
-<div class="container" style="margin-top:6px;display:flex;gap:10px;font-size:11px">
-  <a href="index.html">Nowości</a> • <a href="index.html?filter=sale" data-i18n="sale">Wyprzedaż</a> • <a href="index.html?filter=bestseller" data-i18n="bestsellers">Bestsellery</a> • <a href="faq.html">FAQ</a> • <a href="shipping.html">Koszty wysyłki</a> • <a href="terms.html">Regulamin</a> • <a href="privacy.html">Prywatność</a><span id="myOrdersLink" style="display:none"> • <a href="orders.html">Moje zamówienia</a></span><span id="wishlistNavLink" style="display:none"> • <a href="wishlist.html">♥ Lista życzeń</a></span>
-</div>
+<div class="catnav"><div class="container">
+  <a href="index.html">Nowości</a><a href="index.html?filter=sale" data-i18n="sale">Wyprzedaż</a><a href="index.html?filter=bestseller" data-i18n="bestsellers">Bestsellery</a><a href="faq.html">FAQ</a><a href="shipping.html">Koszty wysyłki</a><a href="terms.html">Regulamin</a><a href="privacy.html">Prywatność</a><span id="myOrdersLink" style="display:none"><a href="orders.html">Moje zamówienia</a></span>
+</div></div>
 
 <div class="container layout">
   <aside class="sidebar">
-    <div class="sidebar-head">WHOLESALER CATEGORIES</div>
+    <div class="sidebar-head">Kategorie</div>
     <div class="cat-list" id="catList"></div>
-    <div class="sidebar-head" style="margin-top:10px">PRICE (NET, PLN)</div>
-    <div style="padding:10px;display:flex;gap:6px;align-items:center">
-      <input id="priceMin" type="number" min="0" placeholder="Min" style="width:100%;border:1px solid #ccc;padding:5px;font-size:12px">
-      <span style="color:#999">–</span>
-      <input id="priceMax" type="number" min="0" placeholder="Max" style="width:100%;border:1px solid #ccc;padding:5px;font-size:12px">
-    </div>
-    <div style="padding:0 10px 10px">
-      <button onclick="applyPriceFilter()" style="width:100%;padding:6px;background:#0099cc;color:#fff;border:0;font-size:12px;font-weight:bold;cursor:pointer">Filtruj</button>
-    </div>
   </aside>
   <main class="main">
-    <h1 style="font-size:18px;margin:0 0 6px">Clothing wholesaler from Wólka Kosowska</h1>
-    <p style="font-size:11px;color:#666;margin-bottom:10px">We are a wholesaler with a very wide selection. We offer women's and men's clothing, children's clothing, underwear... <a href="#" style="font-weight:bold">Read more</a></p>
-
     <div class="tabs">
       <div class="tab active" data-filter="new" data-i18n="new" onclick="selectTab('new',this)">NEWS</div>
       <div class="tab" data-filter="popular" onclick="selectTab('popular',this)">POPULAR</div>
-      <div class="tab" data-filter="frequent" onclick="selectTab('frequent',this)">MOST FREQUENTLY PURCHASED</div>
       <div class="tab" data-filter="bestseller" onclick="selectTab('bestseller',this)">BESTSELLERS</div>
       <div class="tab" data-filter="sale" onclick="selectTab('sale',this)">PROMOTIONS</div>
     </div>
@@ -63,7 +69,7 @@
     <div id="catHeading" style="font-size:13px;font-weight:bold;color:#333;margin-bottom:8px;min-height:18px"></div>
     <div class="grid" id="grid"></div>
     <div id="loadMoreWrap" style="text-align:center;margin-top:16px;display:none">
-      <button id="loadMoreBtn" onclick="loadMore()" style="padding:9px 28px;background:#fff;border:1px solid #0099cc;color:#0099cc;font-weight:bold;cursor:pointer">Load more</button>
+      <button id="loadMoreBtn" onclick="loadMore()" style="padding:9px 28px;background:#fff;border:1px solid var(--accent);color:var(--accent);font-weight:bold;cursor:pointer">Load more</button>
     </div>
     <div id="recentlyViewedSection" style="display:none;margin-top:24px">
       <div style="font-size:13px;font-weight:bold;color:#333;margin-bottom:8px">Ostatnio oglądane</div>
@@ -98,7 +104,7 @@ async function loadCats(){
     return h;
   }
 
-  el.innerHTML = `<div class="cat-item" id="cat-all" onclick="selectCat(null,event,false)" style="font-style:italic;color:#0099cc;border-bottom:2px solid #0099cc">
+  el.innerHTML = `<div class="cat-item" id="cat-all" onclick="selectCat(null,event,false)" style="font-style:italic;color:var(--accent);border-bottom:2px solid var(--accent)">
     <span>Wszystkie produkty</span>
   </div>` + (tree.map(n=>row(n)).join('') || '<div style="padding:8px;font-size:11px;color:#888">No categories — admin at /admin</div>');
 }
@@ -134,9 +140,9 @@ function selectCat(id, event, hasChildren){
   });
   const active = id ? document.getElementById('cat-'+id) : document.getElementById('cat-all');
   if(active){
-    active.style.background='#e8f4fb';
-    active.style.borderLeft='3px solid #0099cc';
-    active.style.color='#0099cc';
+    active.style.background='var(--accent-soft)';
+    active.style.borderLeft='3px solid var(--accent)';
+    active.style.color='var(--accent)';
     active.style.fontWeight='bold';
   }
 
@@ -149,17 +155,7 @@ function selectCat(id, event, hasChildren){
 let currentFilter='new';
 let currentCategoryId=null;
 let currentPage=1;
-let priceMinFilter=null;
-let priceMaxFilter=null;
 const PAGE_SIZE=32;
-
-function applyPriceFilter(){
-  const minV = document.getElementById('priceMin').value;
-  const maxV = document.getElementById('priceMax').value;
-  priceMinFilter = minV!=='' ? Number(minV) : null;
-  priceMaxFilter = maxV!=='' ? Number(maxV) : null;
-  loadProducts(currentCategoryId);
-}
 
 function selectTab(filter, el){
   currentFilter=filter;
@@ -186,9 +182,6 @@ async function loadProducts(categoryId, opts={}){
   if(currentFilter==='popular') params.popular = true;
   else if(currentFilter==='bestseller') params.bestseller = true;
   else if(currentFilter==='sale') params.on_sale = true;
-  else if(currentFilter==='frequent') params.sort = 'most_purchased';
-  if(priceMinFilter!=null) params.price_min = priceMinFilter;
-  if(priceMaxFilter!=null) params.price_max = priceMaxFilter;
   const prods=await Api.listProducts(params).catch(()=>[]);
 
   if(!append && !prods.length){
@@ -196,83 +189,12 @@ async function loadProducts(categoryId, opts={}){
     loadMoreWrap.style.display='none';
     return;
   }
-  const cardsHtml = prods.map(p=>{
-    const out=p.stock_status==='out_of_stock'||p.stock_quantity===0;
-    const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/300x220?text=No+image';
-    const inc = p.pack_increment||1;
-    const ribbon = p.is_on_sale ? 'SALE' : (p.is_bestseller ? 'BESTSELLER' : (p.is_popular ? 'POPULAR' : 'NEW'));
-    const showSale = p.is_on_sale && p.sale_price_net!=null;
-    const slugUrl = encodeURIComponent(p.slug);
-    const packsLeft = Math.floor((p.stock_quantity||0)/inc);
-    const lowStock = packsLeft>0 && packsLeft<=2;
-    return `<div class="card">
-      <div style="position:relative">
-        <div class="ribbon">${ribbon}</div>
-        <button class="wl-heart" data-id="${p.id}" onclick="toggleWishlist(this,'${p.id}')" title="Add to wishlist">♡</button>
-        ${showSale && p.discount_percent ? `<div style="position:absolute;top:6px;left:6px;background:#c00;color:#fff;font-size:11px;font-weight:bold;padding:3px 7px;border-radius:2px;z-index:1">-${p.discount_percent}%</div>` : ''}
-        <a href="product.html?slug=${slugUrl}"><img src="${esc(img)}" alt="${esc(p.name)}"></a>
-      </div>
-      <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
-      ${p.review_count ? `<div style="font-size:11px;color:#f5a623">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:#888">(${p.review_count})</span></div>` : ''}
-      <div class="package-bar" data-i18n="pack">in a package: ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
-      ${lowStock ? `<div class="stock-low">Only ${packsLeft} pack${packsLeft>1?'s':''} left!</div>` : ''}
-      <div class="price">
-        ${showSale
-          ? `<div>net price: <s style="color:#999">${Number(p.price_net).toFixed(2)} PLN</s> <b style="color:#c00">${Number(p.sale_price_net).toFixed(2)} PLN</b></div>`
-          : `<div>net price: <b>${Number(p.price_net).toFixed(2)} PLN</b></div>`}
-        ${showSale
-          ? `<div>gross price: <s style="color:#999">${Number(p.price_gross).toFixed(2)} PLN</s> <b style="color:#c00">${Number(p.sale_price_gross).toFixed(2)} PLN</b></div>`
-          : `<div>gross price: <b>${Number(p.price_gross).toFixed(2)} PLN</b></div>`}
-        ${p.price_tiers && p.price_tiers.length ? `<div style="font-size:10px;color:#06c;margin-top:4px">${p.price_tiers.map(tr=>`${tr.min_quantity}-${tr.max_quantity||'∞'}: ${Number(tr.price_net).toFixed(2)}`).join(' | ')}</div>`:''}
-      </div>
-      <div class="qty">
-        <button onclick="chg('${p.id}',-1)">−</button>
-        <input id="qty-${p.id}" value="${inc}" data-inc="${inc}" data-id="${p.id}" style="width:40px">
-        <button onclick="chg('${p.id}',1)">+</button>
-      </div>
-      <button class="add" onclick="addToCart('${p.id}')" ${out?'disabled style="opacity:.5"':''}>Add to cart</button>
-    </div>`;
-  }).join('');
+  const cardsHtml = prods.map(renderProductCard).join('');
 
   if(append){ grid.insertAdjacentHTML('beforeend', cardsHtml); window._prods=(window._prods||[]).concat(prods); }
   else { grid.innerHTML=cardsHtml; window._prods=prods; }
   loadMoreWrap.style.display = prods.length===PAGE_SIZE ? '' : 'none';
   refreshWishlistHearts();
-}
-function refreshWishlistHearts(){
-  Wishlist.ids().then(ids=>{
-    document.querySelectorAll('.wl-heart').forEach(btn=>{
-      const saved = ids.has(btn.dataset.id);
-      btn.textContent = saved ? '♥' : '♡';
-      btn.classList.toggle('active', saved);
-    });
-  });
-}
-async function toggleWishlist(btn, id){
-  const saved = await Wishlist.toggle(id);
-  if(saved === null) return; // guest — redirected to login
-  btn.textContent = saved ? '♥' : '♡';
-  btn.classList.toggle('active', saved);
-}
-function chg(id,dir){
-  const inp=document.getElementById('qty-'+id);
-  const p=window._prods.find(x=>x.id===id);
-  const inc=p? (p.pack_increment||1):1;
-  let v=parseInt(inp.value||inc,10);
-  v+= dir*inc;
-  if(v<inc) v=inc;
-  // snap
-  v=Math.ceil(v/inc)*inc;
-  inp.value=v;
-}
-function addToCart(id){
-  const p=window._prods.find(x=>x.id===id);
-  const inp=document.getElementById('qty-'+id);
-  let qty=parseInt(inp.value||p.pack_increment||1,10);
-  const inc=p.pack_increment||1;
-  qty=Math.ceil(qty/inc)*inc;
-  Cart.add(p, qty);
-  alert('Added '+qty+' packs');
 }
 document.getElementById('searchForm').addEventListener('submit',e=>{e.preventDefault(); const q=document.getElementById('q').value.trim(); location.href=q?'search.html?q='+encodeURIComponent(q):'search.html'});
 // Header login/logout state and the "My orders" link are handled globally
@@ -282,9 +204,9 @@ loadCats().then(()=>{
   // Highlight the requested category (from a product-page breadcrumb link), else "all"
   const target = urlCategoryId ? document.getElementById('cat-'+urlCategoryId) : document.getElementById('cat-all');
   if(target){
-    target.style.background='#e8f4fb';
-    target.style.borderLeft='3px solid #0099cc';
-    target.style.color='#0099cc';
+    target.style.background='var(--accent-soft)';
+    target.style.borderLeft='3px solid var(--accent)';
+    target.style.color='var(--accent)';
     target.style.fontWeight='bold';
     if(urlCategoryId){ const heading=document.getElementById('catHeading'); if(heading) heading.textContent = catNamesById[urlCategoryId] || ''; }
   }
@@ -307,15 +229,8 @@ async function loadRecentlyViewed(){
   const results = await Promise.all(ids.map(id => Api.getProductById(id).catch(()=>null)));
   const prods = results.filter(p => p && p.is_active);
   if(!prods.length) return;
-  grid.innerHTML = prods.map(p=>{
-    const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/300x220?text=No+image';
-    const slugUrl = encodeURIComponent(p.slug);
-    return `<div class="card">
-      <div style="position:relative"><a href="product.html?slug=${slugUrl}"><img src="${esc(img)}" alt="${esc(p.name)}"></a></div>
-      <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
-      <div class="price"><div>net price: <b>${Number(p.price_net).toFixed(2)} PLN</b></div></div>
-    </div>`;
-  }).join('');
+  grid.innerHTML = prods.map(renderProductCard).join('');
+  refreshWishlistHearts();
   section.style.display='';
 }
 loadRecentlyViewed();

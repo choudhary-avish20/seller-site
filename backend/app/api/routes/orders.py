@@ -414,17 +414,17 @@ def delete_order(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_seller_or_admin),
 ):
-    """Permanently deletes an order. Only cancelled orders are eligible — a
-    cancelled order carries zero revenue (already excluded from every revenue
-    stat) and its stock was already restored, so nothing of business record
-    value is lost. Any order that ever actually happened commercially
-    (pending/confirmed/shipped/out_for_delivery/delivered) can never be
-    deleted here, to keep the seller's order history and analytics intact."""
+    """Permanently deletes an order. Only orders in a terminal state (cancelled
+    or delivered) are eligible — nothing still in progress can be deleted, since
+    that would mean losing track of an order a courier may still be handling.
+    Revenue/analytics figures are always computed live from the current order
+    list, so deleting an order is automatically reflected everywhere with no
+    separate bookkeeping to keep in sync."""
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    if order.status != OrderStatus.cancelled:
-        raise HTTPException(status_code=400, detail="Only cancelled orders can be deleted")
+    if order.status not in (OrderStatus.cancelled, OrderStatus.delivered):
+        raise HTTPException(status_code=400, detail="Only cancelled or delivered orders can be deleted")
     db.delete(order)
     db.commit()
     return None

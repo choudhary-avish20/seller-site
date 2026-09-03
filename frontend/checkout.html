@@ -8,6 +8,9 @@
 <link rel="apple-touch-icon" href="assets/favicon-180.png">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#333333">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <style>
 .co-wrap{display:flex;gap:20px;align-items:flex-start;padding:16px 0;flex-wrap:wrap}
@@ -24,7 +27,7 @@
 .f-row{margin-bottom:11px}
 .f-row label{display:block;font-size:12px;font-weight:bold;margin-bottom:3px;color:#333}
 .f-row input,.f-row textarea,.f-row select{width:100%;border:1px solid #ccc;padding:8px 10px;font-size:13px;font-family:inherit;outline:none}
-.f-row input:focus,.f-row textarea:focus{border-color:#0099cc}
+.f-row input:focus,.f-row textarea:focus{border-color:var(--accent)}
 .f-row textarea{resize:vertical;min-height:72px}
 .f-cols{display:flex;gap:10px}
 .f-cols .f-row{flex:1}
@@ -78,7 +81,23 @@
 <div class="header"><div class="container">
   <a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
   <div style="flex:1"></div>
-  <a href="cart.html" class="cart">Koszyk <b data-cart-count>0</b></a>
+  <div class="header-actions">
+    <a href="wishlist.html" class="cart" id="wishlistNavLink" style="display:none" aria-label="Lista życzeń">
+      <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.35-9.5-8.5C1.2 9.5 2.5 6 6 6c2 0 3.4 1.3 4.5 2.8C11.6 7.3 13 6 15 6c3.5 0 4.8 3.5 3.5 6.5C16.5 16.65 12 21 12 21z"/></svg>
+      <span class="cart-copy">
+        <span class="cart-label">Ulubione</span>
+        <span class="cart-total" id="wishlistCountText">0 produktów</span>
+      </span>
+    </a>
+    <a href="cart.html" class="cart" aria-label="Koszyk">
+      <svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>
+      <span class="cart-copy">
+        <span class="cart-label">Koszyk (<b data-cart-count>0</b>)</span>
+        <span class="cart-total" data-cart-net>0.00 zł</span>
+      </span>
+    </a>
+    <div id="accountMenuSlot"></div>
+  </div>
 </div></div>
 
 <div class="container">
@@ -196,7 +215,7 @@
       </div>
 
       <div style="font-size:11px;color:#888;line-height:1.6;padding:0 2px">
-        Składając zamówienie akceptujesz <a href="terms.html" target="_blank" style="color:#0099cc">warunki sprzedaży</a>. Zamówienie jest wiążące po potwierdzeniu przez sprzedawcę.
+        Składając zamówienie akceptujesz <a href="terms.html" target="_blank" style="color:var(--accent)">warunki sprzedaży</a>. Zamówienie jest wiążące po potwierdzeniu przez sprzedawcę.
       </div>
     </div>
 
