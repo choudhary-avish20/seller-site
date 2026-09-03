@@ -44,6 +44,8 @@ const API = (()=>{
     createOrder:(d)=>req('/orders',{method:'POST',body:JSON.stringify(d)}),
     listOrders:()=>req('/orders'),
     updateOrderStatus:(id,status)=>req('/orders/'+id+'/status',{method:'PATCH',body:JSON.stringify({status})}),
+    hideOrder:(id)=>req('/orders/'+id+'/hide',{method:'PATCH'}),
+    deleteOrder:(id)=>req('/orders/'+id,{method:'DELETE'}),
     uploadImage:(file)=>{
       const fd=new FormData(); fd.append('file',file);
       const h={}; const {a}=getT(); if(a) h['Authorization']='Bearer '+a;

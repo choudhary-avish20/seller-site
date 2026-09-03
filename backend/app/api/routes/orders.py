@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_current_user, require_seller_or_admin
 from app.core.config import settings
 from app.core.auth import create_verification_token
 from app.db.session import get_db
@@ -270,9 +270,16 @@ def list_orders(
 ):
     q = db.query(Order)
     if current_user.role in (UserRole.admin, UserRole.seller):
+        # Staff always see every order regardless of hidden_by_buyer — that flag
+        # only controls the buyer's own list, never the seller's records.
         orders = q.order_by(Order.created_at.desc()).all()
     else:
-        orders = db.query(Order).filter(Order.buyer_id == current_user.id).order_by(Order.created_at.desc()).all()
+        orders = (
+            db.query(Order)
+            .filter(Order.buyer_id == current_user.id, Order.hidden_by_buyer.is_(False))
+            .order_by(Order.created_at.desc())
+            .all()
+        )
 
     # Collect all buyer ids and fetch in one query to avoid N+1
     buyer_ids = list({o.buyer_id for o in orders})
@@ -312,7 +319,8 @@ def get_order(
 _ALLOWED_STATUS_TRANSITIONS = {
     OrderStatus.pending: {OrderStatus.confirmed, OrderStatus.cancelled},
     OrderStatus.confirmed: {OrderStatus.shipped, OrderStatus.cancelled},
-    OrderStatus.shipped: {OrderStatus.delivered, OrderStatus.cancelled},
+    OrderStatus.shipped: {OrderStatus.out_for_delivery, OrderStatus.cancelled},
+    OrderStatus.out_for_delivery: {OrderStatus.delivered, OrderStatus.cancelled},
     OrderStatus.delivered: set(),
     OrderStatus.cancelled: set(),
 }
@@ -362,7 +370,7 @@ async def update_order_status(
         resp.buyer_full_name = buyer.full_name
 
     # Send status-change email to the buyer when seller marks delivered or cancelled
-    notify_statuses = {OrderStatus.delivered, OrderStatus.cancelled, OrderStatus.confirmed, OrderStatus.shipped}
+    notify_statuses = {OrderStatus.delivered, OrderStatus.cancelled, OrderStatus.confirmed, OrderStatus.shipped, OrderStatus.out_for_delivery}
     if buyer and old_status != order.status and order.status in notify_statuses:
         try:
             await send_order_status_email(
@@ -378,6 +386,48 @@ async def update_order_status(
             )
 
     return resp
+
+
+@router.patch("/{order_id}/hide", status_code=status.HTTP_204_NO_CONTENT)
+def hide_order(
+    order_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lets a buyer clear a cancelled order out of their own list. This never
+    deletes the order — sellers/admins keep full visibility for their records."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.buyer_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if order.status != OrderStatus.cancelled:
+        raise HTTPException(status_code=400, detail="Only cancelled orders can be removed from your list")
+    order.hidden_by_buyer = True
+    db.commit()
+    return None
+
+
+@router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_order(
+    order_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_seller_or_admin),
+):
+    """Permanently deletes an order. Only cancelled orders are eligible — a
+    cancelled order carries zero revenue (already excluded from every revenue
+    stat) and its stock was already restored, so nothing of business record
+    value is lost. Any order that ever actually happened commercially
+    (pending/confirmed/shipped/out_for_delivery/delivered) can never be
+    deleted here, to keep the seller's order history and analytics intact."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.cancelled:
+        raise HTTPException(status_code=400, detail="Only cancelled orders can be deleted")
+    db.delete(order)
+    db.commit()
+    return None
 
 
 def _e(value) -> str:

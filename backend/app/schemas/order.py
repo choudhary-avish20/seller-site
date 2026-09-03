@@ -72,6 +72,7 @@ class OrderResponse(BaseModel):
     payment_method: PaymentMethod
     coupon_code: Optional[str] = None
     discount_amount: float = 0
+    hidden_by_buyer: bool = False
     created_at: datetime
     updated_at: datetime
     items: List[OrderItemResponse] = Field(default_factory=list)

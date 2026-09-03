@@ -447,11 +447,12 @@ async function renderDashboardView() {
 
   const delivered = allOrders.filter(o => o.status === 'delivered');
   const inPipeline = allOrders.filter(o => !['delivered', 'cancelled'].includes(o.status));
+  const notCancelled = allOrders.filter(o => o.status !== 'cancelled');
   const revenueDelivered = delivered.reduce((s, o) => s + parseFloat(o.total_gross || 0), 0);
   const revenuePipeline = inPipeline.reduce((s, o) => s + parseFloat(o.total_gross || 0), 0);
-  const avgOrderValue = allOrders.length ? allOrders.reduce((s, o) => s + parseFloat(o.total_gross || 0), 0) / allOrders.length : 0;
+  const avgOrderValue = notCancelled.length ? notCancelled.reduce((s, o) => s + parseFloat(o.total_gross || 0), 0) / notCancelled.length : 0;
 
-  const statusCounts = { pending: 0, confirmed: 0, shipped: 0, delivered: 0, cancelled: 0 };
+  const statusCounts = { pending: 0, confirmed: 0, shipped: 0, out_for_delivery: 0, delivered: 0, cancelled: 0 };
   allOrders.forEach(o => { if (o.status in statusCounts) statusCounts[o.status]++; });
 
   // Top products by units sold (pack_quantity summed across all order items).
@@ -492,7 +493,7 @@ async function renderDashboardView() {
       <div style="flex:1;min-width:280px;background:#fff;border:1px solid #ddd;padding:16px">
         <div style="font-size:13px;font-weight:bold;margin-bottom:12px">Zamówienia wg statusu</div>
         ${Object.entries(statusCounts).map(([status, count]) => {
-          const labels = { pending:'Oczekujące', confirmed:'Potwierdzone', shipped:'Wysłane', delivered:'Zrealizowane', cancelled:'Anulowane' };
+          const labels = { pending:'Oczekujące', confirmed:'Potwierdzone', shipped:'Wysłane', out_for_delivery:'W dostawie', delivered:'Zrealizowane', cancelled:'Anulowane' };
           const pct = allOrders.length ? Math.round(count / allOrders.length * 100) : 0;
           return `<div style="margin-bottom:8px">
             <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px"><span>${labels[status]}</span><span>${count}</span></div>
@@ -901,14 +902,17 @@ async function renderOrdersView() {
   }
 
   const pending = orders.filter(o => o.status === 'pending').length;
-  const totalNet = orders.reduce((s, o) => s + parseFloat(o.total_net || 0), 0);
+  // Cancelled orders never happened commercially — excluding them here keeps this
+  // figure meaning "value of orders actually in play or fulfilled", not inflated
+  // by orders that were called off.
+  const totalNet = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + parseFloat(o.total_net || 0), 0);
 
   main.innerHTML = `
     <div class="page-title">🛒 Zamówienia</div>
     <div class="stat-row">
       <div class="stat-card"><div class="val">${orders.length}</div><div class="lbl">Wszystkie</div></div>
       <div class="stat-card"><div class="val">${pending}</div><div class="lbl">Oczekujące</div><div class="trend">do realizacji</div></div>
-      <div class="stat-card"><div class="val">${fmtPrice(totalNet)} zł</div><div class="lbl">Łączna wartość netto</div></div>
+      <div class="stat-card"><div class="val">${fmtPrice(totalNet)} zł</div><div class="lbl">Łączna wartość netto</div><div class="trend">bez anulowanych</div></div>
     </div>
     <div class="filter-bar">
       <label style="font-size:12px;font-weight:bold">Status:</label>
@@ -917,6 +921,7 @@ async function renderOrdersView() {
         <option value="pending">Oczekujące</option>
         <option value="confirmed">Potwierdzone</option>
         <option value="shipped">Wysłane</option>
+        <option value="out_for_delivery">W dostawie</option>
         <option value="delivered">Zrealizowane</option>
         <option value="cancelled">Anulowane</option>
       </select>
@@ -963,6 +968,8 @@ function renderOrderRows() {
       ? `<span class="badge badge-approved">Potwierdzone</span>`
       : o.status === 'shipped'
       ? `<span class="badge badge-stock">Wysłane</span>`
+      : o.status === 'out_for_delivery'
+      ? `<span class="badge" style="background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc">W dostawie</span>`
       : o.status === 'cancelled'
       ? `<span class="badge badge-inactive">Anulowane</span>`
       : `<span class="badge" style="background:#e2e8f0;color:#0f172a">${esc(o.status)}</span>`;
@@ -1112,15 +1119,44 @@ function renderOrderRows() {
   }).join('');
 }
 
-// Linear fulfillment flow: pending → confirmed → shipped → delivered, with cancel
-// available at any point before delivered/cancelled (both terminal).
+// Linear fulfillment flow: pending → confirmed → shipped → out_for_delivery → delivered,
+// with cancel available at any point before delivered/cancelled (both terminal).
 function orderActionButtons(o) {
-  const next = { pending: ['confirmed', '🔄 Potwierdź'], confirmed: ['shipped', '🚚 Wyślij'], shipped: ['delivered', '✅ Zrealizowane'] }[o.status];
+  const next = {
+    pending: ['confirmed', '🔄 Potwierdź'],
+    confirmed: ['shipped', '🚚 Wyślij'],
+    shipped: ['out_for_delivery', '🛵 W dostawie'],
+    out_for_delivery: ['delivered', '✅ Zrealizowane'],
+  }[o.status];
   const nextBtn = next ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.id}','${next[0]}')">${next[1]}</button>` : '';
   const cancelBtn = (o.status !== 'delivered' && o.status !== 'cancelled')
     ? `<button class="btn btn-danger btn-sm" onclick="setOrderStatus('${o.id}','cancelled')">✕ Anuluj</button>`
     : '';
-  return nextBtn + cancelBtn;
+  // Only a cancelled order can be permanently deleted — it carries zero revenue
+  // (already excluded from every stat) and its stock was already restored, so
+  // nothing of business record value is lost. Any order that ever actually
+  // happened stays undeletable to keep order history/analytics intact.
+  const deleteBtn = o.status === 'cancelled'
+    ? `<button class="btn btn-sm" style="color:#888" onclick="deleteOrderAction('${o.id}')">🗑 Usuń</button>`
+    : '';
+  return nextBtn + cancelBtn + deleteBtn;
+}
+
+async function deleteOrderAction(id) {
+  if (!confirm('Trwale usunąć to anulowane zamówienie? Tej operacji nie można cofnąć.')) return;
+  try {
+    await Api.deleteOrder(id);
+    orders = orders.filter(o => o.id !== id);
+    renderOrderRows();
+    const vals = document.querySelectorAll('#mainContent .stat-card .val');
+    if (vals[0]) vals[0].textContent = orders.length;
+    const pending = orders.filter(o => o.status === 'pending').length;
+    if (vals[1]) vals[1].textContent = pending;
+    const totalNet = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + parseFloat(o.total_net || 0), 0);
+    if (vals[2]) vals[2].textContent = fmtPrice(totalNet) + ' zł';
+  } catch (e) {
+    alert('Nie udało się usunąć zamówienia: ' + e.message);
+  }
 }
 
 function toggleOrderDetail(id) {
@@ -1133,10 +1169,11 @@ function toggleOrderDetail(id) {
 }
 
 async function setOrderStatus(id, newStatus) {
-  const labels = { confirmed: 'Potwierdzone', shipped: 'Wysłane', delivered: 'Zrealizowane', cancelled: 'Anulowane' };
+  const labels = { confirmed: 'Potwierdzone', shipped: 'Wysłane', out_for_delivery: 'W dostawie', delivered: 'Zrealizowane', cancelled: 'Anulowane' };
   const confirmMsgs = {
     confirmed: 'Potwierdzić to zamówienie?',
     shipped: 'Oznaczyć zamówienie jako wysłane?',
+    out_for_delivery: 'Oznaczyć zamówienie jako w dostawie (kurier w drodze)?',
     delivered: 'Oznaczyć zamówienie jako zrealizowane?',
     cancelled: 'Anulować to zamówienie? Operacja jest nieodwracalna.',
   };
@@ -1160,7 +1197,7 @@ async function setOrderStatus(id, newStatus) {
       if (row) row.style.display = 'table-row';
       // refresh stat cards
       const pending = orders.filter(o => o.status === 'pending').length;
-      const totalNet = orders.reduce((s, o) => s + parseFloat(o.total_net || 0), 0);
+      const totalNet = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + parseFloat(o.total_net || 0), 0);
       const vals = document.querySelectorAll('#mainContent .stat-card .val');
       if (vals[1]) vals[1].textContent = pending;
       if (vals[2]) vals[2].textContent = fmtPrice(totalNet) + ' zł';

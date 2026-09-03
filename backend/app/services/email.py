@@ -227,6 +227,7 @@ Zespół WolkaGo"""
             "cancelled": ("Zamówienie anulowane",    "#991b1b", "#fef2f2"),
             "confirmed": ("Zamówienie potwierdzone", "#1e40af", "#dbeafe"),
             "shipped":   ("Zamówienie wysłane",      "#92400e", "#fef3c7"),
+            "out_for_delivery": ("Zamówienie w dostawie", "#0e7490", "#ecfeff"),
         }
         label, text_color, bg_color = status_labels.get(
             new_status, ("Zmiana statusu zamówienia", "#333", "#f5f5f5")
@@ -239,6 +240,7 @@ Zespół WolkaGo"""
             "cancelled": "Twoje zamówienie zostało anulowane. Jeśli uważasz, że to pomyłka, skontaktuj się z nami pod numerem +48 579 383 945.",
             "confirmed": "Twoje zamówienie zostało potwierdzone i jest w trakcie realizacji.",
             "shipped":   "Twoje zamówienie zostało wysłane. Wkrótce do Ciebie dotrze.",
+            "out_for_delivery": "Twój kurier jest już w drodze — zamówienie dotrze do Ciebie już dziś.",
         }
         note = status_notes.get(new_status, "Status Twojego zamówienia uległ zmianie.")
 

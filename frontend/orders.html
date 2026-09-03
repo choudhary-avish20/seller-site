@@ -19,8 +19,18 @@
 .status-pending{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
 .status-confirmed{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
 .status-shipped{background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc}
+.status-out_for_delivery{background:#e0f2fe;color:#075985;border:1px solid #7dd3fc}
 .status-delivered{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
 .status-cancelled{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
+.otl{display:flex;align-items:flex-start;margin:4px 0 14px}
+.otl-step{flex:1;text-align:center;position:relative;font-size:10px;color:#999}
+.otl-line{position:absolute;top:11px;left:-50%;right:50%;height:2px;background:#e5e7eb;z-index:0}
+.otl-line.done{background:#166534}
+.otl-step:first-child .otl-line{display:none}
+.otl-dot{width:22px;height:22px;border-radius:50%;background:#e5e7eb;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-size:11px;font-weight:bold;position:relative;z-index:1}
+.otl-dot.done{background:#166534}
+.otl-dot.current{background:#0099cc}
+.cancelled-note{background:#f1f5f9;color:#64748b;padding:8px 12px;border-radius:4px;font-size:12px;text-align:center;margin:4px 0 14px}
 </style>
 </head>
 <body>
@@ -35,7 +45,10 @@
 </div></div>
 
 <div class="container" style="padding:16px 10px">
-  <h1 style="font-size:16px;margin:0 0 12px">Moje zamówienia</h1>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;flex-wrap:wrap;gap:8px">
+    <h1 style="font-size:16px;margin:0">Moje zamówienia</h1>
+    <button id="clearCancelledBtn" onclick="clearAllCancelled()" style="display:none;font-size:11px;color:#c00;background:none;border:1px solid #fca5a5;padding:6px 12px;cursor:pointer">🗑 Wyczyść anulowane</button>
+  </div>
   <div id="list"></div>
 </div>
 
@@ -43,7 +56,26 @@
 <script src="config.js"></script>
 <script src="js/app.js"></script>
 <script>
-const STATUS_LABELS = {pending:'Oczekujące', confirmed:'Potwierdzone', shipped:'Wysłane', delivered:'Zrealizowane', cancelled:'Anulowane'};
+const STATUS_LABELS = {pending:'Oczekujące', confirmed:'Potwierdzone', shipped:'Wysłane', out_for_delivery:'W dostawie', delivered:'Zrealizowane', cancelled:'Anulowane'};
+const ORDER_STEPS = [
+  {key:'pending', label:'Złożone', icon:'📝'},
+  {key:'confirmed', label:'Potwierdzone', icon:'✅'},
+  {key:'shipped', label:'Wysłane', icon:'🚚'},
+  {key:'out_for_delivery', label:'W dostawie', icon:'🛵'},
+  {key:'delivered', label:'Dostarczone', icon:'📦'},
+];
+function renderTimeline(status){
+  if(status === 'cancelled') return `<div class="cancelled-note">✕ Zamówienie anulowane</div>`;
+  const idx = ORDER_STEPS.findIndex(s=>s.key===status);
+  return `<div class="otl">` + ORDER_STEPS.map((s,i)=>{
+    const done = i < idx, current = i === idx;
+    return `<div class="otl-step">
+      <div class="otl-line ${i<=idx?'done':''}"></div>
+      <div class="otl-dot ${done?'done':''} ${current?'current':''}">${done?'✓':s.icon}</div>
+      <div style="${current?'font-weight:bold;color:#0099cc':''}">${s.label}</div>
+    </div>`;
+  }).join('') + `</div>`;
+}
 
 async function load(){
   const tok = localStorage.getItem('access_token');
@@ -64,6 +96,9 @@ async function load(){
   orders.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at));
   window._ordersCache = orders;
 
+  const cancelledCount = orders.filter(o=>o.status==='cancelled').length;
+  document.getElementById('clearCancelledBtn').style.display = cancelledCount > 1 ? 'inline-block' : 'none';
+
   list.innerHTML = orders.map(o=>{
     const d = new Date(o.created_at).toLocaleString('pl-PL', {dateStyle:'medium', timeStyle:'short'});
     const items = (o.items||[]).map(it=>`
@@ -79,6 +114,7 @@ async function load(){
           <span class="status-badge status-${esc(o.status)}">${STATUS_LABELS[o.status] || esc(o.status)}</span>
         </div>
         <div class="order-body">
+          ${renderTimeline(o.status)}
           ${items}
           ${o.coupon_code && Number(o.discount_amount) > 0 ? `<div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #eee;color:#1a7f37;font-size:13px">
             <span>Kupon ${esc(o.coupon_code)}</span><span>-${Number(o.discount_amount).toFixed(2)} zł</span>
@@ -89,6 +125,7 @@ async function load(){
           <div style="margin-top:10px;text-align:right;display:flex;gap:8px;justify-content:flex-end">
             <button onclick="reorderAll('${o.id}')" style="font-size:11px;color:#0099cc;background:none;border:1px solid #99d6ec;padding:5px 10px;cursor:pointer">↻ Zamów ponownie</button>
             ${canCancel ? `<button onclick="cancelOrder('${o.id}')" style="font-size:11px;color:#c00;background:none;border:1px solid #fca5a5;padding:5px 10px;cursor:pointer">Anuluj zamówienie</button>` : ''}
+            ${o.status === 'cancelled' ? `<button onclick="hideOrder('${o.id}')" style="font-size:11px;color:#888;background:none;border:1px solid #ddd;padding:5px 10px;cursor:pointer">🗑 Usuń z listy</button>` : ''}
           </div>
         </div>
       </div>`;
@@ -103,6 +140,24 @@ async function cancelOrder(id){
   }catch(e){
     alert('Nie udało się anulować zamówienia: '+e.message);
   }
+}
+
+async function hideOrder(id){
+  if(!confirm('Usunąć to zamówienie z listy? Zostanie zachowane w naszych rejestrach, ale zniknie z Twojego widoku.')) return;
+  try{
+    await Api.hideOrder(id);
+    load();
+  }catch(e){
+    alert('Nie udało się usunąć zamówienia z listy: '+e.message);
+  }
+}
+
+async function clearAllCancelled(){
+  const cancelled = (window._ordersCache||[]).filter(o=>o.status==='cancelled');
+  if(!cancelled.length) return;
+  if(!confirm(`Usunąć ${cancelled.length} anulowanych zamówień z listy? Zostaną zachowane w naszych rejestrach.`)) return;
+  await Promise.all(cancelled.map(o=>Api.hideOrder(o.id).catch(()=>{})));
+  load();
 }
 
 async function reorderAll(orderId){
