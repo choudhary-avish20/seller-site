@@ -38,6 +38,13 @@ class EmailService:
         self.use_console = not bool(settings.MAIL_USERNAME.strip())
 
         if not self.use_console:
+            import sys
+            print(
+                f"[EMAIL] Initialising SMTP: server={settings.MAIL_SERVER} "
+                f"port={settings.MAIL_PORT} username={settings.MAIL_USERNAME} "
+                f"from={settings.MAIL_FROM} tls={settings.MAIL_TLS} ssl={settings.MAIL_SSL}",
+                file=sys.stderr, flush=True,
+            )
             self.conf = ConnectionConfig(
                 MAIL_USERNAME=settings.MAIL_USERNAME,
                 MAIL_PASSWORD=settings.MAIL_PASSWORD,
@@ -352,7 +359,10 @@ Zespół WolkaGo"""
             return True
 
         except Exception as e:
-            logger.error(f"Błąd wysyłki e-mail do {to_email}: {e}")
+            import sys, traceback
+            print(f"[EMAIL ERROR] Failed to send to {to_email}: {e}", file=sys.stderr, flush=True)
+            traceback.print_exc(file=sys.stderr)
+            logger.exception(f"Błąd wysyłki e-mail do {to_email}: {e}")
             return False
 
 
