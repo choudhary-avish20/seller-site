@@ -269,11 +269,23 @@ async function renderAuthHeader(){
     if(topUser) topUser.textContent = u.full_name || u.email;
     if(myOrders) myOrders.style.display = u.role==='buyer' ? '' : 'none';
     if(wishlistLink) wishlistLink.style.display = u.role==='buyer' ? '' : 'none';
+    // Seller/admin: show a link back to the dashboard from any store page
+    if((u.role==='admin' || u.role==='seller') && link && !document.getElementById('adminPanelLink')){
+      const a = document.createElement('a');
+      a.id = 'adminPanelLink';
+      a.href = 'admin-dashboard.html';
+      a.textContent = '⚙ Panel admina';
+      a.style.cssText = 'font-weight:600;color:#c00;margin-left:4px';
+      link.parentNode.insertBefore(a, link);
+    }
   } else {
     if(link){ link.textContent = t('login'); link.href='login.html'; link.onclick=null; }
     if(topUser) topUser.textContent = '';
     if(myOrders) myOrders.style.display = 'none';
     if(wishlistLink) wishlistLink.style.display = 'none';
+    // Remove the admin link if the user logged out
+    const adminLink = document.getElementById('adminPanelLink');
+    if(adminLink) adminLink.remove();
   }
   return u;
 }
