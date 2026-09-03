@@ -1,3 +1,6 @@
+import os
+import sys
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -86,6 +89,32 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# Logs exactly what this process actually received for the handful of vars that
+# most often go wrong on a new deploy — the raw string the OS/platform handed us
+# (proving whether it was delivered at all) next to what Settings() resolved it
+# to (proving it parsed the way you expect). Written to stderr with an explicit
+# flush, same stream as the RuntimeError traceback below, so the two can never
+# get reordered relative to each other in a log viewer that merges both streams.
+# Never logs SECRET_KEY or MAIL_PASSWORD themselves, only whether each was left
+# as its insecure default. Always logged, not just on failure, so a healthy
+# deploy's log is equally checkable.
+def _log_config_source(name: str, resolved) -> None:
+    print(f"[config] {name}: raw_env_var={os.environ.get(name)!r} resolved={resolved!r}", file=sys.stderr, flush=True)
+
+for _name, _resolved in [
+    ("ENV", settings.ENV),
+    ("DEBUG", settings.DEBUG),
+    ("DATABASE_URL", settings.DATABASE_URL),
+    ("CORS_ORIGINS", settings.CORS_ORIGINS),
+    ("FRONTEND_BASE_URL", settings.FRONTEND_BASE_URL),
+]:
+    _log_config_source(_name, _resolved)
+print(
+    f"[config] SECRET_KEY: raw_env_var_present={'SECRET_KEY' in os.environ!r} "
+    f"is_still_placeholder={settings.SECRET_KEY == 'change-me-in-prod'!r}",
+    file=sys.stderr, flush=True,
+)
 
 if settings.ENV == "production":
     # These checks close the gap where the app silently boots in an insecure state
