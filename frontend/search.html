@@ -31,6 +31,7 @@
   <div class="grid" id="grid"></div>
 </div>
 
+<div id="site-footer"></div>
 <script src="config.js"></script>
 <script src="js/app.js"></script>
 <script>
@@ -60,9 +61,11 @@ async function runSearch(){
     return `<div class="card">
       <div style="position:relative">
         <div class="ribbon">${ribbon}</div>
+        <button class="wl-heart" data-id="${p.id}" onclick="toggleWishlist(this,'${p.id}')" title="Add to wishlist">♡</button>
         <a href="product.html?slug=${slugUrl}"><img src="${esc(img)}" alt="${esc(p.name)}"></a>
       </div>
       <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
+      ${p.review_count ? `<div style="font-size:11px;color:#f5a623">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:#888">(${p.review_count})</span></div>` : ''}
       <div class="package-bar">in a package: ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
       <div class="price">
         <div>net price: <b>${Number(p.price_net).toFixed(2)} PLN</b></div>
@@ -71,6 +74,22 @@ async function runSearch(){
       <button class="add" onclick="location.href='product.html?slug=${slugUrl}'" ${out?'disabled style="opacity:.5"':''}>View product</button>
     </div>`;
   }).join('');
+  refreshWishlistHearts();
+}
+function refreshWishlistHearts(){
+  Wishlist.ids().then(ids=>{
+    document.querySelectorAll('.wl-heart').forEach(btn=>{
+      const saved = ids.has(btn.dataset.id);
+      btn.textContent = saved ? '♥' : '♡';
+      btn.classList.toggle('active', saved);
+    });
+  });
+}
+async function toggleWishlist(btn, id){
+  const saved = await Wishlist.toggle(id);
+  if(saved === null) return;
+  btn.textContent = saved ? '♥' : '♡';
+  btn.classList.toggle('active', saved);
 }
 
 document.getElementById('searchForm').addEventListener('submit', e=>{

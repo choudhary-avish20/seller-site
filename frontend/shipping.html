@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Regulamin — WolkaGo</title>
+<title>Koszty i czas dostawy — WolkaGo</title>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/favicon-180.png">
 <link rel="stylesheet" href="css/style.css">
@@ -26,7 +26,7 @@
 </div></div>
 
 <div class="terms-wrap">
-  <h1 style="font-size:20px;margin-bottom:14px">Regulamin</h1>
+  <h1 style="font-size:20px;margin-bottom:14px">Koszty i czas dostawy</h1>
   <div class="terms-card" id="termsBody">Ładowanie…</div>
 </div>
 
@@ -34,16 +34,16 @@
 <script src="config.js"></script>
 <script src="js/app.js"></script>
 <script>
-async function loadTerms(){
+async function loadContent(){
   const el = document.getElementById('termsBody');
   try{
     const s = await Api.getSettings();
-    el.textContent = s.terms_content || 'Regulamin zostanie wkrótce opublikowany.';
+    el.textContent = s.shipping_content || 'Informacje o dostawie zostaną wkrótce opublikowane.';
   }catch(e){
-    el.textContent = 'Nie udało się załadować regulaminu. Spróbuj ponownie później.';
+    el.textContent = 'Nie udało się załadować treści. Spróbuj ponownie później.';
   }
 }
-loadTerms();
+loadContent();
 </script>
 </body>
 </html>

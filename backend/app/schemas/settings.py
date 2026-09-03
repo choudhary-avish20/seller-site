@@ -13,6 +13,9 @@ class SiteSettingsResponse(BaseModel):
     whatsapp_number: Optional[str] = None
     contact_note: Optional[str] = None
     terms_content: Optional[str] = None
+    privacy_content: Optional[str] = None
+    faq_content: Optional[str] = None
+    shipping_content: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -30,3 +33,6 @@ class SiteSettingsUpdate(BaseModel):
     whatsapp_number: Optional[str] = Field(None, max_length=32)
     contact_note: Optional[str] = None
     terms_content: Optional[str] = None
+    privacy_content: Optional[str] = None
+    faq_content: Optional[str] = None
+    shipping_content: Optional[str] = None

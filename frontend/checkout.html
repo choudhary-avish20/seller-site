@@ -135,6 +135,12 @@
       <div class="co-box">
         <div class="co-box-head">📍 Adres dostawy</div>
         <div class="co-box-body">
+          <div class="f-row" id="savedAddrRow" style="display:none">
+            <label>Zapisany adres</label>
+            <select id="f_saved_addr" onchange="fillFromSavedAddress(this.value)">
+              <option value="">— Wpisz nowy adres —</option>
+            </select>
+          </div>
           <div class="f-row">
             <label>Ulica i numer <span class="req">*</span></label>
             <input id="f_street" placeholder="ul. Przykładowa 12/3" autocomplete="address-line1">
@@ -148,6 +154,10 @@
               <label>Miasto <span class="req">*</span></label>
               <input id="f_city" placeholder="Warszawa" autocomplete="address-level2">
             </div>
+          </div>
+          <div class="f-row" style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" id="f_save_addr" style="width:auto">
+            <label style="margin:0;display:inline;font-weight:normal">Zapisz ten adres do przyszłych zamówień</label>
           </div>
           <div class="f-row">
             <label>Uwagi do zamówienia</label>
@@ -185,6 +195,7 @@
   </div><!-- /co-wrap -->
 </div>
 
+<div id="site-footer"></div>
 <script src="config.js"></script>
 <script src="js/app.js"></script>
 <script>
@@ -213,8 +224,39 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (me.company_name)   document.getElementById('f_company').value = me.company_name;
   if (me.company_tax_id) document.getElementById('f_nip').value = me.company_tax_id;
 
+  loadSavedAddresses();
   renderSummary(items);
 });
+
+// ── Saved addresses ──────────────────────────────────────────────────────
+let savedAddresses = [];
+async function loadSavedAddresses(){
+  try { savedAddresses = await Api.getAddresses(); } catch { savedAddresses = []; }
+  if (!savedAddresses.length) return;
+  const sel = document.getElementById('f_saved_addr');
+  savedAddresses.forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a.id;
+    opt.textContent = `${a.label} — ${a.street}, ${a.zip_code} ${a.city}`;
+    sel.appendChild(opt);
+  });
+  document.getElementById('savedAddrRow').style.display = '';
+  const def = savedAddresses.find(a => a.is_default);
+  if (def) { sel.value = def.id; fillFromSavedAddress(def.id); }
+}
+function fillFromSavedAddress(id){
+  if (!id) return;
+  const a = savedAddresses.find(x => x.id === id);
+  if (!a) return;
+  document.getElementById('f_street').value = a.street;
+  document.getElementById('f_zip').value = a.zip_code;
+  document.getElementById('f_city').value = a.city;
+  if (a.recipient_name)  document.getElementById('f_name').value = a.recipient_name;
+  if (a.recipient_phone) document.getElementById('f_phone').value = a.recipient_phone;
+  if (a.company_name)    document.getElementById('f_company').value = a.company_name;
+  if (a.company_tax_id)  document.getElementById('f_nip').value = a.company_tax_id;
+  document.getElementById('f_save_addr').checked = false; // already saved — no need to save again
+}
 
 // ── Summary ───────────────────────────────────────────────────────────────
 function renderSummary(items) {
@@ -298,6 +340,20 @@ async function placeOrder() {
   try {
     const order = await Api.createOrder(payload);
     Cart.save([]); // clear cart
+
+    if (document.getElementById('f_save_addr').checked) {
+      // Best-effort — a failure here shouldn't block the order the buyer already placed.
+      Api.createAddress({
+        label: `${street}, ${city}`,
+        recipient_name: name,
+        recipient_phone: phone,
+        street, zip_code: zip, city,
+        company_name: company || null,
+        company_tax_id: nip || null,
+        is_default: savedAddresses.length === 0,
+      }).catch(() => {});
+    }
+
     showSuccess(order.id);
   } catch (e) {
     showErr(e.message || 'Nie udało się złożyć zamówienia. Spróbuj ponownie.');

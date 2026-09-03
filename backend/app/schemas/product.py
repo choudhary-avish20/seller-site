@@ -162,6 +162,8 @@ class ProductResponse(BaseModel):
     category_slug: Optional[str] = None
     variants: List[ProductVariantResponse] = Field(default_factory=list)
     price_tiers: List[ProductPriceTierResponse] = Field(default_factory=list)
+    avg_rating: Optional[float] = None
+    review_count: int = 0
 
     @field_serializer('id', 'category_id')
     def ser_uuid(self, v: UUID) -> str:
@@ -199,6 +201,8 @@ class ProductListResponse(BaseModel):
     category_slug: Optional[str] = None
     purchase_count: Optional[int] = None
     price_tiers: List[ProductPriceTierResponse] = Field(default_factory=list)
+    avg_rating: Optional[float] = None
+    review_count: int = 0
 
     @field_serializer('id', 'category_id')
     def ser_uuid(self, v: UUID) -> str:

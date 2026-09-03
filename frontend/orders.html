@@ -37,6 +37,7 @@
   <div id="list"></div>
 </div>
 
+<div id="site-footer"></div>
 <script src="config.js"></script>
 <script src="js/app.js"></script>
 <script>
@@ -59,6 +60,7 @@ async function load(){
   }
 
   orders.sort((a,b)=> new Date(b.created_at) - new Date(a.created_at));
+  window._ordersCache = orders;
 
   list.innerHTML = orders.map(o=>{
     const d = new Date(o.created_at).toLocaleString('pl-PL', {dateStyle:'medium', timeStyle:'short'});
@@ -79,7 +81,10 @@ async function load(){
           <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #eee;font-weight:bold">
             <span>Razem brutto</span><span>${Number(o.total_gross).toFixed(2)} zł</span>
           </div>
-          ${canCancel ? `<div style="margin-top:10px;text-align:right"><button onclick="cancelOrder('${o.id}')" style="font-size:11px;color:#c00;background:none;border:1px solid #fca5a5;padding:5px 10px;cursor:pointer">Anuluj zamówienie</button></div>` : ''}
+          <div style="margin-top:10px;text-align:right;display:flex;gap:8px;justify-content:flex-end">
+            <button onclick="reorderAll('${o.id}')" style="font-size:11px;color:#0099cc;background:none;border:1px solid #99d6ec;padding:5px 10px;cursor:pointer">↻ Zamów ponownie</button>
+            ${canCancel ? `<button onclick="cancelOrder('${o.id}')" style="font-size:11px;color:#c00;background:none;border:1px solid #fca5a5;padding:5px 10px;cursor:pointer">Anuluj zamówienie</button>` : ''}
+          </div>
         </div>
       </div>`;
   }).join('');
@@ -92,6 +97,26 @@ async function cancelOrder(id){
     load();
   }catch(e){
     alert('Nie udało się anulować zamówienia: '+e.message);
+  }
+}
+
+async function reorderAll(orderId){
+  const order = (window._ordersCache||[]).find(o=>o.id===orderId);
+  if(!order) return;
+  let added = 0, skipped = 0;
+  for(const it of (order.items||[])){
+    try{
+      const p = await Api.getProductById(it.product_id);
+      if(!p.is_active){ skipped++; continue; }
+      Cart.add(p, it.pack_quantity);
+      added++;
+    }catch{ skipped++; }
+  }
+  if(added){
+    alert(`Dodano ${added} produkt${added>1?'y':''} do koszyka.` + (skipped?` (${skipped} niedostępnych pominięto)`:''));
+    location.href = 'cart.html';
+  } else {
+    alert('Nie udało się dodać żadnego produktu — mogły zostać usunięte lub zarchiwizowane.');
   }
 }
 

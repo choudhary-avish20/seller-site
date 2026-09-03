@@ -39,6 +39,7 @@ const API = (()=>{
     getCategoryTree:(p={})=>req('/categories/tree'+(p.include_inactive?'?include_inactive=true':'')),
     listProducts:(p={})=>{ const qs=new URLSearchParams(); if(p.search) qs.set('search',p.search); if(p.category_id) qs.set('category_id',p.category_id); if(p.limit) qs.set('limit',p.limit); if(p.include_inactive) qs.set('include_inactive','true'); if(p.bestseller) qs.set('bestseller','true'); if(p.popular) qs.set('popular','true'); if(p.on_sale) qs.set('on_sale','true'); if(p.sort) qs.set('sort',p.sort); const s=qs.toString()? '?'+qs.toString():''; return req('/products'+s); },
     getProductBySlug:(s)=>req('/products/slug/'+s),
+    getProductById:(id)=>req('/products/'+id),
     getCategoryBySlug:(s)=>req('/categories/by-slug/'+s),
     createOrder:(d)=>req('/orders',{method:'POST',body:JSON.stringify(d)}),
     listOrders:()=>req('/orders'),
@@ -58,6 +59,23 @@ const API = (()=>{
     // Admin seller management
     getPendingSellers:()=>req('/sellers/pending'),
     approveSeller:(id,d)=>req('/sellers/'+id+'/approve',{method:'POST',body:JSON.stringify(d)}),
+    // Admin buyer management
+    getAllBuyers:()=>req('/auth/buyers'),
+    getPendingBuyers:()=>req('/auth/buyers/pending'),
+    approveBuyer:(id,d)=>req('/auth/buyers/'+id+'/approve',{method:'POST',body:JSON.stringify(d)}),
+    // Wishlist
+    getWishlist:()=>req('/wishlist'),
+    addToWishlist:(productId)=>req('/wishlist/'+productId,{method:'POST'}),
+    removeFromWishlist:(productId)=>req('/wishlist/'+productId,{method:'DELETE'}),
+    // Saved delivery addresses
+    getAddresses:()=>req('/addresses'),
+    createAddress:(d)=>req('/addresses',{method:'POST',body:JSON.stringify(d)}),
+    setDefaultAddress:(id)=>req('/addresses/'+id+'/default',{method:'PATCH'}),
+    deleteAddress:(id)=>req('/addresses/'+id,{method:'DELETE'}),
+    // Product reviews
+    getReviews:(productId)=>req('/reviews/product/'+productId),
+    submitReview:(productId,d)=>req('/reviews/product/'+productId,{method:'POST',body:JSON.stringify(d)}),
+    deleteReview:(id)=>req('/reviews/'+id,{method:'DELETE'}),
     // Category CRUD (admin/seller only)
     createCategory:(d)=>req('/categories',{method:'POST',body:JSON.stringify(d)}),
     updateCategory:(id,d)=>req('/categories/'+id,{method:'PUT',body:JSON.stringify(d)}),
@@ -138,6 +156,50 @@ function updateCartUI(){
 }
 document.addEventListener('DOMContentLoaded', updateCartUI);
 
+// Wishlist — server-backed (requires login), with a client-side id cache so
+// heart icons across the storefront can render filled/outline without a
+// network round trip per card. toggle() sends the visitor to log in (and
+// back) if they aren't authenticated, the same pattern checkout.html uses.
+const Wishlist = {
+  _ids: null,
+  async ids(){
+    if(this._ids) return this._ids;
+    if(!localStorage.getItem('access_token')){ this._ids = new Set(); return this._ids; }
+    try{ const items = await Api.getWishlist(); this._ids = new Set(items.map(i=>i.product_id)); }
+    catch{ this._ids = new Set(); }
+    return this._ids;
+  },
+  async has(productId){ return (await this.ids()).has(productId); },
+  async toggle(productId){
+    if(!localStorage.getItem('access_token')){
+      const page = location.pathname.split('/').pop() || 'index.html';
+      location.href = 'login.html?next=' + encodeURIComponent(page + location.search);
+      return null;
+    }
+    const ids = await this.ids();
+    if(ids.has(productId)){ await Api.removeFromWishlist(productId); ids.delete(productId); return false; }
+    await Api.addToWishlist(productId); ids.add(productId); return true;
+  },
+};
+window.Wishlist = Wishlist;
+
+// Recently viewed products — per-browser, localStorage only, no backend
+// involved. product.html calls track() on load; index.html calls ids() to
+// render a strip. Newest first, deduped, capped at 8.
+const RecentlyViewed = {
+  key: 'recently_viewed_v1',
+  track(productId){
+    let ids = this.ids().filter(id => id !== productId);
+    ids.unshift(productId);
+    ids = ids.slice(0, 8);
+    try{ localStorage.setItem(this.key, JSON.stringify(ids)); }catch{}
+  },
+  ids(){
+    try{ return JSON.parse(localStorage.getItem(this.key) || '[]'); }catch{ return []; }
+  },
+};
+window.RecentlyViewed = RecentlyViewed;
+
 // auth helpers
 async function doLogout(){
   localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); localStorage.removeItem('user'); localStorage.removeItem('cart_v1');
@@ -168,24 +230,95 @@ window.safeNextUrl = safeNextUrl;
 async function renderAuthHeader(){
   const link = document.getElementById('top-login');
   const myOrders = document.getElementById('myOrdersLink');
-  if(!link && !myOrders) return null;
+  const wishlistLink = document.getElementById('wishlistNavLink');
+  if(!link && !myOrders && !wishlistLink) return null;
   const topUser = document.getElementById('topUser');
   const u = await refreshUser().catch(()=>null);
   if(u){
     if(link){ link.textContent = u.email+' • '+t('logout'); link.href='#'; link.onclick=()=>{doLogout();return false}; }
     if(topUser) topUser.textContent = u.full_name || u.email;
     if(myOrders) myOrders.style.display = u.role==='buyer' ? '' : 'none';
+    if(wishlistLink) wishlistLink.style.display = u.role==='buyer' ? '' : 'none';
   } else {
     if(link){ link.textContent = t('login'); link.href='login.html'; link.onclick=null; }
     if(topUser) topUser.textContent = '';
     if(myOrders) myOrders.style.display = 'none';
+    if(wishlistLink) wishlistLink.style.display = 'none';
   }
   return u;
 }
 document.addEventListener('DOMContentLoaded', renderAuthHeader);
 
+// Shared site footer + floating WhatsApp contact button. Every page includes
+// a single <div id="site-footer"></div> placeholder before </body>; this is
+// the one place that builds it, so footer links/content can't drift between
+// pages the way the old per-page header auth checks used to. No-ops safely
+// if the placeholder or the contact-info API call is missing.
+async function renderFooter(){
+  const el = document.getElementById('site-footer');
+  if(!el) return;
+  let s = {};
+  try{ s = await Api.getSettings(); }catch{}
+
+  el.innerHTML = `
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <h4>WolkaGo</h4>
+          <p>Hurtownia odzieży z Wólki Kosowskiej. Sprzedaż wyłącznie dla firm — płatność za pobraniem, dostawa własnym transportem.</p>
+          <div class="footer-badges">
+            <span class="footer-badge">💵 Płatność za pobraniem</span>
+            <span class="footer-badge">🚚 Własny transport</span>
+            <span class="footer-badge">🏢 Tylko B2B</span>
+          </div>
+        </div>
+        <div class="footer-col">
+          <h4>Sklep</h4>
+          <a href="index.html">Strona główna</a>
+          <a href="index.html?filter=sale">Wyprzedaż</a>
+          <a href="index.html?filter=bestseller">Bestsellery</a>
+          <a href="wishlist.html">Lista życzeń</a>
+          <a href="orders.html">Moje zamówienia</a>
+        </div>
+        <div class="footer-col">
+          <h4>Informacje</h4>
+          <a href="faq.html">FAQ</a>
+          <a href="shipping.html">Koszty i czas dostawy</a>
+          <a href="terms.html">Regulamin</a>
+          <a href="privacy.html">Polityka prywatności</a>
+          <a href="contact.html">Kontakt</a>
+        </div>
+        <div class="footer-col">
+          <h4>Kontakt</h4>
+          ${s.phone ? `<a href="tel:${esc(s.phone.replace(/[^\d+]/g,''))}">📞 ${esc(s.phone)}</a>` : ''}
+          ${s.email ? `<a href="mailto:${esc(s.email)}">✉️ ${esc(s.email)}</a>` : ''}
+          ${s.address ? `<p>📍 ${esc(s.address)}</p>` : ''}
+          ${s.working_hours ? `<p>🕒 ${esc(s.working_hours)}</p>` : ''}
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© ${new Date().getFullYear()} WolkaGo. Wszystkie prawa zastrzeżone.</span>
+        <span>Zbudowane na FastAPI + Python</span>
+      </div>
+    </div>`;
+
+  if(s.whatsapp_number && !document.getElementById('waFloat')){
+    const a = document.createElement('a');
+    a.id = 'waFloat';
+    a.className = 'wa-float';
+    a.href = 'https://wa.me/' + s.whatsapp_number.replace(/[^\d]/g,'');
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.title = 'Napisz do nas na WhatsApp';
+    a.textContent = '💬';
+    document.body.appendChild(a);
+  }
+}
+document.addEventListener('DOMContentLoaded', renderFooter);
+
 window.Cart = Cart;
 window.doLogout = doLogout;
 window.refreshUser = refreshUser;
 window.renderAuthHeader = renderAuthHeader;
+window.renderFooter = renderFooter;
 window.updateCartUI = updateCartUI;
