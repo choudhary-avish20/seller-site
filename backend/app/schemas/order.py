@@ -29,6 +29,7 @@ class OrderCreate(BaseModel):
     recipient_phone: Optional[str] = Field(None, max_length=32)
     recipient_address: Optional[str] = Field(None, max_length=1000)
     payment_method: PaymentMethod = Field(default=PaymentMethod.cod, description="Only COD for MVP")
+    coupon_code: Optional[str] = Field(None, max_length=64)
 
 
 class OrderItemResponse(BaseModel):
@@ -69,6 +70,8 @@ class OrderResponse(BaseModel):
     recipient_phone: Optional[str]
     recipient_address: Optional[str]
     payment_method: PaymentMethod
+    coupon_code: Optional[str] = None
+    discount_amount: float = 0
     created_at: datetime
     updated_at: datetime
     items: List[OrderItemResponse] = Field(default_factory=list)
