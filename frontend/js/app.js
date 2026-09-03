@@ -112,6 +112,31 @@ function plPluralPL(n, one, few, many){
 }
 window.plPluralPL = plPluralPL;
 
+// Plain, navigable category sidebar — for any page that just needs to link
+// out to the filtered catalogue (index.html's own #catList is a richer,
+// filter-in-place version with its own selectCat()/expand logic and stays
+// there). The "+"/"−" toggle only expands to reveal subcategories; clicking
+// a category name always navigates to index.html filtered by that category
+// — and, since the backend now expands a parent category filter to include
+// every descendant's products, a parent category page is never empty just
+// because products live on its subcategories rather than on it directly.
+function renderSidebarCategories(tree, containerId){
+  const el = document.getElementById(containerId || 'catList');
+  if(!el) return;
+  function row(n, depth){
+    const pad = 8 + depth*10;
+    const hasChildren = n.children && n.children.length;
+    let h = `<div class="cat-item" style="padding-left:${pad}px">
+      <a href="index.html?category_id=${encodeURIComponent(n.id)}" style="flex:1;color:inherit;text-decoration:none">${esc(n.name)}</a>
+      ${hasChildren ? `<span class="plus" onclick="event.preventDefault();const sub=this.parentElement.nextElementSibling;sub.classList.toggle('open');this.textContent=sub.classList.contains('open')?'−':'+'">+</span>` : ''}
+    </div>`;
+    if(hasChildren) h += `<div class="sub">${n.children.map(c=>row(c, depth+1)).join('')}</div>`;
+    return h;
+  }
+  el.innerHTML = tree.slice(0,12).map(n=>row(n, 0)).join('');
+}
+window.renderSidebarCategories = renderSidebarCategories;
+
 // i18n
 const I18N={
   pl:{b2b:'B2B only — zamówienia dla podmiotów gospodarczych',cat:'Kategorie',sale:'WYPRZEDAŻ',new:'Nowości',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Szukaj — nazwa produktu, kategoria...',search:'Szukaj',cart:'Koszyk',net:'net',gross:'gross',pack:'w paczce:',add:'Dodaj do koszyka',login:'Zaloguj się',logout:'Wyloguj',signup:'Rejestracja',contact:'Kontakt z nami',signinReminderTitle:'Zapisz swoje zamówienia i ulubione',signinReminderBody:'Zaloguj się, aby zachować listę życzeń i łatwiej zarządzać zamówieniami hurtowymi.',signinReminderCta:'Zaloguj się',signinReminderLater:'Może później'},

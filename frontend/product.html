@@ -171,7 +171,7 @@ async function load(){
   const slug=new URLSearchParams(location.search).get('slug') || location.hash.slice(1);
   if(!slug){ document.getElementById('info').innerHTML='No slug'; return; }
   const tree=await Api.getCategoryTree().catch(()=>[]);
-  document.getElementById('catList').innerHTML = tree.slice(0,12).map(n=>`<div class="cat-item"><span>${esc(n.name)}</span><span class="plus">+</span></div>`).join('');
+  renderSidebarCategories(tree);
   try{
     const p=await Api.getProductBySlug(slug);
     document.getElementById('crumb-current').textContent=p.name;
