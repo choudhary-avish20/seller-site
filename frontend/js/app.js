@@ -104,7 +104,7 @@ window.getImageUrl = (u)=> (API.img ? API.img(u) : (u && u.startsWith('/') ? API
 
 // i18n
 const I18N={
-  pl:{b2b:'B2B only — zamówienia dla podmiotów gospodarczych',cat:'Kategorie',sale:'WYPRZEDAŻ',new:'Nowości',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Szukaj — nazwa produktu, kategoria...',search:'Szukaj',cart:'Koszyk',net:'net',gross:'gross',pack:'w paczce:',add:'Add to cart',login:'Zaloguj się',logout:'Wyloguj',signup:'Rejestracja'},
+  pl:{b2b:'B2B only — zamówienia dla podmiotów gospodarczych',cat:'Kategorie',sale:'WYPRZEDAŻ',new:'Nowości',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Szukaj — nazwa produktu, kategoria...',search:'Szukaj',cart:'Koszyk',net:'net',gross:'gross',pack:'w paczce:',add:'Dodaj do koszyka',login:'Zaloguj się',logout:'Wyloguj',signup:'Rejestracja'},
   en:{b2b:'B2B only — orders for business entities',cat:'Categories',sale:'SALE',new:'NEWS',popular:'POPULAR',promo:'PROMOTIONS',searchPh:'Search — product, category...',search:'Search',cart:'Cart',net:'net',gross:'gross',pack:'in a package:',add:'Add to cart',login:'Sign in',logout:'Sign out',signup:'Sign up'}
 };
 let lang=localStorage.getItem('lang')||(navigator.language.startsWith('pl')?'pl':'pl');
@@ -253,8 +253,8 @@ function renderProductCard(p){
   let badge;
   if(showSale && p.discount_percent) badge = `<span class="pill pill-sale">-${p.discount_percent}%</span>`;
   else if(p.is_bestseller) badge = `<span class="pill">Bestseller</span>`;
-  else if(p.is_popular) badge = `<span class="pill">Popular</span>`;
-  else badge = `<span class="pill">New</span>`;
+  else if(p.is_popular) badge = `<span class="pill">Popularne</span>`;
+  else badge = `<span class="pill">Nowość</span>`;
 
   const netGross = showSale
     ? `<div><s>${Number(p.price_net).toFixed(2)} PLN</s> <b style="color:var(--sale)">${Number(p.sale_price_net).toFixed(2)} PLN</b> netto</div>
@@ -281,7 +281,7 @@ function renderProductCard(p){
       <input id="qty-${p.id}" value="${inc}" data-inc="${inc}" inputmode="numeric">
       <button onclick="cardChg('${p.id}',1)" aria-label="Zwiększ ilość">+</button>
     </div>
-    <button class="add" onclick="cardAddToCart('${p.id}')" ${out?'disabled style="opacity:.5;cursor:not-allowed"':''}>${out?'Niedostępny':'Add to cart'}</button>
+    <button class="add" onclick="cardAddToCart('${p.id}')" ${out?'disabled style="opacity:.5;cursor:not-allowed"':''}>${out?'Niedostępny':'Dodaj do koszyka'}</button>
   </div>`;
 }
 
@@ -572,17 +572,20 @@ async function renderFooter(){
   let s = {};
   try{ s = await Api.getSettings(); }catch{}
 
+  // Trust strip: only genuinely true claims this store actually supports —
+  // no invented "free returns" / "24h shipping" marketing fluff.
   el.innerHTML = `
-    <div class="container">
+    <div class="trust-strip"><div class="container">
+      <div class="trust-item"><span class="ico">🏢</span><span>Sprzedaż wyłącznie B2B</span></div>
+      <div class="trust-item"><span class="ico">🤝</span><span>Wsparcie dla firm</span></div>
+      <div class="trust-item"><span class="ico">🚚</span><span>Dostawa własnym transportem</span></div>
+      <div class="trust-item"><span class="ico">🔒</span><span>Bezpieczne zamówienia online</span></div>
+    </div></div>
+    <div class="footer-main"><div class="container">
       <div class="footer-grid">
         <div class="footer-col">
           <h4>WolkaGo</h4>
           <p>Hurtownia odzieży z Wólki Kosowskiej. Sprzedaż wyłącznie dla firm — płatność za pobraniem, dostawa własnym transportem.</p>
-          <div class="footer-badges">
-            <span class="footer-badge">💵 Płatność za pobraniem</span>
-            <span class="footer-badge">🚚 Własny transport</span>
-            <span class="footer-badge">🏢 Tylko B2B</span>
-          </div>
         </div>
         <div class="footer-col">
           <h4>Sklep</h4>
@@ -593,7 +596,7 @@ async function renderFooter(){
           <a href="orders.html">Moje zamówienia</a>
         </div>
         <div class="footer-col">
-          <h4>Informacje</h4>
+          <h4>Obsługa klienta</h4>
           <a href="faq.html">FAQ</a>
           <a href="shipping.html">Koszty i czas dostawy</a>
           <a href="terms.html">Regulamin</a>
@@ -610,9 +613,8 @@ async function renderFooter(){
       </div>
       <div class="footer-bottom">
         <span>© ${new Date().getFullYear()} WolkaGo. Wszystkie prawa zastrzeżone.</span>
-        <span>Zbudowane na FastAPI + Python</span>
       </div>
-    </div>`;
+    </div></div>`;
 
   if(s.whatsapp_number && !document.getElementById('waFloat')){
     const a = document.createElement('a');
