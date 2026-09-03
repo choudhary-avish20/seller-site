@@ -319,7 +319,8 @@ def get_order(
 _ALLOWED_STATUS_TRANSITIONS = {
     OrderStatus.pending: {OrderStatus.confirmed, OrderStatus.cancelled},
     OrderStatus.confirmed: {OrderStatus.shipped, OrderStatus.cancelled},
-    OrderStatus.shipped: {OrderStatus.delivered, OrderStatus.cancelled},
+    OrderStatus.shipped: {OrderStatus.out_for_delivery, OrderStatus.cancelled},
+    OrderStatus.out_for_delivery: {OrderStatus.delivered, OrderStatus.cancelled},
     OrderStatus.delivered: set(),
     OrderStatus.cancelled: set(),
 }
@@ -369,7 +370,7 @@ async def update_order_status(
         resp.buyer_full_name = buyer.full_name
 
     # Send status-change email to the buyer when seller marks delivered or cancelled
-    notify_statuses = {OrderStatus.delivered, OrderStatus.cancelled, OrderStatus.confirmed, OrderStatus.shipped}
+    notify_statuses = {OrderStatus.delivered, OrderStatus.cancelled, OrderStatus.confirmed, OrderStatus.shipped, OrderStatus.out_for_delivery}
     if buyer and old_status != order.status and order.status in notify_statuses:
         try:
             await send_order_status_email(
