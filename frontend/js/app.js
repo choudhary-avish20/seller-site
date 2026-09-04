@@ -242,7 +242,7 @@ const Wishlist = {
   async toggle(productId){
     if(!localStorage.getItem('access_token')){
       const page = location.pathname.split('/').pop() || 'index.html';
-      location.href = 'login.html?next=' + encodeURIComponent(page + location.search);
+      location.href = API_BASE + '/login.html?next=' + encodeURIComponent(page + location.search);
       return null;
     }
     const ids = await this.ids();
@@ -499,7 +499,7 @@ function showSignInReminder(){
     <div class="signin-reminder-title">${esc(t('signinReminderTitle'))}</div>
     <div class="signin-reminder-body">${esc(t('signinReminderBody'))}</div>
     <div class="signin-reminder-actions">
-      <a class="signin-reminder-cta" href="login.html">${esc(t('signinReminderCta'))}</a>
+      <a class="signin-reminder-cta" href="${API_BASE}/login.html">${esc(t('signinReminderCta'))}</a>
       <button type="button" class="signin-reminder-later">${esc(t('signinReminderLater'))}</button>
     </div>`;
   document.body.appendChild(el);
@@ -516,7 +516,9 @@ window.initSignInReminder = initSignInReminder;
 // auth helpers
 async function doLogout(){
   localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); localStorage.removeItem('user'); localStorage.removeItem('cart_v1');
-  location.href='login.html';
+  // Use the resolved backend base so logout always lands on the correct host,
+  // not the static frontend host if the page happens to be served from there.
+  location.href = API_BASE + '/login.html';
 }
 async function refreshUser(){
   const tok=localStorage.getItem('access_token'); if(!tok) return null;
@@ -700,7 +702,7 @@ function renderAccountMenu(u){
   if(!slot) return;
 
   if(!u){
-    slot.innerHTML = `<a href="login.html" class="cart" aria-label="Zaloguj się">
+    slot.innerHTML = `<a href="${API_BASE}/login.html" class="cart" aria-label="Zaloguj się">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>
       <span class="cart-copy">
         <span class="cart-label">Konto</span>

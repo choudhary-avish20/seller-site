@@ -222,6 +222,98 @@ Zespół WolkaGo"""
             _html_wrap(f"Potwierdzenie zamówienia #{order_short}", body_html),
         )
 
+    async def send_order_cancellation(
+        self,
+        to_email: EmailStr,
+        full_name: str,
+        order,
+    ) -> bool:
+        """Dedicated cancellation email — includes the full item list and totals
+        so the buyer can see exactly what was cancelled."""
+        order_short = str(order.id)[:8].upper()
+        subject = f"Zamówienie anulowane #{order_short} — WolkaGo"
+
+        rows_text = []
+        rows_html = []
+        for item in order.items:
+            line_net = float(item.price_net_snapshot) * item.pack_quantity
+            rows_text.append(
+                f"  • {item.product_name_snapshot} "
+                f"(pak {item.pack_size_snapshot} szt.) "
+                f"× {item.pack_quantity} = {line_net:.2f} zł netto"
+            )
+            rows_html.append(
+                f"<tr>"
+                f"<td style='padding:7px 10px;border-bottom:1px solid #eee'>{item.product_name_snapshot}</td>"
+                f"<td style='padding:7px 10px;border-bottom:1px solid #eee;text-align:center'>{item.pack_size_snapshot}</td>"
+                f"<td style='padding:7px 10px;border-bottom:1px solid #eee;text-align:center'>{item.pack_quantity}</td>"
+                f"<td style='padding:7px 10px;border-bottom:1px solid #eee;text-align:right'>{float(item.price_net_snapshot):.2f} zł</td>"
+                f"<td style='padding:7px 10px;border-bottom:1px solid #eee;text-align:right'><strong>{line_net:.2f} zł</strong></td>"
+                f"</tr>"
+            )
+
+        items_text = "\n".join(rows_text)
+        items_html = "".join(rows_html)
+
+        text_body = f"""Zamówienie anulowane #{order_short}
+
+Witaj {full_name},
+
+Twoje zamówienie #{order_short} zostało anulowane.
+
+Anulowane produkty:
+{items_text}
+
+Razem netto : {float(order.total_net):.2f} zł
+Razem brutto: {float(order.total_gross):.2f} zł
+
+Jeśli uważasz, że to pomyłka lub masz pytania, skontaktuj się z nami:
+📞 +48 579 383 945
+
+Pozdrawiamy,
+Zespół WolkaGo"""
+
+        body_html = f"""
+<p>Witaj <strong>{full_name}</strong>,</p>
+<p>Informujemy, że Twoje zamówienie zostało <strong style="color:#991b1b">anulowane</strong>.</p>
+
+<div style="background:#fef2f2;border-left:4px solid #991b1b;padding:10px 16px;margin:16px 0;font-size:13px">
+  Nr zamówienia: <strong style="font-family:monospace">{order_short}</strong>
+</div>
+
+<h3 style="font-size:13px;margin:20px 0 8px">Anulowane produkty</h3>
+<table style="width:100%;border-collapse:collapse;font-size:12px">
+  <tr style="background:#f0f0f0">
+    <th style="padding:7px 10px;text-align:left">Produkt</th>
+    <th style="padding:7px 10px;text-align:center">Pak</th>
+    <th style="padding:7px 10px;text-align:center">Ilość</th>
+    <th style="padding:7px 10px;text-align:right">Cena netto</th>
+    <th style="padding:7px 10px;text-align:right">Razem</th>
+  </tr>
+  {items_html}
+</table>
+
+<table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0">
+  <tr>
+    <td style="padding:6px 10px;font-weight:bold">Razem netto</td>
+    <td style="padding:6px 10px;text-align:right;font-weight:bold">{float(order.total_net):.2f} zł</td>
+  </tr>
+  <tr style="background:#f5f5f5">
+    <td style="padding:6px 10px">Razem brutto</td>
+    <td style="padding:6px 10px;text-align:right">{float(order.total_gross):.2f} zł</td>
+  </tr>
+</table>
+
+<p style="font-size:12px;color:#555;margin-top:20px">
+  Jeśli uważasz, że to pomyłka lub masz pytania, zadzwoń do nas:<br>
+  <strong>+48 579 383 945</strong>
+</p>"""
+
+        return await self._send(
+            to_email, subject, text_body,
+            _html_wrap(f"Zamówienie anulowane #{order_short}", body_html, "#991b1b"),
+        )
+
     async def send_order_status_email(
         self,
         to_email: EmailStr,
@@ -391,6 +483,10 @@ async def send_order_confirmation_email(to_email: EmailStr, full_name: str, orde
 
 async def send_order_status_email(to_email: EmailStr, full_name: str, order_id: str, new_status: str) -> bool:
     return await email_service.send_order_status_email(to_email, full_name, order_id, new_status)
+
+
+async def send_order_cancellation_email(to_email: EmailStr, full_name: str, order) -> bool:
+    return await email_service.send_order_cancellation(to_email, full_name, order)
 
 
 async def send_product_archived_email(

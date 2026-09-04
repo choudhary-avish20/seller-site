@@ -20,7 +20,7 @@ from app.models.product_variant import ProductVariant
 from app.models.product_price_tier import ProductPriceTier
 from app.models.user import User, UserRole
 from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
-from app.services.email import send_verification_email, send_order_confirmation_email, send_order_status_email
+from app.services.email import send_verification_email, send_order_confirmation_email, send_order_status_email, send_order_cancellation_email
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -369,16 +369,24 @@ async def update_order_status(
         resp.buyer_email = buyer.email
         resp.buyer_full_name = buyer.full_name
 
-    # Send status-change email to the buyer when seller marks delivered or cancelled
+    # Send status-change email to the buyer
     notify_statuses = {OrderStatus.delivered, OrderStatus.cancelled, OrderStatus.confirmed, OrderStatus.shipped, OrderStatus.out_for_delivery}
     if buyer and old_status != order.status and order.status in notify_statuses:
         try:
-            await send_order_status_email(
-                buyer.email,
-                buyer.full_name,
-                str(order.id),
-                order.status.value,
-            )
+            if order.status == OrderStatus.cancelled:
+                # Dedicated cancellation email — includes full item list and totals
+                await send_order_cancellation_email(
+                    buyer.email,
+                    buyer.full_name,
+                    order,
+                )
+            else:
+                await send_order_status_email(
+                    buyer.email,
+                    buyer.full_name,
+                    str(order.id),
+                    order.status.value,
+                )
         except Exception as e:
             import logging
             logging.getLogger(__name__).error(
