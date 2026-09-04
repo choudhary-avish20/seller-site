@@ -28,19 +28,20 @@ services:
       - key: DEBUG
         value: "false"
 
-      # ── Single-service deploy: this backend also serves the frontend (see
-      # app/main.py's StaticFiles mount), so the browser's requests are
-      # same-origin and CORS_ORIGINS is mostly a no-op safety net rather than
-      # something that needs to list a separate frontend host. Set both of
-      # these to this service's own public URL after your first deploy —
-      # Render shows it in the dashboard once the service exists.
-      # Example: https://seller-site-backend.onrender.com
+      # ── Split-service deploy: backend on seller-site-2, frontend on seller-site-frontend
+      # CORS must allow the frontend origin so browser API calls aren't blocked.
       - key: CORS_ORIGINS
-        value: '["https://your-service-name.onrender.com"]'
+        value: '["https://seller-site-frontend.onrender.com"]'
 
-      # ── Public URL (used in email verification links) ────────────────────
+      # ── URLs used in email links and backend redirects ────────────────────
+      # BACKEND_BASE_URL: verification emails link here so the token is consumed
+      # server-side (/api/v1/auth/verify-email?token=...) before redirecting.
+      - key: BACKEND_BASE_URL
+        value: https://seller-site-2.onrender.com
+
+      # FRONTEND_BASE_URL: where the backend redirects the browser after verifying.
       - key: FRONTEND_BASE_URL
-        value: https://your-service-name.onrender.com
+        value: https://seller-site-frontend.onrender.com
 
       # ── Token expiry (optional, defaults shown) ───────────────────────────
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
