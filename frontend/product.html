@@ -19,7 +19,7 @@
 .pd-zoom-hint{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity var(--t-fast);pointer-events:none}
 .pd-img-box:hover .pd-zoom-hint{opacity:1}
 .pd-thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.pd-thumbs img{width:60px;height:60px;object-fit:cover;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;transition:border-color var(--t-fast)}
+.pd-thumbs img{width:60px;height:60px;object-fit:cover;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;transition:border-color var(--t-fast);flex-shrink:0}
 .pd-thumbs img:hover{border-color:var(--border-strong)}
 .pd-thumbs img.active{border-color:var(--accent)}
 
@@ -76,14 +76,20 @@
 .reco-row .card{flex:0 0 235px;scroll-snap-align:start}
 @media(max-width:600px){.reco-row .card{flex:0 0 195px}}
 
-.pd-sticky-bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -6px 20px rgba(0,0,0,.08);z-index:45;transform:translateY(100%);transition:transform var(--t-base) ease;padding:12px 0}
+.pd-sticky-bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -6px 20px rgba(0,0,0,.08);z-index:45;transform:translateY(100%);transition:transform var(--t-base) ease;padding:12px 0 max(12px, env(safe-area-inset-bottom))}
 .pd-sticky-bar.visible{transform:translateY(0)}
 .pd-sticky-inner{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .pd-sticky-info{display:flex;flex-direction:column;min-width:0}
 .pd-sticky-name{font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
 .pd-sticky-price{font-size:13.5px;font-weight:700;color:var(--text-primary)}
 .pd-sticky-cta{width:auto;padding:11px 28px;flex-shrink:0}
+@media(max-width:700px){
+  .pd-thumbs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
+  .pd-thumbs::-webkit-scrollbar{display:none}
+  .pd-section-head{flex-wrap:wrap;gap:6px}
+}
 @media(max-width:600px){.pd-sticky-name{max-width:150px}.pd-sticky-cta{padding:11px 16px;font-size:13px}}
+body.has-sticky-bar{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
 
 .pd-zoom-overlay{display:none;position:fixed;inset:0;background:rgba(10,10,10,.9);z-index:99;align-items:center;justify-content:center;padding:30px;cursor:zoom-out}
 .pd-zoom-overlay img{max-width:90vw;max-height:88vh;background:#fff;border-radius:4px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
@@ -284,7 +290,9 @@ async function load(){
       const stickyBar = document.getElementById('pdStickyBar');
       new IntersectionObserver((entries)=>{
         const entry = entries[0];
-        stickyBar.classList.toggle('visible', !entry.isIntersecting && entry.boundingClientRect.top < 0);
+        const show = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        stickyBar.classList.toggle('visible', show);
+        document.body.classList.toggle('has-sticky-bar', show);
       }, { threshold: 0 }).observe(document.getElementById('addBtn'));
     }
     document.getElementById('more').textContent = p.description || 'Brak opisu produktu.';
