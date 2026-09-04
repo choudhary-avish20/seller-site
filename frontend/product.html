@@ -18,8 +18,21 @@
 .pd-img-box:hover img{transform:scale(1.035)}
 .pd-zoom-hint{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity var(--t-fast);pointer-events:none}
 .pd-img-box:hover .pd-zoom-hint{opacity:1}
+
+/* Gallery slideshow — prev/next arrows + dots, shown only when a product
+   has more than one image (see showImage()/buildGalleryNav() below). Reuses
+   the same p.images array the thumbnail row already renders from. */
+.pd-img-nav{position:absolute;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.92);border:0;box-shadow:var(--shadow-sm);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;color:var(--text-primary);opacity:0;transition:opacity var(--t-fast);z-index:3}
+.pd-img-box:hover .pd-img-nav{opacity:1}
+.pd-img-nav.prev{left:10px}
+.pd-img-nav.next{right:10px}
+.pd-img-dots{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:6px;z-index:3}
+.pd-img-dot{width:6px;height:6px;border-radius:50%;background:rgba(0,0,0,.25);border:0;padding:0;cursor:pointer}
+.pd-img-dot.active{background:var(--accent)}
+@media(max-width:760px){.pd-img-nav{opacity:1}}
+
 .pd-thumbs{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
-.pd-thumbs img{width:60px;height:60px;object-fit:cover;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;transition:border-color var(--t-fast)}
+.pd-thumbs img{width:60px;height:60px;object-fit:cover;border-radius:var(--radius-sm);border:2px solid var(--border);cursor:pointer;transition:border-color var(--t-fast);flex-shrink:0}
 .pd-thumbs img:hover{border-color:var(--border-strong)}
 .pd-thumbs img.active{border-color:var(--accent)}
 
@@ -76,14 +89,20 @@
 .reco-row .card{flex:0 0 235px;scroll-snap-align:start}
 @media(max-width:600px){.reco-row .card{flex:0 0 195px}}
 
-.pd-sticky-bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -6px 20px rgba(0,0,0,.08);z-index:45;transform:translateY(100%);transition:transform var(--t-base) ease;padding:12px 0}
+.pd-sticky-bar{position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -6px 20px rgba(0,0,0,.08);z-index:45;transform:translateY(100%);transition:transform var(--t-base) ease;padding:12px 0 max(12px, env(safe-area-inset-bottom))}
 .pd-sticky-bar.visible{transform:translateY(0)}
 .pd-sticky-inner{display:flex;align-items:center;justify-content:space-between;gap:16px}
 .pd-sticky-info{display:flex;flex-direction:column;min-width:0}
 .pd-sticky-name{font-size:12.5px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
 .pd-sticky-price{font-size:13.5px;font-weight:700;color:var(--text-primary)}
 .pd-sticky-cta{width:auto;padding:11px 28px;flex-shrink:0}
+@media(max-width:700px){
+  .pd-thumbs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;padding-bottom:2px}
+  .pd-thumbs::-webkit-scrollbar{display:none}
+  .pd-section-head{flex-wrap:wrap;gap:6px}
+}
 @media(max-width:600px){.pd-sticky-name{max-width:150px}.pd-sticky-cta{padding:11px 16px;font-size:13px}}
+body.has-sticky-bar{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
 
 .pd-zoom-overlay{display:none;position:fixed;inset:0;background:rgba(10,10,10,.9);z-index:99;align-items:center;justify-content:center;padding:30px;cursor:zoom-out}
 .pd-zoom-overlay img{max-width:90vw;max-height:88vh;background:#fff;border-radius:4px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
@@ -117,6 +136,9 @@
       <div class="badge-row" style="position:absolute;top:10px;left:10px"><span class="pill" id="detailRibbon">New</span></div>
       <img id="mainImg" src="" alt="" style="min-height:260px">
       <div class="pd-zoom-hint">🔍 Kliknij, aby powiększyć</div>
+      <button class="pd-img-nav prev" id="galPrev" style="display:none" onclick="event.stopPropagation();stepImage(-1)">‹</button>
+      <button class="pd-img-nav next" id="galNext" style="display:none" onclick="event.stopPropagation();stepImage(1)">›</button>
+      <div class="pd-img-dots" id="galDots"></div>
     </div>
     <div class="pd-thumbs" id="thumbRow"></div>
   </div>
@@ -161,12 +183,49 @@
 <div id="zoom" class="pd-zoom-overlay" onclick="closeZoom()">
   <img id="zoomImg" alt="">
   <button class="pd-zoom-close" onclick="event.stopPropagation();closeZoom()">×</button>
+  <button class="pd-img-nav prev" id="zoomPrev" style="left:18px;opacity:1" onclick="event.stopPropagation();stepImage(-1)">‹</button>
+  <button class="pd-img-nav next" id="zoomNext" style="right:18px;opacity:1" onclick="event.stopPropagation();stepImage(1)">›</button>
 </div>
 
 <div id="site-footer"></div>
 <script src="config.js"></script>
 <script src="js/app.js"></script>
 <script>
+// Product image gallery/slideshow state — shared by the main image, the
+// thumbnail row, the dot indicators and the zoom overlay, all of which just
+// call showImage()/stepImage() rather than tracking their own index.
+let galleryImages = [''];
+let galIdx = 0;
+function showImage(i){
+  galIdx = ((i % galleryImages.length) + galleryImages.length) % galleryImages.length;
+  const src = Api.img(galleryImages[galIdx]);
+  document.getElementById('mainImg').src = src;
+  document.querySelectorAll('#thumbRow img').forEach((t,idx)=>t.classList.toggle('active', idx===galIdx));
+  document.querySelectorAll('#galDots .pd-img-dot').forEach((d,idx)=>d.classList.toggle('active', idx===galIdx));
+  if(document.getElementById('zoom').style.display==='flex') document.getElementById('zoomImg').src = src;
+}
+function stepImage(dir){ showImage(galIdx+dir); }
+window.showImage = showImage;
+window.stepImage = stepImage;
+
+// Swipe support for the main image and the zoom overlay — no library, just
+// a touchstart/touchend delta.
+(function(){
+  let touchX = null;
+  function onStart(e){ touchX = e.touches[0].clientX; }
+  function onEnd(e){
+    if(touchX==null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if(Math.abs(dx) > 40) stepImage(dx > 0 ? -1 : 1);
+    touchX = null;
+  }
+  ['imgBox','zoom'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', onStart, {passive:true});
+    el.addEventListener('touchend', onEnd, {passive:true});
+  });
+})();
+
 async function load(){
   const slug=new URLSearchParams(location.search).get('slug') || location.hash.slice(1);
   if(!slug){ document.getElementById('info').innerHTML='No slug'; return; }
@@ -184,18 +243,19 @@ async function load(){
     const ribbonEl = document.getElementById('detailRibbon');
     if(p.is_on_sale && p.discount_percent){ ribbonEl.textContent = `-${p.discount_percent}%`; ribbonEl.classList.add('pill-sale'); }
     else { ribbonEl.textContent = p.is_bestseller ? 'Bestseller' : (p.is_popular ? 'Popularne' : 'Nowość'); ribbonEl.classList.remove('pill-sale'); }
-    document.getElementById('mainImg').src=Api.img(p.images[0]||'');
-    if(p.images && p.images.length>1){
-      document.getElementById('thumbRow').innerHTML = p.images.map((u,i)=>
-        `<img src="${esc(Api.img(u))}" data-i="${i}" class="${i===0?'active':''}" onclick="selectThumb(this)">`
+    galleryImages = (p.images && p.images.length) ? p.images : [''];
+    galIdx = 0;
+    document.getElementById('mainImg').src = Api.img(galleryImages[0]);
+    if(galleryImages.length>1){
+      document.getElementById('thumbRow').innerHTML = galleryImages.map((u,i)=>
+        `<img src="${esc(Api.img(u))}" data-i="${i}" class="${i===0?'active':''}" onclick="showImage(${i})">`
       ).join('');
+      document.getElementById('galDots').innerHTML = galleryImages.map((_,i)=>
+        `<button class="pd-img-dot${i===0?' active':''}" type="button" onclick="event.stopPropagation();showImage(${i})" aria-label="Zdjęcie ${i+1}"></button>`
+      ).join('');
+      document.getElementById('galPrev').style.display = 'flex';
+      document.getElementById('galNext').style.display = 'flex';
     }
-    window.selectThumb=(el)=>{
-      const u = p.images[Number(el.dataset.i)];
-      document.getElementById('mainImg').src=Api.img(u);
-      document.querySelectorAll('#thumbRow img').forEach(t=>t.classList.remove('active'));
-      el.classList.add('active');
-    };
     // tiered table
     let tierRows='';
     if(p.price_tiers && p.price_tiers.length){
@@ -284,7 +344,9 @@ async function load(){
       const stickyBar = document.getElementById('pdStickyBar');
       new IntersectionObserver((entries)=>{
         const entry = entries[0];
-        stickyBar.classList.toggle('visible', !entry.isIntersecting && entry.boundingClientRect.top < 0);
+        const show = !entry.isIntersecting && entry.boundingClientRect.top < 0;
+        stickyBar.classList.toggle('visible', show);
+        document.body.classList.toggle('has-sticky-bar', show);
       }, { threshold: 0 }).observe(document.getElementById('addBtn'));
     }
     document.getElementById('more').textContent = p.description || 'Brak opisu produktu.';
@@ -408,12 +470,21 @@ function openZoom(){
   if(!s) return;
   document.getElementById('zoomImg').src = s;
   document.getElementById('zoom').style.display = 'flex';
+  const show = galleryImages.length > 1;
+  document.getElementById('zoomPrev').style.display = show ? 'flex' : 'none';
+  document.getElementById('zoomNext').style.display = show ? 'flex' : 'none';
 }
 function closeZoom(){
   document.getElementById('zoom').style.display = 'none';
 }
 document.getElementById('imgBox')?.addEventListener('click', openZoom);
-document.addEventListener('keydown', e => { if(e.key === 'Escape') closeZoom(); });
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape') closeZoom();
+  if(document.getElementById('zoom').style.display === 'flex'){
+    if(e.key === 'ArrowLeft') stepImage(-1);
+    if(e.key === 'ArrowRight') stepImage(1);
+  }
+});
 
 load();
 

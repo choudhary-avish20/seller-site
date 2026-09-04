@@ -218,6 +218,10 @@ function updateCartUI(){
   const c=Cart.count(); const t=Cart.totals();
   document.querySelectorAll('[data-cart-count]').forEach(e=>e.textContent=c);
   document.querySelectorAll('[data-cart-net]').forEach(e=>e.textContent=t.net.toFixed(2)+' zł');
+  // Compact mobile header collapses the cart box down to an icon + small
+  // corner badge (see style.css @media(max-width:480px)) — data-badge carries
+  // the same count already shown in the desktop text label, no separate state.
+  document.querySelectorAll('.cart:not(.acct-trigger)').forEach(e=>e.setAttribute('data-badge', c));
 }
 document.addEventListener('DOMContentLoaded', updateCartUI);
 
@@ -549,10 +553,94 @@ async function renderAuthHeader(){
   if(myOrders) myOrders.style.display = (u && u.role==='buyer') ? '' : 'none';
   renderAccountMenu(u);
   renderWishlistMenu(u);
+  renderMobileNav(u);
   initSignInReminder(u);
   return u;
 }
 document.addEventListener('DOMContentLoaded', renderAuthHeader);
+
+// ── Mobile hamburger + drawer ────────────────────────────────────────────
+// Below 760px the permanent `.sidebar` category list (see style.css) and the
+// full `.catnav` row don't fit the header, so this injects one hamburger
+// button + slide-in drawer per page instead of duplicating that markup across
+// every HTML file. Built once per page load; later calls (e.g. the PL/EN
+// toggle re-running renderAuthHeader()) just refresh the "Moje zamówienia"
+// visibility rather than rebuilding the drawer. No-ops on pages without a
+// `.header .container` (the plain auth pages don't get one — nothing to
+// browse from a login form that isn't already reachable from the topbar).
+function renderMobileNav(u){
+  const headerContainer = document.querySelector('.header .container');
+  if(!headerContainer) return;
+
+  if(!window._mobileNavBuilt){
+    window._mobileNavBuilt = true;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mobile-menu-btn';
+    btn.setAttribute('aria-label', 'Otwórz menu');
+    btn.innerHTML = `<svg viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>`;
+    headerContainer.prepend(btn);
+
+    const overlay = document.createElement('div');
+    overlay.className = 'mobile-drawer-overlay';
+
+    const drawer = document.createElement('div');
+    drawer.className = 'mobile-drawer';
+    drawer.innerHTML = `
+      <div class="mobile-drawer-head">
+        <a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
+        <button type="button" class="mobile-drawer-close" aria-label="Zamknij menu">&times;</button>
+      </div>
+      <div class="mobile-drawer-body">
+        <div class="mobile-drawer-section">
+          <a href="index.html">Nowości</a>
+          <a href="index.html?filter=sale">Wyprzedaż</a>
+          <a href="index.html?filter=bestseller">Bestsellery</a>
+          <span id="mobileMyOrdersLink" style="display:none"><a href="orders.html">Moje zamówienia</a></span>
+        </div>
+        <div class="mobile-drawer-section">
+          <div class="mobile-drawer-label">Kategorie</div>
+          <div class="cat-list" id="mobileCatList"></div>
+        </div>
+        <div class="mobile-drawer-section">
+          <a href="faq.html">FAQ</a>
+          <a href="shipping.html">Koszty wysyłki</a>
+          <a href="terms.html">Regulamin</a>
+          <a href="privacy.html">Prywatność</a>
+          <a href="contact.html">Kontakt z nami</a>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+
+    const closeDrawer = () => {
+      drawer.classList.remove('open');
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+    };
+    const openDrawer = () => {
+      drawer.classList.add('open');
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    };
+    btn.addEventListener('click', openDrawer);
+    overlay.addEventListener('click', closeDrawer);
+    drawer.querySelector('.mobile-drawer-close').addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeDrawer(); });
+    drawer.querySelectorAll('a').forEach(a => a.addEventListener('click', closeDrawer));
+
+    Api.getCategoryTree().then(tree => {
+      renderSidebarCategories(tree, 'mobileCatList');
+      document.getElementById('mobileCatList').querySelectorAll('a').forEach(a => a.addEventListener('click', closeDrawer));
+    }).catch(() => {});
+  }
+
+  const myOrders = document.getElementById('mobileMyOrdersLink');
+  if(myOrders) myOrders.style.display = (u && u.role === 'buyer') ? '' : 'none';
+}
+window.renderMobileNav = renderMobileNav;
 
 // ── Shared dropdown wiring ──────────────────────────────────────────────
 // Both the account menu and the wishlist popover are a `.acct-trigger`
@@ -730,7 +818,7 @@ async function renderWishlistMenu(u){
 
   slot.innerHTML = `
     <div class="acct-menu">
-      <button class="acct-trigger cart" id="wishTriggerBtn" type="button" aria-haspopup="true" aria-expanded="false">
+      <button class="acct-trigger cart" id="wishTriggerBtn" type="button" aria-haspopup="true" aria-expanded="false" data-badge="${n}">
         <svg viewBox="0 0 24 24"><path d="M12 21s-7.5-4.35-9.5-8.5C1.2 9.5 2.5 6 6 6c2 0 3.4 1.3 4.5 2.8C11.6 7.3 13 6 15 6c3.5 0 4.8 3.5 3.5 6.5C16.5 16.65 12 21 12 21z"/></svg>
         <span class="cart-copy">
           <span class="cart-label">Ulubione</span>

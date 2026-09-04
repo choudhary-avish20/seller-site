@@ -55,6 +55,34 @@ button,input,select,textarea{font-family:inherit}
 .topbar-contact:hover{color:#fff}
 .topbar-contact svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
+/* ── Mobile menu (hamburger + drawer) ─────────────────────────────────────
+   Injected by renderMobileNav() in app.js on every page that has a
+   `.header .container` — no per-page HTML needed. Hidden entirely above the
+   760px breakpoint the rest of this file already uses for mobile layout. */
+.mobile-menu-btn{display:none;width:44px;height:44px;align-items:center;justify-content:center;background:none;border:0;cursor:pointer;color:var(--text-primary);flex-shrink:0;padding:0}
+.mobile-menu-btn svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round}
+
+.mobile-drawer-overlay{display:none;position:fixed;inset:0;background:rgba(10,10,10,.45);z-index:150;opacity:0;pointer-events:none;transition:opacity var(--t-base) ease}
+.mobile-drawer-overlay.open{opacity:1;pointer-events:auto}
+.mobile-drawer{display:none;position:fixed;top:0;left:0;bottom:0;width:84vw;max-width:320px;background:var(--surface);z-index:151;transform:translateX(-100%);transition:transform var(--t-base) ease;flex-direction:column;box-shadow:var(--shadow-md)}
+.mobile-drawer.open{transform:translateX(0)}
+.mobile-drawer-head{display:flex;align-items:center;justify-content:space-between;padding:14px 8px 14px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.mobile-drawer-head .logo img{height:26px}
+.mobile-drawer-close{width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:0;color:var(--text-secondary);font-size:22px;cursor:pointer;flex-shrink:0}
+.mobile-drawer-close:hover{color:var(--text-primary)}
+.mobile-drawer-body{overflow-y:auto;flex:1;padding-bottom:max(16px, env(safe-area-inset-bottom))}
+.mobile-drawer-section{padding:10px 16px 16px;border-bottom:1px solid var(--border)}
+.mobile-drawer-section:last-child{border-bottom:0}
+.mobile-drawer-section a{display:flex;align-items:center;padding:11px 0;font-size:14px;font-weight:500;color:var(--text-primary);min-height:44px}
+.mobile-drawer-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);padding:10px 0 2px}
+.mobile-drawer .cat-item{padding:11px 2px;min-height:44px}
+.mobile-drawer .cat-item span.plus{min-width:32px;min-height:32px;display:flex;align-items:center;justify-content:center}
+@media(max-width:760px){
+  .mobile-menu-btn{display:flex}
+  .mobile-drawer-overlay{display:block}
+  .mobile-drawer{display:flex}
+}
+
 /* ── Main header ─────────────────────────────────────────────────────── */
 .header{background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:40}
 .header .container{display:flex;align-items:center;gap:24px;padding:16px}
@@ -82,6 +110,31 @@ button,input,select,textarea{font-family:inherit}
 .cart-copy .cart-label{font-size:10.5px;color:var(--text-secondary);font-weight:500}
 .cart-copy .cart-total{font-size:13px;font-weight:700;color:var(--text-primary)}
 .cart b{color:var(--text-primary);font-weight:700}
+
+/* ── Mobile header compaction ─────────────────────────────────────────────
+   Desktop keeps its full [logo][search][wishlist][cart][account] row
+   unchanged. Below 760px the row wraps: [menu][logo][wishlist][cart][account]
+   on top, search dropping to its own full-width row underneath. Below 480px
+   the cart/wishlist/account boxes additionally collapse to icon-only pills
+   with a corner count badge, so all three plus the hamburger and logo fit
+   one line at 360px without any horizontal overflow. */
+@media(max-width:760px){
+  .header .container{flex-wrap:wrap;padding:10px 12px;gap:8px 6px}
+  .logo img{height:26px}
+  .search{flex:1 1 100%;max-width:none;order:3}
+  .search input{padding:11px 14px}
+}
+@media(max-width:480px){
+  .header-actions{gap:2px}
+  .header-actions .cart-copy{display:none}
+  .cart,.acct-trigger{border:0;background:none;padding:0;width:44px;height:44px;justify-content:center;position:relative;border-radius:50%}
+  .cart:hover,.acct-trigger:hover{border-color:transparent;box-shadow:none;background:var(--surface-muted)}
+  .acct-caret{display:none}
+  .cart[data-badge]:not([data-badge="0"])::after,
+  .acct-trigger[data-badge]:not([data-badge="0"])::after{
+    content:attr(data-badge);position:absolute;top:1px;right:1px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1
+  }
+}
 
 /* ── Account dropdown ────────────────────────────────────────────────── */
 .acct-menu{position:relative}
@@ -203,8 +256,9 @@ button,input,select,textarea{font-family:inherit}
 .main{flex:1;min-width:0}
 
 /* ── Tabs (New / Popular / Bestsellers / Promotions) ────────────────── */
-.tabs{display:flex;gap:26px;border-bottom:1px solid var(--border);margin:0 0 20px}
-.tab{padding:0 0 12px;font-size:13.5px;font-weight:600;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color var(--t-fast),border-color var(--t-fast)}
+.tabs{display:flex;gap:26px;border-bottom:1px solid var(--border);margin:0 0 20px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-ms-overflow-style:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{padding:0 0 12px;font-size:13.5px;font-weight:600;color:var(--text-secondary);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color var(--t-fast),border-color var(--t-fast);white-space:nowrap;flex-shrink:0}
 .tab:hover{color:var(--text-primary)}
 .tab.active{color:var(--text-primary);border-color:var(--accent)}
 
@@ -232,7 +286,7 @@ button,input,select,textarea{font-family:inherit}
 .wl-heart.active{color:var(--sale)}
 .stock-low{display:inline-block;background:var(--warning-bg);color:var(--warning);font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:var(--radius-sm);margin-top:8px}
 
-.card h3{font-size:13px;text-align:left;padding:12px 2px 0;font-weight:600;line-height:1.4;color:var(--text-primary)}
+.card h3{font-size:13px;text-align:left;padding:12px 2px 0;font-weight:600;line-height:1.4;color:var(--text-primary);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .package-bar{text-align:left;padding:4px 2px 0;font-size:12px;color:var(--text-secondary)}
 .price{padding:8px 2px 4px;text-align:left;font-size:13px;line-height:1.7}
 .price b{color:var(--text-primary);font-size:15px;font-weight:700}
@@ -245,6 +299,16 @@ button,input,select,textarea{font-family:inherit}
 
 .add{margin-top:10px;display:block;width:100%;padding:10px;background:var(--text-primary);color:#fff;border:0;border-radius:var(--radius-sm);font-weight:600;font-size:13px;cursor:pointer;text-align:center;transition:background var(--t-fast)}
 .add:hover{background:#000}
+
+/* ── Mobile card touch targets ────────────────────────────────────────────
+   Desktop card sizing (wl-heart 32px, qty 30px) is untouched — bumped up to
+   the ~44px minimum only inside the phone breakpoint the grid already uses. */
+@media(max-width:760px){
+  .wl-heart{width:38px;height:38px;font-size:16px}
+  .qty button{width:38px;height:40px;font-size:16px}
+  .qty input{height:40px;width:44px;font-size:13.5px}
+  .add{padding:12px;font-size:13.5px}
+}
 
 /* ── Product detail base (layout kept, see product.html for pd-* refinements) */
 .detail{display:flex;gap:14px;flex-wrap:wrap}
