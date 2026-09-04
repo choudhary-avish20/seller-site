@@ -40,8 +40,11 @@ services:
         value: https://seller-site-2.onrender.com
 
       # FRONTEND_BASE_URL: where the backend redirects the browser after verifying.
+      # Must point at the backend service itself (which also serves the frontend),
+      # NOT the separate static frontend host — otherwise the verified page loads
+      # on the wrong origin and "Log in" / "Go to store" links won't resolve correctly.
       - key: FRONTEND_BASE_URL
-        value: https://seller-site-frontend.onrender.com
+        value: https://seller-site-2.onrender.com
 
       # ── Token expiry (optional, defaults shown) ───────────────────────────
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
