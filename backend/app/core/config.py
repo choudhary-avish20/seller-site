@@ -86,7 +86,17 @@ class Settings(BaseSettings):
     MAIL_TLS: bool = True  # Use TLS
     MAIL_SSL: bool = False  # Use SSL (alternative to TLS)
     
-    # Frontend URL for email links
+    # Backend URL — used to build the verification link in emails.
+    # In production set this to your backend service URL, e.g.:
+    #   BACKEND_BASE_URL=https://seller-site-2.onrender.com
+    # The verification link goes to /api/v1/auth/verify-email?token=... on the
+    # backend, which consumes the token and then redirects the browser to the
+    # frontend result page using FRONTEND_BASE_URL below.
+    BACKEND_BASE_URL: str = "http://localhost:8000"
+
+    # Frontend URL — used by the backend's /auth/verify-email redirect target.
+    # Set to your frontend service URL in production, e.g.:
+    #   FRONTEND_BASE_URL=https://seller-site-frontend.onrender.com
     FRONTEND_BASE_URL: str = "http://localhost:8000"
 
     # Cloudflare R2 image storage
@@ -131,6 +141,7 @@ for _name, _resolved in [
     ("DEBUG", settings.DEBUG),
     ("DATABASE_URL", settings.DATABASE_URL),
     ("CORS_ORIGINS", settings.CORS_ORIGINS),
+    ("BACKEND_BASE_URL", settings.BACKEND_BASE_URL),
     ("FRONTEND_BASE_URL", settings.FRONTEND_BASE_URL),
 ]:
     _log_config_source(_name, _resolved)

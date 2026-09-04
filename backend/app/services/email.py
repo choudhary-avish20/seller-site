@@ -375,8 +375,13 @@ email_service = EmailService()
 
 
 async def send_verification_email(to_email: EmailStr, full_name: str, token: str) -> bool:
-    """Send email-verification link. Token is embedded in the frontend URL."""
-    verification_url = f"{settings.FRONTEND_BASE_URL}/verify-email.html?token={token}"
+    """Send email-verification link. Points at the backend endpoint which consumes
+    the token server-side and then redirects the browser to the frontend result page.
+    This avoids the frontend needing to know the backend URL or call the API itself."""
+    verification_url = (
+        f"{settings.BACKEND_BASE_URL.rstrip('/')}"
+        f"/api/v1/auth/verify-email?token={token}"
+    )
     return await email_service.send_verification_email(to_email, full_name, verification_url)
 
 
