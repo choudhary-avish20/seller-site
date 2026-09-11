@@ -588,8 +588,24 @@ window.getCachedUser = getCachedUser;
 // wishlist popover contents, and the account dropdown. No-ops safely on
 // pages missing some of these elements (e.g. the admin dashboard, which
 // manages its own header).
+//
+// accountMenuSlot/wishlistMenuSlot start empty in every page's static HTML,
+// and refreshUser() is a network round trip — so waiting on it before the
+// first render left the header visibly missing its account/wishlist controls
+// (and reflowing narrower) for a beat on every single page load. Paint
+// immediately from the cached user (localStorage, written by the last
+// successful refreshUser()) so returning visitors see their real state
+// instantly and guests see the "Zaloguj się" link instantly, then correct
+// from the network response — the same re-render these functions already
+// support for the PL/EN toggle.
 async function renderAuthHeader(){
   const myOrders = document.getElementById('myOrdersLink');
+  const cached = getCachedUser();
+  if(myOrders) myOrders.style.display = (cached && cached.role==='buyer') ? '' : 'none';
+  renderAccountMenu(cached);
+  renderWishlistMenu(cached);
+  renderMobileNav(cached);
+
   const u = await refreshUser().catch(()=>null);
   if(myOrders) myOrders.style.display = (u && u.role==='buyer') ? '' : 'none';
   renderAccountMenu(u);
@@ -888,11 +904,16 @@ window.updateWishlistBadge = updateWishlistBadge;
 // the one place that builds it, so footer links/content can't drift between
 // pages the way the old per-page header auth checks used to. No-ops safely
 // if the placeholder or the contact-info API call is missing.
+//
+// Only the "Kontakt" column's phone/email/address/hours actually depend on
+// the settings API call — everything else (trust strip, nav columns,
+// copyright) is static. Painting the whole footer only after that network
+// call resolved left every page with a blank gap at the bottom (and a
+// layout jump once it finally appeared) for no reason. Render the static
+// shell immediately and patch in the Kontakt column once settings arrive.
 async function renderFooter(){
   const el = document.getElementById('site-footer');
   if(!el) return;
-  let s = {};
-  try{ s = await Api.getSettings(); }catch{}
 
   // Trust strip: only genuinely true claims this store actually supports —
   // no invented "free returns" / "24h shipping" marketing fluff.
@@ -925,18 +946,27 @@ async function renderFooter(){
           <a href="privacy.html">Polityka prywatności</a>
           <a href="contact.html">Kontakt</a>
         </div>
-        <div class="footer-col">
+        <div class="footer-col" id="footerContactCol">
           <h4>Kontakt</h4>
-          ${s.phone ? `<a href="tel:${esc(s.phone.replace(/[^\d+]/g,''))}">📞 ${esc(s.phone)}</a>` : ''}
-          ${s.email ? `<a href="mailto:${esc(s.email)}">✉️ ${esc(s.email)}</a>` : ''}
-          ${s.address ? `<p>📍 ${esc(s.address)}</p>` : ''}
-          ${s.working_hours ? `<p>🕒 ${esc(s.working_hours)}</p>` : ''}
         </div>
       </div>
       <div class="footer-bottom">
         <span>© ${new Date().getFullYear()} WolkaGo. Wszystkie prawa zastrzeżone.</span>
       </div>
     </div></div>`;
+
+  let s = {};
+  try{ s = await Api.getSettings(); }catch{}
+
+  const contactCol = document.getElementById('footerContactCol');
+  if(contactCol){
+    contactCol.innerHTML = `
+      <h4>Kontakt</h4>
+      ${s.phone ? `<a href="tel:${esc(s.phone.replace(/[^\d+]/g,''))}">📞 ${esc(s.phone)}</a>` : ''}
+      ${s.email ? `<a href="mailto:${esc(s.email)}">✉️ ${esc(s.email)}</a>` : ''}
+      ${s.address ? `<p>📍 ${esc(s.address)}</p>` : ''}
+      ${s.working_hours ? `<p>🕒 ${esc(s.working_hours)}</p>` : ''}`;
+  }
 
   if(s.whatsapp_number && !document.getElementById('waFloat')){
     const a = document.createElement('a');
