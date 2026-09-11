@@ -26,7 +26,7 @@
       <div style="font-size:48px;margin-bottom:12px">✅</div>
       <h1 style="font-size:18px;font-weight:bold;color:#166534;margin-bottom:8px">Adres e-mail potwierdzony!</h1>
       <p style="font-size:13px;color:#555;margin-bottom:20px">Twoje konto jest teraz aktywne. Możesz się zalogować i składać zamówienia.</p>
-      <a href="login.html"
+      <a id="loginLink" href="login.html"
          style="display:inline-block;padding:10px 28px;background:var(--accent);color:#fff;font-weight:bold;text-decoration:none;font-size:13px">
         Zaloguj się
       </a>
@@ -37,7 +37,7 @@
       <div style="font-size:48px;margin-bottom:12px">✅</div>
       <h1 style="font-size:18px;font-weight:bold;color:#1e40af;margin-bottom:8px">E-mail już potwierdzony</h1>
       <p style="font-size:13px;color:#555;margin-bottom:20px">Ten adres e-mail został już wcześniej zweryfikowany.</p>
-      <a href="index.html"
+      <a id="storeLink1" href="index.html"
          style="display:inline-block;padding:10px 28px;background:var(--accent);color:#fff;font-weight:bold;text-decoration:none;font-size:13px">
         Przejdź do sklepu
       </a>
@@ -54,7 +54,7 @@
         Wyślij nowy link
       </button>
       <br>
-      <a href="index.html" style="font-size:12px;color:#666">Wróć do sklepu</a>
+      <a id="storeLink2" href="index.html" style="font-size:12px;color:#666">Wróć do sklepu</a>
     </div>
 
     <!-- Resend success -->
@@ -62,7 +62,7 @@
       <div style="font-size:48px;margin-bottom:12px">📧</div>
       <h1 style="font-size:18px;font-weight:bold;color:#1e40af;margin-bottom:8px">Link wysłany</h1>
       <p style="font-size:13px;color:#555;margin-bottom:20px">Nowy link weryfikacyjny został wysłany na Twój adres e-mail. Sprawdź skrzynkę.</p>
-      <a href="index.html" style="font-size:12px;color:#666">Wróć do sklepu</a>
+      <a id="storeLink3" href="index.html" style="font-size:12px;color:#666">Wróć do sklepu</a>
     </div>
 
   </div>
@@ -76,6 +76,21 @@ function show(id) {
     document.getElementById(s).style.display = s === id ? 'block' : 'none';
   });
 }
+
+// Resolve the backend base URL (strip /api/v1 suffix if present) so that
+// "login" and "go to store" links always point at the correct service,
+// not the frontend host this page happens to be served from.
+(function setBackendLinks() {
+  const apiUrl = localStorage.getItem('API_URL') || window.__API_URL__ || '';
+  if (!apiUrl) return; // local dev: leave relative hrefs as-is
+  const base = apiUrl.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+  const loginUrl = base + '/login.html';
+  const storeUrl = base + '/index.html';
+  document.getElementById('loginLink').href   = loginUrl;
+  document.getElementById('storeLink1').href  = storeUrl;
+  document.getElementById('storeLink2').href  = storeUrl;
+  document.getElementById('storeLink3').href  = storeUrl;
+})();
 
 (async function init() {
   const params = new URLSearchParams(location.search);
@@ -123,8 +138,10 @@ function show(id) {
 async function resend() {
   const tok = localStorage.getItem('access_token');
   if (!tok) {
-    // Not logged in — redirect to login so they can log in and resend from there
-    location.href = 'login.html';
+    // Not logged in — redirect to login on the backend host, not the static frontend host
+    const apiUrl = localStorage.getItem('API_URL') || window.__API_URL__ || '';
+    const backendBase = apiUrl ? apiUrl.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '') : '';
+    location.href = (backendBase || '') + 'login.html';
     return;
   }
   const btn = document.getElementById('resendBtn');
