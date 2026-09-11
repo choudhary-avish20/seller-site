@@ -1,6 +1,6 @@
 """Add password_reset_tokens table and users.token_version
 
-Revision ID: 0014_password_reset_and_token_version
+Revision ID: 0014_pwd_reset_token_version
 Revises: 0013_order_item_buyer_note
 Create Date: 2026-09-10
 
@@ -10,7 +10,7 @@ from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
 
-revision: str = '0014_password_reset_and_token_version'
+revision: str = '0014_pwd_reset_token_version'
 down_revision: Union[str, None] = '0013_order_item_buyer_note'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
