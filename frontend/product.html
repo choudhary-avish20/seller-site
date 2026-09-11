@@ -265,7 +265,6 @@ async function load(){
     const isGuest=!localStorage.getItem('access_token');
     // check config for hide prices
     let hide=false; try{ const cfg=await Api.getConfig(); hide=cfg.require_login_to_see_prices && isGuest; }catch{}
-    const inc=p.pack_increment||1;
     document.getElementById('info').innerHTML=`
       <h1 class="pd-title">${esc(p.name)}</h1>
       <div class="pd-meta-row">
@@ -274,7 +273,11 @@ async function load(){
         ${p.review_count ? `<a href="#reviewsSection" class="pd-rating-link">${renderStars(p.avg_rating, false)} ${p.avg_rating} (${p.review_count})</a>` : ''}
       </div>
       ${hide? `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:12px;margin:10px 0;font-size:12px">Ceny widoczne po zalogowaniu — <a href="login.html" style="color:#0066cc">Zaloguj się</a> / <a href="signup.html" style="color:#0066cc">Zarejestruj się</a></div>` : `
-      <div class="pd-pack-bar">w paczce: <b>${p.pack_size} ${p.pack_size===1?'para':'szt.'}</b>${p.stall_location? ` • Stoisko ${p.stall_location}${p.counter_number? ' / Lada '+p.counter_number:''}`:''}</div>
+      <!-- stall_location/counter_number are staff-only sourcing info (where to
+           physically buy this at the wholesale market after an order comes
+           in) — the API already omits them for non-staff callers, but this
+           customer-facing page never reads them at all, on principle. -->
+      <div class="pd-pack-bar">w paczce: <b>${p.pack_size} ${p.pack_size===1?'para':'szt.'}</b></div>
       <div class="pd-price-card">
         ${p.is_on_sale && p.sale_price_net!=null && p.discount_percent ? `<span class="pd-price-badge">-${p.discount_percent}%</span>` : ''}
         ${p.is_on_sale && p.sale_price_net!=null ? `
@@ -293,13 +296,12 @@ async function load(){
       <div class="pd-qty-row">
         <div class="pd-qty-stepper">
           <button onclick="chg(-1)">−</button>
-          <input id="qty" value="${inc}" data-inc="${inc}">
+          <input id="qty" value="1">
           <button onclick="chg(1)">+</button>
         </div>
         <button class="pd-qty-quick" onclick="chg(12)">+12</button>
         <button class="pd-qty-quick" onclick="chg(40)">+40</button>
       </div>
-      <div class="pd-qty-hint">Minimalna ilość zamówienia dla tego produktu to ${inc}</div>
       <button class="pd-cta" id="addBtn"><span>🛒</span> Dodaj do koszyka</button>
       <div class="pd-secondary-actions">
         <button class="pd-wish-btn" id="wishlistBtn" type="button">
@@ -316,8 +318,8 @@ async function load(){
     if(!hide){
       document.getElementById('addBtn').onclick=(e)=>{
         const inp=document.getElementById('qty');
-        let q=parseInt(inp.value||inc,10);
-        q=Math.ceil(q/inc)*inc;
+        let q=parseInt(inp.value||1,10);
+        if(q<1) q=1;
         // No frozen price passed here — Cart.linePrice() recomputes sale/tier pricing
         // live from packQuantity every time the cart is rendered or the qty changes,
         // so it never goes stale the way a snapshot taken at add-to-cart time would.
@@ -325,14 +327,13 @@ async function load(){
         flashAddedState(e.currentTarget);
         showCartToast(p, q);
       };
+      // Quantity is a plain pack count: the −/+ buttons move it by exactly 1
+      // pack, and the +12/+40 quick-add buttons (unrelated to any per-product
+      // rule) just add that many more packs in one click.
       window.chg=(dir)=>{
         const inp=document.getElementById('qty');
-        let v=parseInt(inp.value||inc,10);
-        if(dir===1) v+=inc;
-        else if(dir===-1) v-=inc;
-        else v+=dir;
-        if(v<inc) v=inc;
-        v=Math.ceil(v/inc)*inc;
+        let v=parseInt(inp.value||1,10)+dir;
+        if(v<1) v=1;
         inp.value=v;
       };
       // Sticky buy bar: reuses the real #addBtn click handler and #qty value

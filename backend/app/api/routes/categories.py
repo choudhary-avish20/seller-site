@@ -11,6 +11,7 @@ from app.models.user import User
 from app.schemas.category import (
     CategoryCreate,
     CategoryUpdate,
+    CategoryMove,
     CategoryResponse,
     CategoryTreeNode,
     CategoryPathResponse,
@@ -60,6 +61,7 @@ def _build_tree(categories: List[Category]) -> List[CategoryTreeNode]:
             slug=c.slug,
             parent_id=c.parent_id,
             is_active=c.is_active,
+            sort_order=c.sort_order,
             created_at=c.created_at,
             updated_at=c.updated_at,
             children=[],
@@ -72,12 +74,16 @@ def _build_tree(categories: List[Category]) -> List[CategoryTreeNode]:
             parent_node.children.append(node)
         else:
             roots.append(node)
-    # sort children by name for determinism
-    def sort_recursive(nodes: List[CategoryTreeNode]):
-        nodes.sort(key=lambda n: n.name.lower())
+    # Top-level categories keep the admin's manual sort_order (arrows in the
+    # dashboard); every subcategory level below that is always alphabetical —
+    # it has no manual ordering control at all.
+    roots.sort(key=lambda n: (n.sort_order, n.name.lower()))
+
+    def sort_children_recursive(nodes: List[CategoryTreeNode]):
         for n in nodes:
-            sort_recursive(n.children)
-    sort_recursive(roots)
+            n.children.sort(key=lambda c: c.name.lower())
+            sort_children_recursive(n.children)
+    sort_children_recursive(roots)
     return roots
 
 
@@ -109,6 +115,10 @@ def list_categories(
         q = q.filter(Category.parent_id == parent_id)
     if search:
         q = q.filter(Category.name.ilike(f"%{search}%"))
+    # This flat listing is always alphabetical (it's used for searching/filtering,
+    # and may mix categories from different levels). The admin's manual
+    # top-level order only applies to the tree view (GET /categories/tree),
+    # which is what the dashboard and storefront navigation actually render.
     q = q.order_by(Category.name)
     return q.all()
 
@@ -173,11 +183,20 @@ def create_category(
     _ensure_slug_unique(db, slug)
     _check_parent(db, payload.parent_id)
 
+    # New top-level categories join the end of the manually-ordered list.
+    # Subcategories don't use sort_order at all (always alphabetical), so it's
+    # left at the column default there.
+    sort_order = 0
+    if payload.parent_id is None:
+        current_max = db.query(Category.sort_order).filter(Category.parent_id.is_(None)).order_by(Category.sort_order.desc()).first()
+        sort_order = (current_max[0] + 10) if current_max else 0
+
     cat = Category(
         name=payload.name.strip(),
         slug=slug,
         parent_id=payload.parent_id,
         is_active=payload.is_active,
+        sort_order=sort_order,
     )
     db.add(cat)
     db.commit()
@@ -216,10 +235,66 @@ def update_category(
     # proper handling of parent_id including null
     if "parent_id" in payload.model_fields_set:
         _check_parent(db, payload.parent_id, self_id=cat.id)
+        # Promoting a subcategory to top-level: it has no meaningful sort_order
+        # yet, so append it at the end of the manually-ordered root list rather
+        # than leaving it at the default 0 (which would jump it to the top).
+        if payload.parent_id is None and cat.parent_id is not None:
+            current_max = db.query(Category.sort_order).filter(Category.parent_id.is_(None)).order_by(Category.sort_order.desc()).first()
+            cat.sort_order = (current_max[0] + 10) if current_max else 0
         cat.parent_id = payload.parent_id
 
     if payload.is_active is not None:
         cat.is_active = payload.is_active
+
+    db.commit()
+    db.refresh(cat)
+    return cat
+
+
+@router.patch("/{category_id}/move", response_model=CategoryResponse)
+def move_category(
+    category_id: UUID,
+    payload: CategoryMove,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_seller_or_admin),
+):
+    """Move a top-level category up or down one slot in the admin's manual
+    order (swaps sort_order with whichever root sibling is on that side).
+    Subcategories have no manual order — they're always alphabetical — so
+    this is refused for anything that isn't itself a root category."""
+    cat = db.query(Category).filter(Category.id == category_id).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Category not found")
+    if cat.parent_id is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Only top-level categories can be reordered; subcategories are always sorted alphabetically.",
+        )
+
+    siblings = (
+        db.query(Category)
+        .filter(Category.parent_id.is_(None))
+        .order_by(Category.sort_order, Category.name)
+        .all()
+    )
+    idx = next((i for i, s in enumerate(siblings) if s.id == cat.id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Category not found")
+
+    swap_idx = idx - 1 if payload.direction == "up" else idx + 1
+    if swap_idx < 0 or swap_idx >= len(siblings):
+        # Already at the top/bottom — nothing to do, not an error.
+        return cat
+
+    # Swap positions in the list, then renumber everyone sequentially. A plain
+    # value-swap between the two categories would silently no-op whenever they
+    # shared a sort_order (e.g. right after the backfill migration, or two
+    # categories both left at the column default) — renumbering the whole
+    # list from the new order guarantees the click always moves something,
+    # and keeps the gaps tidy as a side effect.
+    siblings[idx], siblings[swap_idx] = siblings[swap_idx], siblings[idx]
+    for i, s in enumerate(siblings):
+        s.sort_order = i * 10
 
     db.commit()
     db.refresh(cat)

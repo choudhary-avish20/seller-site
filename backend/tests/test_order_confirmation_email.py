@@ -10,6 +10,7 @@ from app.models.product import Product, StockStatus
 from app.models.category import Category
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.core.auth import get_password_hash
+from app.core.config import settings
 
 
 def create_test_user_and_product(db_session: Session):
@@ -64,11 +65,15 @@ def create_test_user_and_product(db_session: Session):
 
 
 @pytest.mark.asyncio
-async def test_order_confirmation_email_sent_on_successful_order(db_session: Session):
+async def test_order_confirmation_email_sent_on_successful_order(db_session: Session, monkeypatch):
     """Test that order confirmation email is sent when order is created successfully."""
     from app.api.routes.orders import create_order
     from app.schemas.order import OrderCreate
-    
+
+    # This test is about the confirmation-email side effect, not the minimum-order
+    # -value rule, so lift that floor rather than inflating the test product's price.
+    monkeypatch.setattr(settings, "MIN_ORDER_VALUE_NET", 0)
+
     # Create test data
     user, product = create_test_user_and_product(db_session)
     db_session.commit()
@@ -104,11 +109,13 @@ async def test_order_confirmation_email_sent_on_successful_order(db_session: Ses
 
 
 @pytest.mark.asyncio
-async def test_order_creation_succeeds_even_if_email_fails(db_session: Session):
+async def test_order_creation_succeeds_even_if_email_fails(db_session: Session, monkeypatch):
     """Test that order is still created successfully even if confirmation email fails."""
     from app.api.routes.orders import create_order
     from app.schemas.order import OrderCreate
-    
+
+    monkeypatch.setattr(settings, "MIN_ORDER_VALUE_NET", 0)
+
     # Create test data
     user, product = create_test_user_and_product(db_session)
     db_session.commit()
@@ -206,11 +213,13 @@ def test_order_confirmation_email_content():
 
 
 @pytest.mark.asyncio
-async def test_multiple_orders_send_multiple_confirmation_emails(db_session: Session):
+async def test_multiple_orders_send_multiple_confirmation_emails(db_session: Session, monkeypatch):
     """Test that multiple orders each get their own confirmation email."""
     from app.api.routes.orders import create_order
     from app.schemas.order import OrderCreate
-    
+
+    monkeypatch.setattr(settings, "MIN_ORDER_VALUE_NET", 0)
+
     # Create test data
     user, product = create_test_user_and_product(db_session)
     db_session.commit()

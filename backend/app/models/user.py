@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Enum, String
+from sqlalchemy import Boolean, Enum, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base, TimestampMixin, UUIDPKMixin
@@ -42,6 +42,12 @@ class User(UUIDPKMixin, TimestampMixin, Base):
 
     # Email verification
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Bumped on password change/reset. Embedded in every issued JWT as "tv" —
+    # a token whose "tv" no longer matches this value is rejected, so changing
+    # your password immediately revokes every access/refresh token issued
+    # before that point (e.g. a stolen token), not just the ones in this browser.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     orders: Mapped[list["Order"]] = relationship(back_populates="buyer")
     seller_profile: Mapped["SellerProfile | None"] = relationship(back_populates="user", uselist=False)  # type: ignore[name-defined]

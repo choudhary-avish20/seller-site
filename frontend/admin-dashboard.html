@@ -15,7 +15,8 @@
 <style>
 /* ── Layout ── */
 .dash-wrap{display:flex;gap:0;min-height:calc(100vh - 90px)}
-.dash-sidebar{width:200px;flex-shrink:0;background:#2b2b2b;color:#ccc}
+.dash-sidebar{width:200px;flex-shrink:0;background:#2b2b2b;color:#ccc;position:relative}
+.sidebar-footer{border-top:1px solid #444;margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px}
 .dash-sidebar .logo-area{padding:14px;border-bottom:1px solid #444}
 .dash-sidebar .logo-area img{height:26px;display:block}
 .dash-sidebar .logo-area .sub{font-size:10px;color:#aaa;font-weight:normal;margin-top:4px}
@@ -108,6 +109,31 @@ tr:hover td{background:#fafafa}
 .tier-row input{border:1px solid #ccc;padding:5px 7px;font-size:12px;width:90px}
 .tier-row .rm-tier{background:none;border:none;color:#dc2626;cursor:pointer;font-size:15px;padding:0 2px}
 
+/* ── Bulk import grid ── */
+.bulk-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.bulk-toolbar .spacer{flex:1}
+.bulk-grid-wrap{background:#fff;border:1px solid #ddd;overflow:auto;max-width:100%}
+.bulk-grid{border-collapse:collapse;font-size:12px;min-width:1400px}
+.bulk-grid th{background:#f0f0f0;text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;border-right:1px solid #eee;font-weight:bold;font-size:10.5px;text-transform:uppercase;white-space:nowrap;position:sticky;top:0}
+.bulk-grid td{padding:3px;border-bottom:1px solid #eee;border-right:1px solid #f2f2f2;vertical-align:middle}
+.bulk-grid tr.bulk-row-done td{background:#f0fdf4}
+.bulk-grid tr.bulk-row-error td{background:#fef2f2}
+.bulk-grid input[type=text],.bulk-grid input[type=number]{width:100%;min-width:80px;border:1px solid transparent;padding:5px 6px;font-size:12px;font-family:inherit;outline:none;background:transparent}
+.bulk-grid input[type=text]:focus,.bulk-grid input[type=number]:focus{border-color:#0099cc;background:#fff}
+.bulk-grid input:disabled{color:#888;background:transparent}
+.bulk-row-num{width:26px;text-align:center;color:#aaa;font-size:11px}
+.bulk-rm-row{background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 4px}
+.bulk-img-cell{width:52px;height:52px;position:relative}
+.bulk-img-btn{width:48px;height:48px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:#bbb;background:#fafafa}
+.bulk-img-btn:hover{border-color:#0099cc;color:#0099cc}
+.bulk-img-thumb{width:48px;height:48px;object-fit:contain;border:1px solid #ddd;cursor:pointer;background:#fafafa}
+.bulk-img-uploading{width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#0099cc;border:1px solid #ddd;background:#f0f9ff}
+.bulk-status-cell{min-width:150px;font-size:11px}
+.bulk-status-ok{color:#166534;font-weight:bold}
+.bulk-status-err{color:#c00}
+.bulk-status-pending{color:#999}
+.bulk-req-missing{border-color:#fca5a5 !important;background:#fef2f2 !important}
+
 /* ── Misc ── */
 .empty{text-align:center;padding:40px;color:#888;font-size:13px}
 .page-title{font-size:16px;font-weight:bold;margin-bottom:16px;color:#222}
@@ -156,6 +182,7 @@ tr:hover td{background:#fafafa}
     <div class="logo-area"><img src="assets/wolkago-logo-light.png" alt="WolkaGo"><div class="sub">Panel sprzedawcy</div></div>
     <div class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')"><span class="icon">📊</span> Statystyki</div>
     <div class="nav-item" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
+    <div class="nav-item" data-view="bulk" onclick="switchView('bulk')"><span class="icon">📥</span> Import masowy</div>
     <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
     <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia</div>
     <div class="nav-item" data-view="sellers" onclick="switchView('sellers')"><span class="icon">🧑‍💼</span> Sprzedawcy</div>
@@ -167,7 +194,7 @@ tr:hover td{background:#fafafa}
     <div class="nav-item" data-view="faq" onclick="switchView('faq')"><span class="icon">❓</span> FAQ</div>
     <div class="nav-item" data-view="shipping" onclick="switchView('shipping')"><span class="icon">🚚</span> Dostawa</div>
     <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙</span> Ustawienia</div>
-    <div class="sidebar-footer" style="border-top:1px solid #444;margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px">
+    <div class="sidebar-footer">
       <div class="nav-item" onclick="doLogout()"><span class="icon">🚪</span> Wyloguj</div>
     </div>
   </div>
@@ -229,17 +256,10 @@ tr:hover td{background:#fafafa}
           <div class="hint">Zostaw puste = netto × (1+VAT)</div>
         </div>
       </div>
-      <div class="f-cols">
-        <div class="f-row">
-          <label>Rozmiar paczki (szt.) <span class="req">*</span></label>
-          <input id="f_pack_size" type="number" min="1" value="1">
-          <div class="hint">Jednostek w jednej paczce</div>
-        </div>
-        <div class="f-row">
-          <label>Inkrement zamówienia</label>
-          <input id="f_pack_inc" type="number" min="1" value="1">
-          <div class="hint">Kupujący zamawia wielokrotność</div>
-        </div>
+      <div class="f-row">
+        <label>Rozmiar paczki (szt.) <span class="req">*</span></label>
+        <input id="f_pack_size" type="number" min="1" value="1">
+        <div class="hint">Jednostek w jednej paczce — kupujący zawsze zamawia paczkami: 1, 2, 3…</div>
       </div>
 
       <div class="f-section">Stan magazynowy</div>
@@ -386,6 +406,11 @@ let pendingImages = []; // {url, file?, uploading?}
 let currentView = 'products';
 let currentUser = null;
 
+// Keeps the open tab in the URL hash (#products, #bulk, …) via replaceState —
+// no new history entry per click, just so a refresh lands back on the tab you
+// were actually looking at instead of always resetting to Statystyki.
+const VALID_VIEWS = ['dashboard','products','bulk','categories','orders','sellers','buyers','coupons','contact','terms','privacy','faq','shipping','settings'];
+
 // ── Boot ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   const tok = localStorage.getItem('access_token');
@@ -407,17 +432,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   categories = await Api.getCategoryTree({include_inactive:true}).catch(() => []);
 
-  switchView('dashboard');
+  const hashView = location.hash.slice(1);
+  switchView(VALID_VIEWS.includes(hashView) ? hashView : 'dashboard');
+});
+
+// Manually editing/pasting a URL with a different #hash (or following a link
+// straight to one) should also switch tabs, not just the initial load.
+window.addEventListener('hashchange', () => {
+  const hashView = location.hash.slice(1);
+  if (VALID_VIEWS.includes(hashView) && hashView !== currentView) switchView(hashView);
 });
 
 // ── Navigation ─────────────────────────────────────────────────────────────
 function switchView(view) {
   currentView = view;
+  history.replaceState(null, '', '#' + view);
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
   if (view === 'dashboard') renderDashboardView();
   else if (view === 'products') renderProductsView();
+  else if (view === 'bulk') renderBulkImportView();
   else if (view === 'categories') renderCategoriesView();
   else if (view === 'orders') renderOrdersView();
   else if (view === 'sellers') renderSellersView();
@@ -551,7 +586,10 @@ async function renderProductsView() {
 
     <div class="sec-head">
       <h2>Lista produktów</h2>
-      <button class="btn btn-primary" onclick="openAddModal()">＋ Dodaj produkt</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="switchView('bulk')">📥 Import masowy</button>
+        <button class="btn btn-primary" onclick="openAddModal()">＋ Dodaj produkt</button>
+      </div>
     </div>
 
     <div class="filter-bar">
@@ -589,9 +627,364 @@ async function renderProductsView() {
   filterProducts();
 }
 
+// ── Bulk import ──────────────────────────────────────────────────────────────
+// Lets the admin add many products in one pass, spreadsheet-style: type into
+// cells, or paste a block copied straight out of Excel (tab/newline-separated)
+// and it fills rows and columns from wherever the paste landed. Each product
+// gets exactly ONE image — deliberately simpler than the full edit modal's
+// multi-image gallery, since that's the whole point of a bulk tool: get many
+// products in fast, then flesh out any one of them later in the normal editor.
+// Reuses the same POST /products the single-product modal uses (row by row),
+// so every validation rule (slug uniqueness, category checks, etc.) is
+// guaranteed to behave identically instead of duplicating that logic here.
+const BULK_COLS = [
+  { key: 'name',            label: 'Nazwa',            type: 'text',   required: true },
+  { key: 'categoryText',    label: 'Kategoria',        type: 'text',   required: true, list: 'bulkCatList' },
+  { key: 'description',     label: 'Opis',             type: 'text' },
+  { key: 'pack_size',       label: 'Szt. / paczka',    type: 'number', placeholder: '1' },
+  { key: 'price_net',       label: 'Cena netto',       type: 'number', required: true, step: '0.01' },
+  { key: 'vat_rate',        label: 'VAT %',            type: 'number', step: '0.01', placeholder: '23' },
+  { key: 'stock_quantity',  label: 'Stan mag. (szt.)', type: 'number', placeholder: '0' },
+  { key: 'cost_price',      label: 'Cena zakupu',      type: 'number', step: '0.01' },
+  { key: 'stall_location',  label: 'Hala / stoisko',   type: 'text' },
+  { key: 'counter_number',  label: 'Nr lady',          type: 'text' },
+];
+
+let bulkRows = [];
+let bulkRowSeq = 0;
+let bulkSubmitting = false;
+
+function newBulkRow() {
+  const row = { _id: ++bulkRowSeq, _touched: false, status: 'idle', error: null,
+    imagePreview: null, imageUrl: null, imageUploading: false };
+  BULK_COLS.forEach(c => { row[c.key] = ''; });
+  return row;
+}
+
+function flattenCategories(nodes, depth = 0, out = []) {
+  nodes.forEach(n => {
+    out.push({ id: n.id, name: n.name, is_active: n.is_active, depth });
+    if (n.children && n.children.length) flattenCategories(n.children, depth + 1, out);
+  });
+  return out;
+}
+
+function renderBulkImportView() {
+  const main = document.getElementById('mainContent');
+  if (!bulkRows.length) bulkRows = Array.from({ length: 5 }, newBulkRow);
+  const flatCats = flattenCategories(categories);
+  const hasActiveCategory = flatCats.some(c => c.is_active);
+
+  main.innerHTML = `
+    <div class="page-title">📥 Import masowy produktów</div>
+    ${!hasActiveCategory ? `<div class="alert alert-warn">Nie masz jeszcze żadnej aktywnej kategorii — <a href="#" onclick="switchView('categories');return false" style="color:#854d0e;font-weight:bold">utwórz przynajmniej jedną</a> zanim zaczniesz dodawać produkty, każdy wiersz musi mieć przypisaną kategorię.</div>` : ''}
+    <div class="alert alert-info">
+      Wpisuj dane ręcznie albo zaznacz i skopiuj komórki w Excelu, kliknij pierwszą komórkę w wybranym wierszu poniżej i wklej (Ctrl+V) —
+      wiersze i kolumny rozłożą się automatycznie, dokładając kolejne wiersze w miarę potrzeby.
+      Do każdego produktu dodaj <b>jedno zdjęcie</b>: kliknij ikonę 📷 w wierszu, albo przyciskiem „Wybierz zdjęcia” zaznacz od razu
+      wiele plików — zostaną przypisane po kolei do wierszy (od góry, pomijając te, które już mają zdjęcie).
+    </div>
+    <datalist id="bulkCatList">${flatCats.filter(c => c.is_active).map(c => `<option value="${esc(c.name)}">`).join('')}</datalist>
+
+    <div class="bulk-toolbar">
+      <button class="btn btn-ghost btn-sm" onclick="addBulkRow()">＋ Dodaj wiersz</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('bulkImgPicker').click()">📎 Wybierz zdjęcia (po kolei)</button>
+      <input type="file" id="bulkImgPicker" accept="image/*" multiple style="display:none" onchange="handleBulkImagePicker(event)">
+      <button class="btn btn-ghost btn-sm" onclick="clearBulkRows()">🗑 Wyczyść wszystko</button>
+      <div class="spacer"></div>
+      <span id="bulkSummary" style="font-size:12px;color:#666"></span>
+      <button class="btn btn-primary" id="bulkSubmitBtn" onclick="submitBulkRows()">🚀 Utwórz wszystkie produkty</button>
+    </div>
+
+    <div class="form-err" id="bulkErr"></div>
+
+    <div class="bulk-grid-wrap">
+      <table class="bulk-grid">
+        <thead><tr>
+          <th class="bulk-row-num">#</th>
+          <th>Zdjęcie<span class="req">*</span></th>
+          ${BULK_COLS.map(c => `<th>${esc(c.label)}${c.required ? '<span class="req">*</span>' : ''}</th>`).join('')}
+          <th>Status</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="bulkTbody"></tbody>
+      </table>
+    </div>`;
+
+  renderBulkRows();
+}
+
+function findBulkRow(id) { return bulkRows.find(r => r._id === id); }
+
+function renderBulkRows() {
+  const tbody = document.getElementById('bulkTbody');
+  if (!tbody) return;
+  tbody.innerHTML = bulkRows.map((row, i) => renderBulkRowHtml(row, i)).join('');
+  updateBulkSummary();
+}
+
+function renderBulkRowHtml(row, i) {
+  const rowClass = row.status === 'done' ? 'bulk-row-done' : row.status === 'error' ? 'bulk-row-error' : '';
+  const inputsDisabled = row.status === 'done';
+
+  let imgCell;
+  if (row.imageUploading) {
+    imgCell = `<div class="bulk-img-uploading">⏳</div>`;
+  } else if (row.imagePreview) {
+    imgCell = `<img class="bulk-img-thumb" src="${esc(row.imagePreview)}" ${inputsDisabled ? '' : `onclick="document.getElementById('bulkFile_${row._id}').click()"`} title="${inputsDisabled ? '' : 'Zmień zdjęcie'}">`;
+  } else {
+    imgCell = `<div class="bulk-img-btn" onclick="document.getElementById('bulkFile_${row._id}').click()" title="Dodaj zdjęcie">📷</div>`;
+  }
+  if (!inputsDisabled) imgCell += `<input type="file" id="bulkFile_${row._id}" accept="image/*" style="display:none" onchange="handleBulkRowImage(${row._id}, event)">`;
+
+  const cells = BULK_COLS.map(c => {
+    const val = row[c.key] ?? '';
+    const missing = row._touched && c.required && !String(val).trim();
+    return `<td><input type="${c.type}" ${c.step ? `step="${c.step}"` : ''} ${c.list ? `list="${c.list}"` : ''}
+      value="${esc(val)}" placeholder="${esc(c.placeholder || '')}"
+      class="${missing ? 'bulk-req-missing' : ''}" ${inputsDisabled ? 'disabled' : ''}
+      oninput="updateBulkCell(${row._id}, '${c.key}', this.value)"
+      onpaste="handleBulkPaste(event, ${i}, '${c.key}')"></td>`;
+  }).join('');
+
+  let statusHtml;
+  if (row.status === 'done') statusHtml = `<span class="bulk-status-ok">✓ Utworzono</span>`;
+  else if (row.status === 'creating') statusHtml = `<span class="bulk-status-pending">⏳ Tworzenie…</span>`;
+  else if (row.status === 'error') statusHtml = `<span class="bulk-status-err">✗ ${esc(row.error || 'Błąd')}</span>`;
+  else statusHtml = `<span class="bulk-status-pending">—</span>`;
+
+  return `<tr class="${rowClass}" data-row-id="${row._id}">
+    <td class="bulk-row-num">${i + 1}</td>
+    <td class="bulk-img-cell">${imgCell}</td>
+    ${cells}
+    <td class="bulk-status-cell">${statusHtml}</td>
+    <td><button class="bulk-rm-row" onclick="removeBulkRow(${row._id})" title="Usuń wiersz">✕</button></td>
+  </tr>`;
+}
+
+function updateBulkCell(id, key, value) {
+  const row = findBulkRow(id);
+  if (row) row[key] = value;
+}
+
+function addBulkRow() {
+  bulkRows.push(newBulkRow());
+  renderBulkRows();
+}
+
+function removeBulkRow(id) {
+  bulkRows = bulkRows.filter(r => r._id !== id);
+  if (!bulkRows.length) bulkRows.push(newBulkRow());
+  renderBulkRows();
+}
+
+function clearBulkRows() {
+  if (!confirm('Usunąć wszystkie wiersze i zacząć od nowa? Utworzone już produkty zostaną — to czyści tylko ten formularz.')) return;
+  bulkRows = Array.from({ length: 5 }, newBulkRow);
+  hideBulkErr();
+  renderBulkRows();
+}
+
+// ── Bulk row images ──────────────────────────────────────────────────────────
+async function uploadBulkImage(row, file) {
+  row.imagePreview = URL.createObjectURL(file);
+  row.imageUrl = null;
+  row.imageUploading = true;
+  renderBulkRows();
+  try {
+    const res = await Api.uploadImage(file);
+    row.imageUrl = res.url || res.path || res.filename || '';
+  } catch (err) {
+    row.imagePreview = null;
+    showBulkErr(`„${file.name}": nie udało się wgrać zdjęcia — ${err.message}`);
+  }
+  row.imageUploading = false;
+  renderBulkRows();
+}
+
+async function handleBulkRowImage(id, e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  const row = findBulkRow(id);
+  if (file && row) await uploadBulkImage(row, file);
+}
+
+async function handleBulkImagePicker(e) {
+  const files = Array.from(e.target.files);
+  e.target.value = '';
+  if (!files.length) return;
+
+  // Fill rows that don't have an image yet, in order; add fresh rows once we run out.
+  const targets = bulkRows.filter(r => !r.imagePreview && r.status !== 'done');
+  while (targets.length < files.length) {
+    const r = newBulkRow();
+    bulkRows.push(r);
+    targets.push(r);
+  }
+  renderBulkRows();
+
+  for (let i = 0; i < files.length; i++) {
+    await uploadBulkImage(targets[i], files[i]);
+  }
+}
+
+// ── Paste-from-Excel ─────────────────────────────────────────────────────────
+function handleBulkPaste(e, rowIndex, colKey) {
+  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+  if (!text) return;
+  const lines = text.replace(/\r/g, '').split('\n').filter((l, i, arr) => !(i === arr.length - 1 && l === ''));
+  const isGrid = lines.length > 1 || lines[0].includes('\t');
+  if (!isGrid) return; // a single plain value — let the browser do a normal paste
+
+  e.preventDefault();
+  const startCol = BULK_COLS.findIndex(c => c.key === colKey);
+  lines.forEach((line, li) => {
+    let targetRow = bulkRows[rowIndex + li];
+    if (!targetRow) { targetRow = newBulkRow(); bulkRows.push(targetRow); }
+    line.split('\t').forEach((val, vi) => {
+      const col = BULK_COLS[startCol + vi];
+      if (col) targetRow[col.key] = val.trim();
+    });
+  });
+  renderBulkRows();
+}
+
+// ── Validate + submit ────────────────────────────────────────────────────────
+function isBulkRowBlank(row) {
+  return !row.name.trim() && !row.categoryText.trim() && !row.description.trim() &&
+    !row.price_net && !row.imagePreview && !row.imageUrl;
+}
+
+function resolveBulkCategory(text, flatCats) {
+  const needle = text.trim().toLowerCase();
+  if (!needle) return null;
+  return flatCats.find(c => c.name.toLowerCase() === needle) || null;
+}
+
+function validateBulkRow(row, flatCats) {
+  const errors = [];
+  if (!row.name.trim()) errors.push('brak nazwy');
+  const category = resolveBulkCategory(row.categoryText, flatCats);
+  if (!row.categoryText.trim()) errors.push('brak kategorii');
+  else if (!category) errors.push(`nieznana kategoria „${row.categoryText}”`);
+  else if (!category.is_active) errors.push(`kategoria „${row.categoryText}” jest nieaktywna`);
+  const priceNet = parseFloat(row.price_net);
+  if (!row.price_net || isNaN(priceNet) || priceNet <= 0) errors.push('brak/nieprawidłowa cena netto');
+  if (row.imageUploading) errors.push('zdjęcie wciąż się wgrywa — poczekaj chwilę');
+  else if (!row.imageUrl) errors.push('brak zdjęcia');
+  return { errors, category, priceNet };
+}
+
+function updateBulkSummary() {
+  const el = document.getElementById('bulkSummary');
+  if (!el) return;
+  const total = bulkRows.filter(r => !isBulkRowBlank(r)).length;
+  const done = bulkRows.filter(r => r.status === 'done').length;
+  el.textContent = total ? `${done}/${total} utworzonych` : '';
+}
+
+async function submitBulkRows() {
+  if (bulkSubmitting) return;
+  hideBulkErr();
+
+  const flatCats = flattenCategories(categories);
+  const candidates = bulkRows.filter(r => r.status !== 'done' && !isBulkRowBlank(r));
+  if (!candidates.length) { showBulkErr('Brak wypełnionych wierszy do utworzenia.'); return; }
+
+  // Validate everything up front so every problem lights up at once, instead
+  // of the admin discovering them one failed request at a time.
+  let anyInvalid = false;
+  candidates.forEach(row => {
+    row._touched = true;
+    const { errors } = validateBulkRow(row, flatCats);
+    if (errors.length) { row.status = 'error'; row.error = 'Popraw: ' + errors.join(', '); anyInvalid = true; }
+    else if (row.status === 'error') { row.status = 'idle'; row.error = null; }
+  });
+  renderBulkRows();
+
+  const toCreate = candidates.filter(r => r.status !== 'error');
+  if (!toCreate.length) {
+    showBulkErr('Wszystkie wypełnione wiersze mają błędy — popraw zaznaczone pola (kolumna Status).');
+    return;
+  }
+  if (anyInvalid) showBulkErr(`${candidates.length - toCreate.length} wiersz(y) z błędami zostały pominięte — popraw je i uruchom ponownie. Reszta jest teraz tworzona…`, 'warn');
+
+  bulkSubmitting = true;
+  setBulkSubmitBtn(true, '⏳ Tworzenie…');
+  let created = 0, failed = 0;
+
+  try {
+    // Sequential on purpose: two rows with the same name would race on slug
+    // uniqueness if fired in parallel, and this lets each row's status update
+    // land the moment that row actually finishes instead of all-at-once.
+    for (const row of toCreate) {
+      row.status = 'creating';
+      renderBulkRows();
+      const { category, priceNet } = validateBulkRow(row, flatCats);
+      const payload = {
+        name: row.name.trim(),
+        category_id: category.id,
+        description: row.description.trim() || null,
+        images: [row.imageUrl],
+        price_net: priceNet,
+        vat_rate: row.vat_rate ? parseFloat(row.vat_rate) : 23,
+        pack_size: row.pack_size ? parseInt(row.pack_size, 10) : 1,
+        stock_quantity: row.stock_quantity ? parseInt(row.stock_quantity, 10) : 0,
+        cost_price: row.cost_price ? parseFloat(row.cost_price) : null,
+        stall_location: row.stall_location.trim() || null,
+        counter_number: row.counter_number.trim() || null,
+      };
+      try {
+        const createdProd = await Api.createProduct(payload);
+        row.status = 'done'; row.error = null;
+        created++;
+        products.unshift(createdProd);
+      } catch (err) {
+        row.status = 'error'; row.error = err.message || 'Błąd tworzenia';
+        failed++;
+      }
+      renderBulkRows();
+    }
+  } finally {
+    // Always runs — even if the admin navigated away from this view mid-batch
+    // (renderBulkRows()/setBulkSubmitBtn() below just no-op when their
+    // elements aren't mounted anymore) — so the button can never get stuck
+    // disabled and a second attempt is never silently swallowed.
+    bulkSubmitting = false;
+    setBulkSubmitBtn(false, '🚀 Utwórz wszystkie produkty');
+  }
+
+  const summary = `Gotowe: utworzono ${created} produkt(y)` + (failed ? `, ${failed} nie powiodło się — patrz kolumna Status.` : '.');
+  showBulkErr(summary, failed ? 'warn' : 'ok');
+}
+
+function setBulkSubmitBtn(disabled, text) {
+  const btn = document.getElementById('bulkSubmitBtn');
+  if (!btn) return;
+  btn.disabled = disabled;
+  btn.textContent = text;
+}
+
+function showBulkErr(msg, kind = 'err') {
+  const el = document.getElementById('bulkErr');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  const palette = {
+    err:  ['#fef2f2', '#fecaca', '#c00'],
+    warn: ['#fffbeb', '#fde68a', '#92400e'],
+    ok:   ['#f0fdf4', '#bbf7d0', '#166534'],
+  }[kind] || ['#fef2f2', '#fecaca', '#c00'];
+  el.style.background = palette[0]; el.style.borderColor = palette[1]; el.style.color = palette[2];
+}
+function hideBulkErr() {
+  const el = document.getElementById('bulkErr');
+  if (el) el.style.display = 'none';
+}
+
 function isLowStock(p) {
-  const inc = p.pack_increment || 1;
-  const packsLeft = Math.floor((p.stock_quantity || 0) / inc);
+  // stock_quantity is already a count of packs — no per-product divisor.
+  const packsLeft = p.stock_quantity || 0;
   return p.is_active && packsLeft > 0 && packsLeft <= 2;
 }
 
@@ -723,9 +1116,15 @@ function renderCatRows() {
   if (!tbody) return;
   const rows = [];
   function walk(nodes, depth) {
-    nodes.forEach(n => {
+    nodes.forEach((n, i) => {
       const indent = '\u00A0'.repeat(depth * 4);
       const parentName = depth === 0 ? '—' : findCatName(n.parent_id, categories);
+      // Only top-level categories have a manual order (arrows); subcategories
+      // are always shown alphabetically, so they get no reorder controls.
+      const order = depth === 0 ? `
+        <button class="btn btn-ghost btn-sm" title="Przesuń wyżej" ${i === 0 ? 'disabled' : ''} onclick="moveCat('${n.id}','up')">▲</button>
+        <button class="btn btn-ghost btn-sm" title="Przesuń niżej" ${i === nodes.length - 1 ? 'disabled' : ''} onclick="moveCat('${n.id}','down')">▼</button>
+      ` : '';
       rows.push(`
         <tr>
           <td><span style="color:#aaa">${indent}</span><b>${esc(n.name)}</b></td>
@@ -736,6 +1135,7 @@ function renderCatRows() {
             : '<span class="badge badge-inactive">Nieaktywna</span>'}</td>
           <td>
             <div class="actions">
+              ${order}
               <button class="btn btn-ghost btn-sm" onclick="openCatModal('${n.id}')">✏️ Edytuj</button>
               <button class="btn btn-ghost btn-sm" onclick="openAddSubcatModal('${n.id}')">＋ Podkat.</button>
               <button class="btn btn-danger btn-sm" onclick="confirmDeleteCat('${n.id}',this.dataset.name)" data-name="${esc(n.name)}">🗑</button>
@@ -747,6 +1147,16 @@ function renderCatRows() {
   }
   walk(categories, 0);
   tbody.innerHTML = rows.length ? rows.join('') : `<tr><td colspan="5" class="empty">Brak kategorii</td></tr>`;
+}
+
+async function moveCat(id, direction) {
+  try {
+    await Api.moveCategory(id, direction);
+    categories = await Api.getCategoryTree({ include_inactive: true });
+    renderCatRows();
+  } catch (e) {
+    alert('Nie udało się zmienić kolejności: ' + e.message);
+  }
 }
 
 function findCatName(id, nodes) {
@@ -871,6 +1281,19 @@ async function saveCat() {
   }
 }
 
+// Every confirm-style action (delete product/category, archive, change order
+// status, edit stock) reuses this one modal + #confirmOk button rather than
+// having its own. Routing every open through here guarantees the button
+// always starts enabled — without it, a handler that disables the button
+// while it works (confirmDelete did) and forgets to re-enable it on success
+// leaves the button permanently stuck for every *other* action too, since
+// they all share the same element, until the page is reloaded.
+function openConfirmModal() {
+  const okBtn = document.getElementById('confirmOk');
+  okBtn.disabled = false;
+  document.getElementById('confirmModal').classList.add('open');
+}
+
 function confirmDeleteCat(id, name) {
   const confirmDiv = document.getElementById('confirmMsg');
   confirmDiv.innerHTML = `
@@ -891,7 +1314,7 @@ function confirmDeleteCat(id, name) {
       alert('Błąd usuwania: ' + e.message);
     }
   };
-  document.getElementById('confirmModal').classList.add('open');
+  openConfirmModal();
 }
 
 // ── Orders view ───────────────────────────────────────────────────────────
@@ -937,6 +1360,7 @@ async function renderOrdersView() {
             <th>Odbiorca</th>
             <th>📞 Telefon</th>
             <th>📍 Adres dostawy</th>
+            <th style="min-width:140px">🏪 Skąd kupić</th>
             <th>Netto</th>
             <th>Brutto</th>
             <th>Status</th>
@@ -951,12 +1375,43 @@ async function renderOrdersView() {
   renderOrderRows();
 }
 
+// Where staff physically go to buy this line item at the wholesale market —
+// snapshotted per order item at order time, so it stays accurate even if the
+// product's own stall/counter changes later. Never shown to buyers (see
+// products.py) — admin-only, picking-list information.
+function formatItemSource(it) {
+  const stall = (it.stall_location_snapshot || '').trim();
+  const counter = (it.counter_number_snapshot || '').trim();
+  if (!stall && !counter) return null;
+  const parts = [];
+  if (stall) parts.push(`Stoisko ${esc(stall)}`);
+  if (counter) parts.push(`Lada ${esc(counter)}`);
+  return parts.join(' / ');
+}
+
+// One order can span several stalls/vendors (each line item was snapshotted
+// with its own source) — this rolls all of them up into one compact,
+// de-duplicated list for the orders-table summary column, so a multi-vendor
+// order still shows everywhere it needs to be bought from at a glance.
+function orderSourcesHtml(o) {
+  const counts = new Map();
+  (o.items || []).forEach(it => {
+    const label = formatItemSource(it);
+    if (!label) return;
+    counts.set(label, (counts.get(label) || 0) + 1);
+  });
+  if (!counts.size) return '<span style="color:#bbb">—</span>';
+  return [...counts.entries()]
+    .map(([label, n]) => `<div style="white-space:nowrap">${label}${n > 1 ? ` <span style="color:#999">(×${n})</span>` : ''}</div>`)
+    .join('');
+}
+
 function renderOrderRows() {
   const tbody = document.getElementById('ordersTbody');
   if (!tbody) return;
   const visible = orderStatusFilter === 'all' ? orders : orders.filter(o => o.status === orderStatusFilter);
   if (!visible.length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">${orders.length ? 'Brak zamówień o wybranym statusie' : 'Brak zamówień'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">${orders.length ? 'Brak zamówień o wybranym statusie' : 'Brak zamówień'}</td></tr>`;
     return;
   }
   tbody.innerHTML = visible.map(o => {
@@ -992,10 +1447,15 @@ function renderOrderRows() {
       if (isArchived)    warnings.push(`<span title="Produkt jest zarchiwizowany i niewidoczny w sklepie" style="display:inline-flex;align-items:center;gap:3px;background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap">📦 Archiwum</span>`);
       if (isOutOfStock)  warnings.push(`<span title="Produkt jest aktualnie niedostępny w magazynie" style="display:inline-flex;align-items:center;gap:3px;background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap">⚠️ Brak w mag.</span>`);
       const warnHtml = warnings.length ? `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${warnings.join('')}</div>` : '';
+      // Per-product note the buyer left in their cart — distinct from the one
+      // whole-order note (o.notes) shown in the left "Dostawa" column below.
+      const noteHtml = it.buyer_note ? `<div style="margin-top:4px;font-size:11px;color:#7c3aed;font-style:italic">📝 „${esc(it.buyer_note)}”</div>` : '';
+      const sourceLabel = formatItemSource(it);
 
       return `
         <tr>
-          <td style="padding:5px 10px;border-bottom:1px solid #eee">${esc(it.product_name_snapshot)}${warnHtml}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee">${esc(it.product_name_snapshot)}${warnHtml}${noteHtml}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee;font-size:11px;color:${sourceLabel?'#333':'#bbb'}">${sourceLabel || '—'}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:center">${it.pack_size_snapshot}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:center">${it.pack_quantity}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:right">${fmtPrice(it.price_net_snapshot)} zł</td>
@@ -1017,6 +1477,7 @@ function renderOrderRows() {
         </td>
         <td><a href="tel:${esc(o.recipient_phone||'')}" style="color:#0099cc;font-weight:bold" onclick="event.stopPropagation()">${phone}</a></td>
         <td style="max-width:200px;word-break:break-word;font-size:11px">${addr}</td>
+        <td style="font-size:11px">${orderSourcesHtml(o)}</td>
         <td><b>${fmtPrice(o.total_net)} zł</b></td>
         <td>${fmtPrice(o.total_gross)} zł${o.coupon_code && Number(o.discount_amount) > 0 ? `<br><span style="font-size:10px;color:#1a7f37">🏷 ${esc(o.coupon_code)} -${fmtPrice(o.discount_amount)} zł</span>` : ''}</td>
         <td>${statusBadge}</td>
@@ -1025,7 +1486,7 @@ function renderOrderRows() {
         </td>
       </tr>
       <tr id="detail-${o.id}" style="display:none">
-        <td colspan="8" style="padding:0;background:#f8fafc;border-top:2px solid #0099cc">
+        <td colspan="9" style="padding:0;background:#f8fafc;border-top:2px solid #0099cc">
           <div style="padding:16px 18px;display:flex;gap:20px;flex-wrap:wrap">
 
             <!-- LEFT: account + delivery info ──────────────────────────── -->
@@ -1081,7 +1542,7 @@ function renderOrderRows() {
 
               ${o.notes ? `
               <div style="margin-top:12px;background:#fffde7;border:1px solid #fde68a;padding:8px 10px;font-size:12px">
-                <b>📝 Uwagi:</b> ${esc(o.notes)}
+                <b>🚚 Uwagi do zamówienia/dostawy:</b> ${esc(o.notes)}
               </div>` : ''}
             </div>
 
@@ -1092,6 +1553,7 @@ function renderOrderRows() {
                 <thead>
                   <tr style="background:#f0f0f0">
                     <th style="padding:6px 10px;text-align:left;font-size:11px">Produkt</th>
+                    <th style="padding:6px 10px;text-align:left;font-size:11px">Skąd kupić</th>
                     <th style="padding:6px 10px;text-align:center;font-size:11px">Pack</th>
                     <th style="padding:6px 10px;text-align:center;font-size:11px">Szt. (paczek)</th>
                     <th style="padding:6px 10px;text-align:right;font-size:11px">Cena netto</th>
@@ -1103,7 +1565,7 @@ function renderOrderRows() {
                 <tbody>${itemRows}</tbody>
                 <tfoot>
                   <tr style="background:#f9f9f9;font-weight:bold;border-top:2px solid #ddd">
-                    <td colspan="5" style="padding:6px 10px;font-size:12px">Łącznie</td>
+                    <td colspan="6" style="padding:6px 10px;font-size:12px">Łącznie</td>
                     <td style="padding:6px 10px;text-align:right">${fmtPrice(o.total_net)} zł</td>
                     <td style="padding:6px 10px;text-align:right;color:#888">${fmtPrice(o.total_gross)} zł</td>
                   </tr>
@@ -1212,7 +1674,7 @@ async function setOrderStatus(id, newStatus) {
       alert('Błąd zmiany statusu: ' + e.message);
     }
   };
-  document.getElementById('confirmModal').classList.add('open');
+  openConfirmModal();
 }
 
 // ── Sellers view (admin approval of pending seller registrations) ─────────────
@@ -1642,7 +2104,6 @@ async function openEditModal(id) {
   document.getElementById('f_vat').value = prod.vat_rate ?? 23;
   document.getElementById('f_price_gross').value = prod.price_gross || '';
   document.getElementById('f_pack_size').value = prod.pack_size || 1;
-  document.getElementById('f_pack_inc').value = prod.pack_increment || 1;
   document.getElementById('f_stock_qty').value = prod.stock_quantity ?? 0;
   document.getElementById('f_stock_status').value = prod.stock_status || 'in_stock';
   document.getElementById('f_active').value = prod.is_active ? 'true' : 'false';
@@ -1683,7 +2144,6 @@ function clearModalForm() {
   });
   document.getElementById('f_vat').value = '23';
   document.getElementById('f_pack_size').value = '1';
-  document.getElementById('f_pack_inc').value = '1';
   document.getElementById('f_stock_qty').value = '0';
   document.getElementById('f_stock_status').value = 'in_stock';
   document.getElementById('f_active').value = 'true';
@@ -1883,7 +2343,6 @@ async function saveProduct() {
     vat_rate: parseFloat(document.getElementById('f_vat').value) || 23,
     price_gross: grossVal ? parseFloat(grossVal) : null,
     pack_size: parseInt(document.getElementById('f_pack_size').value) || 1,
-    pack_increment: parseInt(document.getElementById('f_pack_inc').value) || 1,
     stock_quantity: parseInt(document.getElementById('f_stock_qty').value) || 0,
     stock_status: document.getElementById('f_stock_status').value,
     is_active: document.getElementById('f_active').value === 'true',
@@ -1966,7 +2425,7 @@ function openStockModal(id) {
       renderStats();
     } catch (e) { alert('Błąd: ' + e.message); }
   };
-  document.getElementById('confirmModal').classList.add('open');
+  openConfirmModal();
 }
 
 // ── Archive / delete ───────────────────────────────────────────────────────
@@ -1980,7 +2439,7 @@ function confirmArchive(id, name, isActive) {
   okBtn.className = 'btn ' + (isActive ? 'btn-ghost' : 'btn-primary');
   okBtn.disabled = false;
   okBtn.onclick = () => _doArchive(id, name, isActive, false);
-  document.getElementById('confirmModal').classList.add('open');
+  openConfirmModal();
 }
 
 async function _doArchive(id, name, isActive, force) {
@@ -2047,10 +2506,10 @@ function confirmDelete(id, name) {
       okBtn.className = 'btn btn-ghost';
       okBtn.disabled = false;
       okBtn.onclick = () => document.getElementById('confirmModal').classList.remove('open');
-      document.getElementById('confirmModal').classList.add('open');
+      openConfirmModal();
     }
   };
-  document.getElementById('confirmModal').classList.add('open');
+  openConfirmModal();
 }
 
 // ── Settings view ──────────────────────────────────────────────────────────
@@ -2125,7 +2584,7 @@ async function changePassword() {
     btn.textContent = 'Zmień hasło';
   }
 }
-
+ 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function showModalErr(msg) { const e = document.getElementById('modalErr'); e.textContent = msg; e.style.display = 'block'; }
 function hideModalErr() { document.getElementById('modalErr').style.display = 'none'; }

@@ -165,8 +165,10 @@ def _to_product_response(product: Product, db: Session, hide_prices: bool = Fals
         is_active=product.is_active,
         pack_increment=product.pack_increment,
         cost_price=float(product.cost_price) if product.cost_price is not None and is_staff else None,
-        stall_location=product.stall_location,
-        counter_number=product.counter_number,
+        # Where staff physically buy this item at the wholesale market — purely
+        # internal sourcing info, must never reach a buyer/guest response.
+        stall_location=product.stall_location if is_staff else None,
+        counter_number=product.counter_number if is_staff else None,
         is_bestseller=product.is_bestseller,
         is_popular=product.is_popular,
         is_on_sale=product.is_on_sale,
@@ -210,8 +212,10 @@ def _to_list_response(product: Product, db: Session, hide_prices: bool = False, 
         is_active=product.is_active,
         pack_increment=product.pack_increment,
         cost_price=float(product.cost_price) if product.cost_price is not None and is_staff else None,
-        stall_location=product.stall_location,
-        counter_number=product.counter_number,
+        # Where staff physically buy this item at the wholesale market — purely
+        # internal sourcing info, must never reach a buyer/guest response.
+        stall_location=product.stall_location if is_staff else None,
+        counter_number=product.counter_number if is_staff else None,
         is_bestseller=product.is_bestseller,
         is_popular=product.is_popular,
         is_on_sale=product.is_on_sale,

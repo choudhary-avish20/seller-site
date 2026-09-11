@@ -19,12 +19,29 @@ const API = (()=>{
     try{const d=await (await fetch(base+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:r})})).json(); if(d.access_token){setT(d.access_token,d.refresh_token);return true} }catch{}
     clr(); return false;
   }
+  // FastAPI's own request-validation errors (a malformed field, a value out of
+  // range) come back as detail: [{loc, msg, type}, ...] — everything else in
+  // this app raises detail as a plain string. Without this, the array shape
+  // stringifies to the useless literal "[object Object]" in every error
+  // message shown across the site.
+  function detailToMessage(detail, fallback){
+    if(!detail) return fallback;
+    if(typeof detail === 'string') return detail;
+    if(Array.isArray(detail)){
+      return detail.map(d=>{
+        if(typeof d === 'string') return d;
+        const field = Array.isArray(d.loc) ? d.loc.filter(p=>p!=='body').join('.') : null;
+        return field ? `${field}: ${d.msg}` : (d.msg || JSON.stringify(d));
+      }).join('; ') || fallback;
+    }
+    return fallback;
+  }
   async function req(path,opts={}){
     const h=Object.assign({'Content-Type':'application/json'},opts.headers||{});
     const {a}=getT(); if(a) h['Authorization']='Bearer '+a;
     let res=await fetch(base+path,Object.assign({},opts,{headers:h}));
     if(res.status===401 && getT().r){ if(await refresh()){ h['Authorization']='Bearer '+getT().a; res=await fetch(base+path,Object.assign({},opts,{headers:h}))}}
-    if(!res.ok){ const e=await res.json().catch(()=>({detail:res.statusText})); const err=new Error(e.detail||'Error '+res.status); err.status=res.status; throw err}
+    if(!res.ok){ const e=await res.json().catch(()=>({detail:res.statusText})); const err=new Error(detailToMessage(e.detail,'Error '+res.status)); err.status=res.status; throw err}
     if(res.status===204) return {}; const ct=res.headers.get('content-type')||''; if(ct.includes('text/html')) return res.text(); return res.json().catch(()=>({}));
   }
   function img(u){ if(!u) return ''; if(u.startsWith('http')) return u; if(u.startsWith('/')) return API_BASE+u; return u; }
@@ -49,7 +66,7 @@ const API = (()=>{
     uploadImage:(file)=>{
       const fd=new FormData(); fd.append('file',file);
       const h={}; const {a}=getT(); if(a) h['Authorization']='Bearer '+a;
-      return fetch(base+'/uploads/image',{method:'POST',headers:h,body:fd}).then(async r=>{ if(!r.ok){const e=await r.json().catch(()=>({detail:'Upload failed'})); throw new Error(e.detail)} return r.json()});
+      return fetch(base+'/uploads/image',{method:'POST',headers:h,body:fd}).then(async r=>{ if(!r.ok){const e=await r.json().catch(()=>({detail:'Upload failed'})); throw new Error(detailToMessage(e.detail,'Upload failed'))} return r.json()});
     },
     // Seller profile
     getSellerProfile:()=>req('/sellers/me/profile'),
@@ -88,11 +105,14 @@ const API = (()=>{
     createCategory:(d)=>req('/categories',{method:'POST',body:JSON.stringify(d)}),
     updateCategory:(id,d)=>req('/categories/'+id,{method:'PUT',body:JSON.stringify(d)}),
     deleteCategory:(id)=>req('/categories/'+id,{method:'DELETE'}),
+    moveCategory:(id,direction)=>req('/categories/'+id+'/move',{method:'PATCH',body:JSON.stringify({direction})}),
     // Site-wide contact info (Contact page + admin settings)
     getSettings:()=>req('/settings'),
     updateSettings:(d)=>req('/settings',{method:'PUT',body:JSON.stringify(d)}),
     // Account management
-    changePassword:(d)=>req('/auth/change-password',{method:'POST',body:JSON.stringify(d)}),
+    changePassword:(d)=>req('/auth/change-password',{method:'POST',body:JSON.stringify(d)}).then(d=>{setT(d.access_token,d.refresh_token);return d}),
+    forgotPassword:(email)=>req('/auth/forgot-password',{method:'POST',body:JSON.stringify({email})}),
+    resetPassword:(token,newPassword)=>req('/auth/reset-password',{method:'POST',body:JSON.stringify({token,new_password:newPassword})}),
     img, base:API_BASE, raw:base
   };
 })();
@@ -151,18 +171,29 @@ document.addEventListener('DOMContentLoaded',()=>{ document.querySelectorAll('[d
 // cart
 const Cart={
   key:'cart_v1',
+  // Fallback used until cart.html/checkout.html overwrite this from GET /auth/config
+  // (the backend's authoritative MIN_ORDER_VALUE_NET) — kept in sync with that default
+  // so an offline/failed config fetch still shows the right threshold.
+  MIN_ORDER_VALUE_NET:500,
   get(){ try{return JSON.parse(localStorage.getItem(this.key)||'[]')}catch{return []}},
   save(v){ localStorage.setItem(this.key,JSON.stringify(v)); updateCartUI(); },
+  // Quantity is a plain count of packs — buyers can order any whole number
+  // of packs (1, 2, 3…), no forced minimum/multiple beyond "at least 1".
   add(p,qty=1, varId=null, label=null, priceNet=null){
-    const inc=p.pack_increment||1;
-    qty=Math.max(inc, Math.ceil(qty/inc)*inc);
+    qty=Math.max(1, Math.round(qty));
     const items=this.get();
     const idx=items.findIndex(i=>i.product.id===p.id && (i.variantId||null)===(varId||null));
-    if(idx>=0){ items[idx].packQuantity+=qty; const tot=items[idx].packQuantity; items[idx].packQuantity=Math.ceil(tot/inc)*inc; }
+    if(idx>=0){ items[idx].packQuantity+=qty; }
     else items.push({product:p, packQuantity:qty, variantId:varId, variantLabel:label, variantPriceNet:priceNet});
     this.save(items);
   },
-  update(id,varId,qty){ let items=this.get(); const it=items.find(x=>x.product.id===id && (x.variantId||null)===(varId||null)); const inc=it? (it.product.pack_increment||1):1; qty=Math.max(inc, Math.ceil(qty/inc)*inc); items=items.map(x=> x.product.id===id && (x.variantId||null)===(varId||null)? {...x,packQuantity:qty}:x); this.save(items); },
+  update(id,varId,qty){ let items=this.get(); qty=Math.max(1, Math.round(qty)); items=items.map(x=> x.product.id===id && (x.variantId||null)===(varId||null)? {...x,packQuantity:qty}:x); this.save(items); },
+  // A free-text note the buyer attaches to ONE product line in their cart (a
+  // colour/size preference, a packing request…) — separate from the single
+  // whole-order shipping note entered at checkout. Sent to the backend as
+  // items[].note on order creation and stored per order line, so the seller
+  // sees exactly which product it was about.
+  setNote(id,varId,note){ const items=this.get().map(x=> x.product.id===id && (x.variantId||null)===(varId||null)? {...x,note}:x); this.save(items); },
   remove(id,varId){ this.save(this.get().filter(x=> !(x.product.id===id && (x.variantId||null)===(varId||null))))},
   clear(){ this.save([])},
   count(){return this.get().reduce((s,i)=>s+i.packQuantity,0)},
@@ -190,6 +221,14 @@ const Cart={
       net+=n*it.packQuantity; gross+=g*it.packQuantity;
     });
     return {net,gross}
+  },
+  // Site-wide minimum order value — checked against the raw items subtotal
+  // (same figure the backend validates at POST /orders), independent of any
+  // coupon discount. remaining is clamped to 0 once the cart already qualifies.
+  minOrderStatus(){
+    const {net} = this.totals();
+    const min = this.MIN_ORDER_VALUE_NET;
+    return {net, min, remaining:Math.max(0, +(min-net).toFixed(2)), met: net >= min};
   },
   // Applied coupon — kept separate from the line-items array so clearing/editing
   // the cart doesn't silently drop it; checkout re-validates it server-side anyway.
@@ -283,10 +322,12 @@ function renderProductCard(p){
   const out = p.stock_status === 'out_of_stock' || p.stock_quantity === 0;
   const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/400x400?text=No+image';
   const img2 = p.images && p.images[1] ? Api.img(p.images[1]) : null;
-  const inc = p.pack_increment || 1;
   const showSale = p.is_on_sale && p.sale_price_net != null;
   const slugUrl = encodeURIComponent(p.slug);
-  const packsLeft = Math.floor((p.stock_quantity || 0) / inc);
+  // stock_quantity is already a count of packs — dividing it by anything
+  // else here was mislabeling "batches of pack_increment remaining" as
+  // "packs left", understating how much stock was actually available.
+  const packsLeft = p.stock_quantity || 0;
   const lowStock = packsLeft > 0 && packsLeft <= 2;
 
   let badge;
@@ -305,7 +346,7 @@ function renderProductCard(p){
     <div class="card-media">
       <a href="product.html?slug=${slugUrl}" class="card-img-wrap">
         <img class="img-a" src="${esc(img)}" alt="${esc(p.name)}" loading="lazy">
-        ${img2 ? `<img class="img-b" src="${esc(img2)}" alt="" loading="lazy">` : ''}
+        ${img2 ? `<img class="img-b" src="${esc(img2)}" alt="" loading="eager" fetchpriority="low">` : ''}
       </a>
       <div class="badge-row">${badge}</div>
       <button class="wl-heart" data-id="${p.id}" onclick="toggleWishlistCard(this,'${p.id}')" aria-label="Dodaj do listy życzeń" title="Dodaj do listy życzeń">♡</button>
@@ -317,21 +358,20 @@ function renderProductCard(p){
     <div class="price">${netGross}</div>
     <div class="qty">
       <button onclick="cardChg('${p.id}',-1)" aria-label="Zmniejsz ilość">−</button>
-      <input id="qty-${p.id}" value="${inc}" data-inc="${inc}" inputmode="numeric">
+      <input id="qty-${p.id}" value="1" inputmode="numeric">
       <button onclick="cardChg('${p.id}',1)" aria-label="Zwiększ ilość">+</button>
     </div>
     <button class="add" onclick="cardAddToCart(this,'${p.id}')" ${out?'disabled style="opacity:.5;cursor:not-allowed"':''}>${out?'Niedostępny':'Dodaj do koszyka'}</button>
   </div>`;
 }
 
+// Quantity is a plain pack count — every click moves it by exactly 1 pack,
+// with 1 pack as the floor (no snapping to any product-specific multiple).
 function cardChg(id, dir){
-  const p = window._productRegistry.get(id);
-  const inc = p ? (p.pack_increment || 1) : 1;
   const inp = document.getElementById('qty-'+id);
   if(!inp) return;
-  let v = parseInt(inp.value || inc, 10) + dir*inc;
-  if(v < inc) v = inc;
-  v = Math.ceil(v/inc)*inc;
+  let v = parseInt(inp.value || 1, 10) + dir;
+  if(v < 1) v = 1;
   inp.value = v;
 }
 
@@ -343,10 +383,9 @@ function cardChg(id, dir){
 function cardAddToCart(btn, id){
   const p = window._productRegistry.get(id);
   if(!p) return;
-  const inc = p.pack_increment || 1;
   const inp = document.getElementById('qty-'+id);
-  let qty = parseInt((inp && inp.value) || inc, 10);
-  qty = Math.ceil(qty/inc)*inc;
+  let qty = parseInt((inp && inp.value) || 1, 10);
+  if(qty < 1) qty = 1;
   try{
     Cart.add(p, qty);
   }catch(e){

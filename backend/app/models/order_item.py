@@ -32,6 +32,12 @@ class OrderItem(UUIDPKMixin, TimestampMixin, Base):
 
     pack_quantity: Mapped[int] = mapped_column(Integer, nullable=False)  # number of packs ordered
 
+    # Free-text note the buyer attached to THIS product while it was in their
+    # cart (e.g. a colour/size preference, a packing request) — distinct from
+    # Order.notes, which is the one overall delivery/shipping note for the
+    # whole order. Never touched by the app itself, purely buyer input.
+    buyer_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
+
     order: Mapped["Order"] = relationship(back_populates="items")
     product: Mapped["Product"] = relationship(back_populates="order_items")
     variant: Mapped["ProductVariant"] = relationship(back_populates="order_items")

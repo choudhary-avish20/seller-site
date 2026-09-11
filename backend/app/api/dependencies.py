@@ -1,6 +1,5 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -33,6 +32,16 @@ def get_current_user(
         raise credentials_exception
     user = get_user_by_id(db, user_uuid)
     if user is None:
+        raise credentials_exception
+    # A token minted before the user's last password change carries a stale
+    # "tv" claim — reject it so a stolen/leaked token stops working the
+    # moment the password is changed, instead of staying valid for its full
+    # remaining lifetime (up to REFRESH_TOKEN_EXPIRE_DAYS for a refresh token).
+    # Tokens issued before this field existed carry no "tv" claim at all;
+    # default that to 0 so they keep working (token_version starts at 0 for
+    # every user, so a missing claim and an explicit 0 mean the same thing —
+    # this avoids force-logging-out every already-signed-in user on deploy).
+    if payload.get("tv", 0) != user.token_version:
         raise credentials_exception
     if not user.is_active:
         raise HTTPException(

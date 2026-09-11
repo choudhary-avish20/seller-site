@@ -11,6 +11,7 @@ class OrderItemCreate(BaseModel):
     product_id: UUID
     variant_id: Optional[UUID] = None
     pack_quantity: int = Field(..., ge=1, description="Number of packs")
+    note: Optional[str] = Field(None, max_length=500, description="Buyer's note for this specific product")
 
 
 class OrderStatusUpdate(BaseModel):
@@ -45,6 +46,7 @@ class OrderItemResponse(BaseModel):
     cost_price_snapshot: Optional[float] = None
     stall_location_snapshot: Optional[str] = None
     counter_number_snapshot: Optional[str] = None
+    buyer_note: Optional[str] = None
     created_at: datetime
 
     @field_serializer('id', 'order_id', 'product_id', 'variant_id')

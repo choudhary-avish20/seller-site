@@ -11,6 +11,7 @@ from app.models.user import User, UserRole, BuyerStatus
 from app.models.product import Product, StockStatus
 from app.models.category import Category
 from app.core.auth import get_password_hash
+from app.core.config import settings
 
 
 client = TestClient(app)
@@ -107,13 +108,17 @@ def test_create_order_with_unverified_user_auto_resend(db_session: Session):
         )
 
 
-def test_create_order_with_verified_user_success(db_session: Session):
+def test_create_order_with_verified_user_success(db_session: Session, monkeypatch):
     """Test that verified users can create orders successfully."""
+    # This test is about the email-verification gate, not the minimum-order-value
+    # rule, so lift that floor rather than inflating the test product's price.
+    monkeypatch.setattr(settings, "MIN_ORDER_VALUE_NET", 0)
+
     # Create verified user and product
     user = create_test_user(db_session, email_verified=True)
     product = create_test_product(db_session)
     db_session.commit()
-    
+
     # Mock authentication
     with patch('app.api.dependencies.get_current_user', return_value=user):
         

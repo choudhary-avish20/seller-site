@@ -96,11 +96,15 @@ def _restore_stock_for_order(db: Session, order: Order) -> None:
             )
 
 
-def _redact_cost_price(resp: OrderResponse, viewer: User) -> OrderResponse:
-    """Cost price is internal margin data — never show it to the buyer who placed the order."""
+def _redact_internal_fields(resp: OrderResponse, viewer: User) -> OrderResponse:
+    """Cost price (margin) and stall/counter (where staff physically buy the
+    item at the wholesale market) are internal sourcing data — never show
+    them to the buyer who placed the order, only to staff (admin/seller)."""
     if viewer.role == UserRole.buyer:
         for item in resp.items:
             item.cost_price_snapshot = None
+            item.stall_location_snapshot = None
+            item.counter_number_snapshot = None
     return resp
 
 
@@ -151,10 +155,8 @@ async def create_order(
             raise HTTPException(status_code=400, detail=f"Product {product.name} is archived")
         if product.stock_status == StockStatus.out_of_stock:
             raise HTTPException(status_code=400, detail=f"Product {product.name} out of stock")
-        # pack increment validation (e.g. +12 or +40)
-        inc = product.pack_increment or 1
-        if item.pack_quantity % inc != 0:
-            raise HTTPException(status_code=400, detail=f"Product {product.name} must be ordered in increments of {inc} packs (got {item.pack_quantity})")
+        # Buyers may order any whole number of packs (>=1, enforced by the
+        # OrderItemCreate schema) — no forced multiple of pack_increment.
         if product.stock_quantity < item.pack_quantity:
             raise HTTPException(status_code=400, detail=f"Insufficient stock for {product.name}: {product.stock_quantity} packs available")
 
@@ -183,7 +185,21 @@ async def create_order(
             "pack_quantity": item.pack_quantity,
             "price_net": price_net,
             "price_gross": price_gross,
+            "buyer_note": item.note.strip() if item.note else None,
         })
+
+    # Minimum order value is enforced against the raw items subtotal (before any
+    # coupon discount) — it's a floor on order size/volume, not on final revenue,
+    # so a coupon can't be used to slip an order under the threshold after the
+    # cart already qualified.
+    if total_net < settings.MIN_ORDER_VALUE_NET:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Minimalna wartość zamówienia to {settings.MIN_ORDER_VALUE_NET:.2f} zł netto "
+                f"(wartość koszyka: {total_net:.2f} zł netto)."
+            ),
+        )
 
     coupon: Coupon | None = None
     discount_amount = 0.0
@@ -232,6 +248,7 @@ async def create_order(
             cost_price_snapshot=float(p.cost_price) if p.cost_price is not None else None,
             stall_location_snapshot=p.stall_location,
             counter_number_snapshot=p.counter_number,
+            buyer_note=entry["buyer_note"],
         )
         db.add(oi)
         _atomic_decrement_stock(db, Product, p.id, entry["pack_quantity"], p.name)
@@ -250,7 +267,7 @@ async def create_order(
     order.items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
 
     resp = OrderResponse.model_validate(order)
-    _redact_cost_price(resp, current_user)
+    _redact_internal_fields(resp, current_user)
 
     # Send order confirmation email (fire-and-forget, don't block response on email failure)
     try:
@@ -293,7 +310,7 @@ def list_orders(
         if buyer and current_user.role in (UserRole.admin, UserRole.seller):
             resp.buyer_email = buyer.email
             resp.buyer_full_name = buyer.full_name
-        result.append(_redact_cost_price(resp, current_user))
+        result.append(_redact_internal_fields(resp, current_user))
     return result
 
 
@@ -311,7 +328,7 @@ def get_order(
 
     order.items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
     resp = OrderResponse.model_validate(order)
-    return _redact_cost_price(resp, current_user)
+    return _redact_internal_fields(resp, current_user)
 
 
 # Linear fulfillment flow; delivered/cancelled are terminal. Enforced server-side so the
@@ -363,7 +380,7 @@ async def update_order_status(
 
     # Enrich with buyer info for the response
     resp = OrderResponse.model_validate(order)
-    _redact_cost_price(resp, current_user)
+    _redact_internal_fields(resp, current_user)
     buyer = db.query(User).filter(User.id == order.buyer_id).first()
     if buyer and current_user.role in (UserRole.admin, UserRole.seller):
         resp.buyer_email = buyer.email
@@ -459,6 +476,7 @@ def print_order(
     company_name = order.company_name or (buyer.company_name if buyer else None)
     company_tax_id = order.company_tax_id or (buyer.company_tax_id if buyer else None)
     cost_col_header = "<th>Cost price</th>" if is_staff else ""
+    stall_col_header = "<th>Stall / Counter</th>" if is_staff else ""
 
     doc = f"""
     <html><head><meta charset="utf-8"><title>Order {_e(str(order.id)[:8])} Print</title>
@@ -466,17 +484,19 @@ def print_order(
     <body>
     <button onclick="window.print()" style="padding:8px 16px;background:#0f172a;color:#fff;border:0;border-radius:999px;cursor:pointer">Print</button>
     <h1>Order #{_e(str(order.id)[:8])} — {_e(order.status.value)}</h1>
-    <div class="meta">Buyer: {_e(buyer.full_name if buyer else '')} ({_e(buyer.email if buyer else '')})<br>Company: {_e(company_name)} NIP: {_e(company_tax_id)}<br>Shipping: {_e(order.shipping_address)}<br>Recipient: {_e(order.recipient_name)} {_e(order.recipient_phone)} {_e(order.recipient_address)}<br>Payment: {_e(order.payment_method.value)} (COD only)<br>Date: {_e(order.created_at)}</div>
-    <table><thead><tr><th>Product</th><th>Pack</th><th>Qty (packs)</th><th>Stall / Counter</th>{cost_col_header}<th>Sell net</th><th>Total net</th></tr></thead><tbody>
+    <div class="meta">Buyer: {_e(buyer.full_name if buyer else '')} ({_e(buyer.email if buyer else '')})<br>Company: {_e(company_name)} NIP: {_e(company_tax_id)}<br>Shipping: {_e(order.shipping_address)}<br>Recipient: {_e(order.recipient_name)} {_e(order.recipient_phone)} {_e(order.recipient_address)}<br>Payment: {_e(order.payment_method.value)} (COD only)<br>Date: {_e(order.created_at)}{f"<br><b>Order note:</b> {_e(order.notes)}" if order.notes else ""}</div>
+    <table><thead><tr><th>Product</th><th>Pack</th><th>Qty (packs)</th>{stall_col_header}{cost_col_header}<th>Sell net</th><th>Total net</th><th>Buyer note</th></tr></thead><tbody>
     """
     for it in items:
         cost_cell = f"<td>{_e(it.cost_price_snapshot) if it.cost_price_snapshot is not None else '-'}</td>" if is_staff else ""
+        stall_cell = f"<td>{_e(it.stall_location_snapshot or '-')} / {_e(it.counter_number_snapshot or '-')}</td>" if is_staff else ""
         doc += (
             f"<tr><td>{_e(it.product_name_snapshot)} (pack {_e(it.pack_size_snapshot)})</td>"
             f"<td>{_e(it.pack_size_snapshot)}</td><td>{_e(it.pack_quantity)}</td>"
-            f"<td>{_e(it.stall_location_snapshot or '-')} / {_e(it.counter_number_snapshot or '-')}</td>"
+            f"{stall_cell}"
             f"{cost_cell}"
-            f"<td>{_e(it.price_net_snapshot)}</td><td>{_e(round(float(it.price_net_snapshot) * it.pack_quantity, 2))}</td></tr>"
+            f"<td>{_e(it.price_net_snapshot)}</td><td>{_e(round(float(it.price_net_snapshot) * it.pack_quantity, 2))}</td>"
+            f"<td>{_e(it.buyer_note) if it.buyer_note else '-'}</td></tr>"
         )
     footer_note = "Print for staff: buy goods at stall after order. Cost price shown for margin." if is_staff else "Print for staff: buy goods at stall after order."
     doc += f"</tbody></table><p style='margin-top:12px;font-weight:700'>Total net: {_e(order.total_net)} | Total gross: {_e(order.total_gross)}</p><p style='font-size:11px;color:#64748b'>{_e(footer_note)}</p></body></html>"
