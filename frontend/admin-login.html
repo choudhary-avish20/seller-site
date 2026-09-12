@@ -5,6 +5,22 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Panel — Logowanie</title>
 <link rel="stylesheet" href="css/style.css">
+<style>
+/* Same admin accent (blue, distinct from the storefront's orange) and
+   radius/shadow tokens as admin-dashboard.html, so the login → dashboard
+   transition isn't a jump between two different button/input languages. */
+:root{--adm-accent:#0099cc;--adm-accent-hover:#007aa8}
+.adm-login-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);padding:28px 24px}
+.adm-login-card input{width:100%;border:1px solid var(--border-strong);border-radius:var(--radius-sm);padding:9px 10px;margin-bottom:12px;font-size:13px;font-family:inherit;outline:none}
+.adm-login-card input:focus{border-color:var(--adm-accent)}
+.adm-login-card label{font-size:12px;font-weight:bold;display:block;margin-bottom:3px;color:var(--text-primary)}
+.adm-login-btn{width:100%;padding:11px;background:var(--adm-accent);color:#fff;border:0;border-radius:var(--radius-sm);font-weight:bold;cursor:pointer;font-size:13px;transition:background var(--t-fast)}
+.adm-login-btn:hover{background:var(--adm-accent-hover)}
+.adm-login-btn:disabled{opacity:.6;cursor:not-allowed}
+.adm-banner{display:none;border-radius:var(--radius-sm);padding:8px 10px;margin:0 0 12px;font-size:12px;line-height:1.5}
+.adm-banner-err{background:#fef2f2;border:1px solid #fecaca;color:var(--sale)}
+.adm-banner-info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af}
+</style>
 </head>
 <body>
 <div class="topbar">
@@ -15,30 +31,27 @@
 </div>
 
 <div class="container" style="max-width:420px;margin:60px auto">
-  <div style="background:#fff;border:1px solid #ddd;padding:28px 24px">
+  <div class="adm-login-card">
 
     <div style="text-align:center;margin-bottom:20px">
       <div style="font-size:28px;margin-bottom:4px">🔒</div>
-      <h1 style="font-size:15px;font-weight:bold;color:#333">Logowanie — Panel sprzedawcy</h1>
-      <p style="font-size:11px;color:#999;margin-top:4px">Dostęp tylko dla właściciela sklepu</p>
+      <h1 style="font-size:15px;font-weight:bold;color:var(--text-primary)">Logowanie — Panel sprzedawcy</h1>
+      <p style="font-size:11px;color:var(--muted);margin-top:4px">Dostęp tylko dla właściciela sklepu</p>
     </div>
 
     <!-- Error / info banners -->
-    <div id="err" style="display:none;background:#fef2f2;border:1px solid #fecaca;color:#c00;padding:8px 10px;margin:0 0 12px;font-size:12px;line-height:1.5"></div>
-    <div id="info" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;padding:8px 10px;margin:0 0 12px;font-size:12px"></div>
+    <div id="err" class="adm-banner adm-banner-err"></div>
+    <div id="info" class="adm-banner adm-banner-info"></div>
 
     <!-- Login form -->
     <form id="loginForm">
-      <label style="font-size:12px;font-weight:bold;display:block;margin-bottom:3px">Email</label>
-      <input id="email" type="email" required autocomplete="username"
-             style="width:100%;border:1px solid #ccc;padding:8px;margin-bottom:10px;font-size:13px;outline:none">
+      <label>Email</label>
+      <input id="email" type="email" required autocomplete="username">
 
-      <label style="font-size:12px;font-weight:bold;display:block;margin-bottom:3px">Hasło</label>
-      <input id="pwd" type="password" required autocomplete="current-password"
-             style="width:100%;border:1px solid #ccc;padding:8px;margin-bottom:14px;font-size:13px;outline:none">
+      <label>Hasło</label>
+      <input id="pwd" type="password" required autocomplete="current-password">
 
-      <button id="submitBtn" type="submit"
-              style="width:100%;padding:10px;background:#2b2b2b;color:#fff;border:0;font-weight:bold;cursor:pointer;font-size:13px">
+      <button id="submitBtn" type="submit" class="adm-login-btn">
         Zaloguj się
       </button>
     </form>

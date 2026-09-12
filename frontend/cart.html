@@ -18,24 +18,24 @@
 .ct-summary{width:320px;flex-shrink:0;position:sticky;top:16px}
 @media(max-width:760px){.ct-summary{width:100%;position:static}}
 
-.ct-card{background:#fff;border:1px solid #ddd;margin-bottom:10px;padding:14px;display:flex;gap:14px;align-items:center;transition:box-shadow .15s}
-.ct-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.06)}
-.ct-img{width:76px;height:76px;object-fit:contain;background:#fafafa;border:1px solid #eee;flex-shrink:0}
+.ct-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:10px;padding:14px;display:flex;gap:14px;align-items:center;transition:box-shadow var(--t-fast)}
+.ct-card:hover{box-shadow:var(--shadow-sm)}
+.ct-img{width:76px;height:76px;object-fit:contain;background:var(--surface-muted);border:1px solid var(--border);border-radius:var(--radius-sm);flex-shrink:0}
 .ct-info{flex:1;min-width:0}
-.ct-info a.name{font-weight:bold;font-size:13px;color:#222}
+.ct-info a.name{font-weight:bold;font-size:13px;color:var(--text-primary)}
 .ct-info a.name:hover{color:var(--accent)}
-.ct-meta{font-size:11px;color:#888;margin-top:2px}
-.ct-price-row{font-size:12px;margin-top:6px;color:#555}
-.ct-price-row b{color:#222;font-size:14px}
-.ct-note{display:block;width:100%;margin-top:8px;padding:7px 9px;border:1px solid #ddd;border-radius:4px;font:inherit;font-size:11.5px;color:#333;resize:vertical;min-height:36px}
+.ct-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.ct-price-row{font-size:12px;margin-top:6px;color:var(--text-secondary)}
+.ct-price-row b{color:var(--text-primary);font-size:14px}
+.ct-note{display:block;width:100%;margin-top:8px;padding:7px 9px;border:1px solid var(--border);border-radius:var(--radius-sm);font:inherit;font-size:11.5px;color:var(--text-primary);resize:vertical;min-height:36px}
 .ct-note:focus{outline:none;border-color:var(--accent)}
-.ct-note::placeholder{color:#aaa}
+.ct-note::placeholder{color:var(--muted)}
 .ct-controls{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
-.ct-stepper{display:flex;align-items:center;border:1px solid #ddd;border-radius:3px}
-.ct-stepper button{width:28px;height:28px;border:0;background:#f7f7f7;cursor:pointer;font-size:14px;color:#333}
-.ct-stepper button:hover{background:#eee}
+.ct-stepper{display:flex;align-items:center;border:1px solid var(--border);border-radius:var(--radius-sm)}
+.ct-stepper button{width:28px;height:28px;border:0;background:var(--surface-muted);cursor:pointer;font-size:14px;color:var(--text-primary);transition:background var(--t-fast)}
+.ct-stepper button:hover{background:var(--border)}
 .ct-stepper span{width:38px;text-align:center;font-size:12px;font-weight:bold}
-.ct-remove{font-size:11px;color:#c00;background:none;border:0;cursor:pointer;padding:0}
+.ct-remove{font-size:11px;color:var(--sale);background:none;border:0;cursor:pointer;padding:0}
 .ct-remove:hover{text-decoration:underline}
 
 @media(max-width:480px){
@@ -45,24 +45,25 @@
   .ct-stepper span{width:34px}
 }
 
-.ct-empty{padding:50px 20px;background:#fff;border:1px solid #ddd;text-align:center}
+.ct-empty{padding:50px 20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);text-align:center}
 .ct-empty .ico{font-size:44px;margin-bottom:10px}
-.ct-empty p{color:#666;font-size:13px;margin-bottom:16px}
-.ct-empty a.btn-browse{display:inline-block;padding:10px 26px;background:#333;color:#fff;font-weight:bold;font-size:13px}
+.ct-empty p{color:var(--text-secondary);font-size:13px;margin-bottom:16px}
+.ct-empty a.btn-browse{display:inline-block;padding:10px 26px;background:var(--text-primary);color:#fff;border-radius:var(--radius-sm);font-weight:bold;font-size:13px;transition:background var(--t-fast)}
+.ct-empty a.btn-browse:hover{background:#000}
 
-.ct-box{background:#fff;border:1px solid #ddd}
-.ct-box-head{background:#333;color:#fff;padding:10px 14px;font-size:13px;font-weight:bold}
+.ct-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden}
+.ct-box-head{background:var(--text-primary);color:#fff;padding:10px 14px;font-size:13px;font-weight:bold}
 .ct-box-body{padding:14px}
 .ct-total-row{display:flex;justify-content:space-between;padding:5px 0;font-size:13px}
-.ct-total-row.grand{font-weight:bold;font-size:16px;border-top:2px solid #333;margin-top:6px;padding-top:8px}
-.ct-checkout-btn{display:block;width:100%;padding:13px;background:#333;color:#fff;text-align:center;font-weight:bold;font-size:14px;margin-top:12px;letter-spacing:.02em}
-.ct-coupon-box{padding-bottom:12px;margin-bottom:8px;border-bottom:1px solid #eee}
+.ct-total-row.grand{font-weight:bold;font-size:16px;border-top:2px solid var(--text-primary);margin-top:6px;padding-top:8px}
+.ct-checkout-btn{display:block;width:100%;padding:13px;background:var(--text-primary);color:#fff;border-radius:var(--radius-sm);text-align:center;font-weight:bold;font-size:14px;margin-top:12px;letter-spacing:.02em;transition:background var(--t-fast)}
+.ct-coupon-box{padding-bottom:12px;margin-bottom:8px;border-bottom:1px solid var(--border)}
 .ct-checkout-btn:hover{background:#000}
-.ct-cod-note{background:#fffbeb;border:1px solid #fde68a;color:#92400e;padding:9px 11px;font-size:11px;margin-top:12px;display:flex;gap:6px;align-items:flex-start}
-.ct-checkout-btn[aria-disabled="true"]{background:#ccc;color:#888;cursor:not-allowed;pointer-events:none}
-.ct-min-order{font-size:11.5px;margin-top:8px;padding:8px 10px;border-radius:4px}
-.ct-min-order.below{background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}
-.ct-min-order.met{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+.ct-cod-note{background:var(--warning-bg);border:1px solid #fde68a;border-radius:var(--radius-sm);color:var(--warning);padding:9px 11px;font-size:11px;margin-top:12px;display:flex;gap:6px;align-items:flex-start}
+.ct-checkout-btn[aria-disabled="true"]{background:var(--border-strong);color:var(--muted);cursor:not-allowed;pointer-events:none}
+.ct-min-order{font-size:11.5px;margin-top:8px;padding:8px 10px;border-radius:var(--radius-sm)}
+.ct-min-order.below{background:#fef2f2;border:1px solid #fecaca;color:var(--sale)}
+.ct-min-order.met{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--success)}
 </style>
 </head>
 <body>
@@ -84,12 +85,13 @@
     <div id="accountMenuSlot"></div>
   </div>
 </div></div>
+<div id="catnavSlot"></div>
 
 <div class="container">
-  <div style="padding:10px 0;font-size:12px;color:#888">
-    <a href="index.html">Sklep</a> &rsaquo; <b style="color:#333">Koszyk</b>
+  <div style="padding:10px 0;font-size:12px;color:var(--muted)">
+    <a href="index.html">Sklep</a> &rsaquo; <b style="color:var(--text-primary)">Koszyk</b>
   </div>
-  <h1 style="font-size:18px;margin:0 0 4px">Koszyk <span id="count" style="font-weight:normal;color:#888;font-size:14px"></span></h1>
+  <h1 style="font-size:18px;margin:0 0 4px">Koszyk <span id="count" style="font-weight:normal;color:var(--muted);font-size:14px"></span></h1>
 
   <div class="ct-wrap" id="ctWrap" style="display:none">
     <div class="ct-items" id="list"></div>
@@ -99,8 +101,8 @@
         <div class="ct-box-body">
           <div class="ct-coupon-box">
             <div style="display:flex;gap:6px">
-              <input id="couponInput" placeholder="Kod rabatowy" style="flex:1;padding:8px;border:1px solid #ddd;border-radius:4px;font-size:13px">
-              <button id="couponBtn" onclick="applyCouponCode()" style="padding:8px 14px;border:1px solid #333;background:#fff;border-radius:4px;font-size:13px;cursor:pointer">Zastosuj</button>
+              <input id="couponInput" placeholder="Kod rabatowy" style="flex:1;padding:8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
+              <button id="couponBtn" onclick="applyCouponCode()" style="padding:8px 14px;border:1px solid var(--text-primary);background:var(--surface);border-radius:var(--radius-sm);font-size:13px;cursor:pointer">Zastosuj</button>
             </div>
             <div id="couponMsg" style="font-size:12px;margin-top:6px"></div>
           </div>

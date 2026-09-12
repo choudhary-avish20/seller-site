@@ -346,7 +346,7 @@ function renderProductCard(p){
       <button class="wl-heart" data-id="${p.id}" onclick="toggleWishlistCard(this,'${p.id}')" aria-label="Dodaj do listy życzeń" title="Dodaj do listy życzeń">♡</button>
     </div>
     <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
-    ${p.review_count ? `<div style="font-size:11px;color:#f5a623">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:var(--muted)">(${p.review_count})</span></div>` : ''}
+    <div class="card-rating">${p.review_count ? `${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:var(--muted)">(${p.review_count})</span>` : ''}</div>
     <div class="package-bar">Pack of ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
     <div class="price">${netGross}</div>
     <div class="qty">
@@ -592,15 +592,13 @@ window.getCachedUser = getCachedUser;
 // from the network response — the same re-render these functions already
 // support for the PL/EN toggle.
 async function renderAuthHeader(){
-  const myOrders = document.getElementById('myOrdersLink');
   const cached = getCachedUser();
-  if(myOrders) myOrders.style.display = (cached && cached.role==='buyer') ? '' : 'none';
+  renderCatNav();
   renderAccountMenu(cached);
   renderWishlistMenu(cached);
   renderMobileNav(cached);
 
   const u = await refreshUser().catch(()=>null);
-  if(myOrders) myOrders.style.display = (u && u.role==='buyer') ? '' : 'none';
   renderAccountMenu(u);
   renderWishlistMenu(u);
   renderMobileNav(u);
@@ -608,6 +606,28 @@ async function renderAuthHeader(){
   return u;
 }
 document.addEventListener('DOMContentLoaded', renderAuthHeader);
+
+// ── Shared category/utility nav row ──────────────────────────────────────
+// Injected into a `<div id="catnavSlot"></div>` placeholder present on every
+// storefront page (right after `.header`) — one source of markup instead of
+// each page hand-copying its own `.catnav` row (previously only index.html
+// had one, so this row was homepage-only). "Moje zamówienia" deliberately
+// does NOT live here: it's a logged-in-only link, and it already has two
+// consistent, always-reachable homes (the account dropdown and the mobile
+// drawer, both render it as their first item) — a third copy in this row
+// only invited it to end up in a different position on different pages, the
+// exact inconsistency this replaces. Built once; a no-op on pages without
+// the slot.
+function renderCatNav(){
+  const slot = document.getElementById('catnavSlot');
+  if(!slot || slot.dataset.built) return;
+  slot.dataset.built = '1';
+  slot.outerHTML = `<div class="catnav" id="catnavSlot"><div class="container">
+    <a href="index.html" data-i18n="new">Nowości</a><a href="index.html?filter=sale" data-i18n="sale">Wyprzedaż</a><a href="index.html?filter=bestseller" data-i18n="bestsellers">Bestsellery</a><a href="faq.html">FAQ</a><a href="shipping.html">Koszty wysyłki</a><a href="terms.html">Regulamin</a><a href="privacy.html">Prywatność</a>
+  </div></div>`;
+  applyLang();
+}
+window.renderCatNav = renderCatNav;
 
 // ── Mobile hamburger + drawer ────────────────────────────────────────────
 // Below 760px the permanent `.sidebar` category list (see style.css) and the

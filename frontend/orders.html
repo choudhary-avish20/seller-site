@@ -13,27 +13,35 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <style>
-.order-card{background:#fff;border:1px solid #ddd;margin-bottom:12px}
-.order-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 14px;background:#f5f5f5;border-bottom:1px solid #ddd;font-size:12px}
+.order-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:12px}
+.order-head{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--surface-muted);border-bottom:1px solid var(--border);font-size:12px}
 .order-body{padding:12px 14px}
-.order-item{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid #f0f0f0}
+.order-item{display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)}
 .order-item:last-child{border-bottom:0}
-.status-badge{font-size:11px;font-weight:bold;padding:2px 9px;border-radius:999px}
-.status-pending{background:#fffbeb;color:#92400e;border:1px solid #fde68a}
-.status-confirmed{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
-.status-shipped{background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc}
-.status-out_for_delivery{background:#e0f2fe;color:#075985;border:1px solid #7dd3fc}
-.status-delivered{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
-.status-cancelled{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}
+/* .status-badge / .status-* are shared with the admin dashboard's orders
+   table — defined once in css/style.css so both surfaces show the same
+   status in the same color. */
 .otl{display:flex;align-items:flex-start;margin:4px 0 14px}
 .otl-step{flex:1;text-align:center;position:relative;font-size:10px;color:#999}
 .otl-line{position:absolute;top:11px;left:-50%;right:50%;height:2px;background:#e5e7eb;z-index:0}
-.otl-line.done{background:#166534}
+.otl-line.done{background:var(--success)}
 .otl-step:first-child .otl-line{display:none}
-.otl-dot{width:22px;height:22px;border-radius:50%;background:#e5e7eb;color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-size:11px;font-weight:bold;position:relative;z-index:1}
-.otl-dot.done{background:#166534}
+.otl-dot{width:22px;height:22px;border-radius:50%;background:var(--border-strong);color:#fff;display:flex;align-items:center;justify-content:center;margin:0 auto 4px;font-size:11px;font-weight:bold;position:relative;z-index:1}
+.otl-dot.done{background:var(--success)}
 .otl-dot.current{background:var(--accent)}
-.cancelled-note{background:#f1f5f9;color:#64748b;padding:8px 12px;border-radius:4px;font-size:12px;text-align:center;margin:4px 0 14px}
+.cancelled-note{background:var(--surface-muted);color:var(--muted);padding:8px 12px;border-radius:var(--radius-sm);font-size:12px;text-align:center;margin:4px 0 14px}
+
+/* Order-card action row — one shared button style (outline pill) with an
+   accent/danger/neutral color variant, instead of each button hand-coding
+   its own border color. */
+.oa-actions{margin-top:10px;text-align:right;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.oa-btn{font-size:11px;font-weight:600;background:none;border-radius:var(--radius-sm);padding:6px 12px;cursor:pointer;transition:background var(--t-fast)}
+.oa-btn.accent{color:var(--accent);border:1px solid var(--accent-soft)}
+.oa-btn.accent:hover{background:var(--accent-soft)}
+.oa-btn.danger{color:var(--sale);border:1px solid #fca5a5}
+.oa-btn.danger:hover{background:#fef2f2}
+.oa-btn.neutral{color:var(--muted);border:1px solid var(--border)}
+.oa-btn.neutral:hover{background:var(--surface-muted)}
 </style>
 </head>
 <body>
@@ -55,11 +63,12 @@
     <div id="accountMenuSlot"></div>
   </div>
 </div></div>
+<div id="catnavSlot"></div>
 
-<div class="container" style="padding:16px 10px">
+<div class="container page-pad">
   <div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 12px;flex-wrap:wrap;gap:8px">
     <h1 style="font-size:16px;margin:0">Moje zamówienia</h1>
-    <button id="clearCancelledBtn" onclick="clearAllCancelled()" style="display:none;font-size:11px;color:#c00;background:none;border:1px solid #fca5a5;padding:6px 12px;cursor:pointer">🗑 Wyczyść anulowane</button>
+    <button id="clearCancelledBtn" class="oa-btn danger" onclick="clearAllCancelled()" style="display:none">🗑 Wyczyść anulowane</button>
   </div>
   <div id="list"></div>
 </div>
@@ -94,14 +103,14 @@ async function load(){
   if(!tok){ location.href = 'login.html?next=orders.html'; return; }
 
   const list = document.getElementById('list');
-  list.innerHTML = '<p style="text-align:center;padding:20px;color:#888">Ładowanie…</p>';
+  list.innerHTML = '<p style="text-align:center;padding:20px;color:var(--muted)">Ładowanie…</p>';
 
   let orders;
   try { orders = await Api.listOrders(); }
-  catch(e){ list.innerHTML = `<p style="color:red;text-align:center;padding:20px">${esc(e.message)}</p>`; return; }
+  catch(e){ list.innerHTML = `<p style="color:var(--sale);text-align:center;padding:20px">${esc(e.message)}</p>`; return; }
 
   if(!orders.length){
-    list.innerHTML = '<p style="padding:20px;background:#fff;border:1px solid #ddd;text-align:center">Nie masz jeszcze żadnych zamówień — <a href="index.html" style="color:#06c">przeglądaj produkty</a></p>';
+    list.innerHTML = '<p style="padding:20px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-md);text-align:center">Nie masz jeszcze żadnych zamówień — <a href="index.html" style="color:var(--accent)">przeglądaj produkty</a></p>';
     return;
   }
 
@@ -135,10 +144,10 @@ async function load(){
           <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid #eee;font-weight:bold">
             <span>Razem brutto</span><span>${Number(o.total_gross).toFixed(2)} zł</span>
           </div>
-          <div style="margin-top:10px;text-align:right;display:flex;gap:8px;justify-content:flex-end">
-            <button onclick="reorderAll('${o.id}')" style="font-size:11px;color:var(--accent);background:none;border:1px solid #99d6ec;padding:5px 10px;cursor:pointer">↻ Zamów ponownie</button>
-            ${canCancel ? `<button onclick="cancelOrder('${o.id}')" style="font-size:11px;color:#c00;background:none;border:1px solid #fca5a5;padding:5px 10px;cursor:pointer">Anuluj zamówienie</button>` : ''}
-            ${o.status === 'cancelled' ? `<button onclick="hideOrder('${o.id}')" style="font-size:11px;color:#888;background:none;border:1px solid #ddd;padding:5px 10px;cursor:pointer">🗑 Usuń z listy</button>` : ''}
+          <div class="oa-actions">
+            <button class="oa-btn accent" onclick="reorderAll('${o.id}')">↻ Zamów ponownie</button>
+            ${canCancel ? `<button class="oa-btn danger" onclick="cancelOrder('${o.id}')">Anuluj zamówienie</button>` : ''}
+            ${o.status === 'cancelled' ? `<button class="oa-btn neutral" onclick="hideOrder('${o.id}')">🗑 Usuń z listy</button>` : ''}
           </div>
         </div>
       </div>`;

@@ -14,7 +14,12 @@
 <style>
 .pd-gallery{flex:1;min-width:280px}
 .pd-img-box{border:1px solid var(--border);background:var(--surface);position:relative;border-radius:var(--radius-md);overflow:hidden;cursor:zoom-in;box-shadow:var(--shadow-sm)}
-.pd-img-box img{width:100%;display:block;transition:transform var(--t-base)}
+/* Fixed aspect-ratio (unlike the plain width:100% this used to be) so the
+   gallery box is the same height for every product regardless of that
+   product's own photo dimensions — object-fit:contain keeps the whole
+   wholesale product photo visible rather than cropping it like the grid
+   card's cover-fit thumbnails do. */
+.pd-img-box img{width:100%;height:100%;aspect-ratio:1/1;object-fit:contain;display:block;transition:transform var(--t-base)}
 .pd-img-box:hover img{transform:scale(1.035)}
 .pd-zoom-hint{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity var(--t-fast);pointer-events:none}
 .pd-img-box:hover .pd-zoom-hint{opacity:1}
@@ -124,6 +129,7 @@ body.has-sticky-bar{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
     </a>
     <div id="accountMenuSlot"></div>
   </div></div></div>
+<div id="catnavSlot"></div>
 
 <div class="container">
 <div class="breadcrumb" id="crumb"><a href="index.html">⌂</a><a href="index.html" id="crumb-cat" style="display:none"></a><span class="current" id="crumb-current"></span></div>
@@ -134,7 +140,7 @@ body.has-sticky-bar{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
   <div class="pd-gallery">
     <div class="pd-img-box" id="imgBox">
       <div class="badge-row" style="position:absolute;top:10px;left:10px"><span class="pill" id="detailRibbon">New</span></div>
-      <img id="mainImg" src="" alt="" style="min-height:260px">
+      <img id="mainImg" src="" alt="">
       <div class="pd-zoom-hint">🔍 Kliknij, aby powiększyć</div>
       <button class="pd-img-nav prev" id="galPrev" style="display:none" onclick="event.stopPropagation();stepImage(-1)">‹</button>
       <button class="pd-img-nav next" id="galNext" style="display:none" onclick="event.stopPropagation();stepImage(1)">›</button>

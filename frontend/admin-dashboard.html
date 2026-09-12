@@ -13,154 +13,206 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <style>
+/* ── Admin design tokens ──────────────────────────────────────────────────
+   A deliberately different accent (blue) from the storefront's warm orange —
+   this is a distinct seller/admin tool, not a re-skin of the storefront —
+   but every component below now draws from ONE set of variables instead of
+   ~15 independently hand-picked hex values, and reuses the storefront's
+   radius/shadow/motion tokens (css/style.css) so corners/shadows/transitions
+   feel the same across both surfaces even though the color language differs. */
+:root{
+  --adm-accent:#0099cc;
+  --adm-accent-hover:#007aa8;
+  --adm-danger:#dc2626;
+  --adm-danger-hover:#b91c1c;
+  --adm-bg:#f5f5f5;
+  --adm-surface:#fff;
+  --adm-border:#ddd;
+  --adm-border-soft:#eee;
+  --adm-text:#222;
+  --adm-text-secondary:#555;
+  --adm-muted:#888;
+  --adm-sidebar-bg:#2b2b2b;
+  --adm-sidebar-hover:#3a3a3a;
+  --adm-sidebar-border:#444;
+  --adm-sidebar-text:#ccc;
+}
+
 /* ── Layout ── */
 .dash-wrap{display:flex;gap:0;min-height:calc(100vh - 90px);min-height:calc(100dvh - 90px)}
-.dash-sidebar{width:200px;flex-shrink:0;background:#2b2b2b;color:#ccc;position:relative}
-.sidebar-footer{border-top:1px solid #444;margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px}
-.dash-sidebar .logo-area{padding:14px;border-bottom:1px solid #444}
+.dash-sidebar{width:200px;flex-shrink:0;background:var(--adm-sidebar-bg);color:var(--adm-sidebar-text);position:relative}
+.sidebar-footer{border-top:1px solid var(--adm-sidebar-border);margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px}
+.dash-sidebar .logo-area{padding:14px;border-bottom:1px solid var(--adm-sidebar-border)}
 .dash-sidebar .logo-area img{height:26px;display:block}
 .dash-sidebar .logo-area .sub{font-size:10px;color:#aaa;font-weight:normal;margin-top:4px}
-.nav-item{display:flex;align-items:center;gap:8px;padding:11px 14px;font-size:12px;cursor:pointer;border-left:3px solid transparent;transition:background .15s}
-.nav-item:hover{background:#3a3a3a}
-.nav-item.active{background:#3a3a3a;border-left-color:#0099cc;color:#fff;font-weight:bold}
+.nav-item{display:flex;align-items:center;gap:8px;padding:11px 14px;font-size:12px;cursor:pointer;border-left:3px solid transparent;transition:background var(--t-fast)}
+.nav-item:hover{background:var(--adm-sidebar-hover)}
+.nav-item.active{background:var(--adm-sidebar-hover);border-left-color:var(--adm-accent);color:#fff;font-weight:bold}
 .nav-item .icon{font-size:15px;width:18px;text-align:center}
-.dash-main{flex:1;min-width:0;padding:20px 22px;background:#f5f5f5}
+.dash-main{flex:1;min-width:0;padding:20px 22px;background:var(--adm-bg)}
 
 /* ── Cards ── */
 .stat-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
-.stat-card{background:#fff;border:1px solid #ddd;padding:14px 18px;flex:1;min-width:130px}
-.stat-card .val{font-size:24px;font-weight:bold;color:#333;line-height:1.2}
-.stat-card .lbl{font-size:11px;color:#777;margin-top:2px}
-.stat-card .trend{font-size:11px;color:#0099cc;margin-top:4px}
+.stat-card{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius-md);padding:14px 18px;flex:1;min-width:130px}
+.stat-card .val{font-size:24px;font-weight:bold;color:var(--adm-text);line-height:1.2}
+.stat-card .lbl{font-size:11px;color:var(--adm-muted);margin-top:2px}
+.stat-card .trend{font-size:11px;color:var(--adm-accent);margin-top:4px}
 
 /* ── Section header ── */
-.sec-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sec-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
 .sec-head h2{font-size:14px;font-weight:bold}
 
 /* ── Buttons ── */
-.btn{padding:7px 14px;font-size:12px;font-weight:bold;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
-.btn-primary{background:#0099cc;color:#fff}
-.btn-primary:hover{background:#007aa8}
-.btn-danger{background:#dc2626;color:#fff}
-.btn-danger:hover{background:#b91c1c}
-.btn-ghost{background:#fff;color:#333;border:1px solid #ccc}
-.btn-ghost:hover{background:#f5f5f5}
+.btn{padding:7px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:bold;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:background var(--t-fast)}
+.btn-primary{background:var(--adm-accent);color:#fff}
+.btn-primary:hover{background:var(--adm-accent-hover)}
+.btn-danger{background:var(--adm-danger);color:#fff}
+.btn-danger:hover{background:var(--adm-danger-hover)}
+.btn-ghost{background:var(--adm-surface);color:var(--adm-text-secondary);border:1px solid var(--adm-border)}
+.btn-ghost:hover{background:var(--adm-bg)}
 .btn-sm{padding:4px 9px;font-size:11px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* ── Table ── */
-.tbl-wrap{background:#fff;border:1px solid #ddd;overflow-x:auto}
+.tbl-wrap{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius-md);overflow-x:auto;position:relative}
+/* A right-edge fade hints there's more to scroll to on narrow screens,
+   instead of the overflow being entirely silent. Purely decorative (no
+   pointer-events), always present — harmless on wide screens where there's
+   nothing to scroll to. */
+.tbl-wrap::after{content:'';position:absolute;top:0;right:0;bottom:0;width:24px;background:linear-gradient(to right,rgba(255,255,255,0),rgba(255,255,255,.9));pointer-events:none}
 table{width:100%;border-collapse:collapse;font-size:12px}
-th{background:#f0f0f0;text-align:left;padding:8px 10px;border-bottom:1px solid #ddd;font-weight:bold;font-size:11px;text-transform:uppercase;white-space:nowrap}
-td{padding:8px 10px;border-bottom:1px solid #eee;vertical-align:middle}
+th{background:var(--adm-bg);text-align:left;padding:8px 10px;border-bottom:1px solid var(--adm-border);font-weight:bold;font-size:11px;text-transform:uppercase;white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--adm-border-soft);vertical-align:middle}
 tr:last-child td{border-bottom:0}
 tr:hover td{background:#fafafa}
-.badge{display:inline-block;padding:2px 7px;border-radius:2px;font-size:10px;font-weight:bold;text-transform:uppercase}
+.badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:bold;text-transform:uppercase}
 .badge-active{background:#dcfce7;color:#166534}
 .badge-inactive{background:#f3f4f6;color:#6b7280}
 .badge-stock{background:#dbeafe;color:#1e40af}
 .badge-pending{background:#fef9c3;color:#854d0e}
 .badge-approved{background:#dcfce7;color:#166534}
 .badge-rejected{background:#fef2f2;color:#b91c1c}
-.prod-img{width:40px;height:40px;object-fit:contain;border:1px solid #eee;background:#fafafa}
-.prod-img-placeholder{width:40px;height:40px;background:#f0f0f0;border:1px solid #eee;display:flex;align-items:center;justify-content:center;font-size:18px;color:#bbb}
-.actions{display:flex;gap:4px;flex-wrap:wrap}
+.prod-img{width:40px;height:40px;object-fit:contain;border:1px solid var(--adm-border-soft);border-radius:var(--radius-sm);background:#fafafa}
+.prod-img-placeholder{width:40px;height:40px;background:var(--adm-bg);border:1px solid var(--adm-border-soft);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px;color:#bbb}
+/* Fixed min-width + always-right-aligned so a row with one action button and
+   a row with four line up on the same right edge instead of the column
+   ragged-edging based on how many buttons a given row happens to have. */
+.actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;min-width:96px}
 
 /* ── Modal ── */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;overflow-y:auto}
 .modal-bg.open{display:flex;align-items:flex-start;justify-content:center;padding:30px 10px}
-.modal{background:#fff;width:100%;max-width:640px;border:1px solid #ccc;position:relative}
-.modal-head{background:#333;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:bold}
+.modal{background:var(--adm-surface);width:100%;max-width:640px;border-radius:var(--radius-md);overflow:hidden;position:relative}
+.modal-head{background:var(--adm-text);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:bold}
 .modal-head button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1}
 .modal-body{padding:20px 18px}
-.modal-foot{padding:12px 18px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:8px}
+.modal-foot{padding:12px 18px;border-top:1px solid var(--adm-border-soft);display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 
 /* ── Form fields ── */
 .f-row{margin-bottom:12px}
 .f-row label{display:block;font-size:12px;font-weight:bold;margin-bottom:3px}
-.f-row input,.f-row textarea,.f-row select{width:100%;border:1px solid #ccc;padding:7px 9px;font-size:13px;font-family:inherit;outline:none}
-.f-row input:focus,.f-row textarea:focus,.f-row select:focus{border-color:#0099cc}
+.f-row input,.f-row textarea,.f-row select{width:100%;border:1px solid var(--adm-border);border-radius:var(--radius-sm);padding:7px 9px;font-size:13px;font-family:inherit;outline:none}
+.f-row input:focus,.f-row textarea:focus,.f-row select:focus{border-color:var(--adm-accent)}
 .f-row textarea{resize:vertical;min-height:68px}
-.f-row .hint{font-size:11px;color:#888;margin-top:2px}
+.f-row .hint{font-size:11px;color:var(--adm-muted);margin-top:2px}
 .f-cols{display:flex;gap:10px;flex-wrap:wrap}
 .f-cols .f-row{flex:1;min-width:120px}
-.f-section{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;color:#555;background:#f5f5f5;border:1px solid #e0e0e0;padding:5px 10px;margin:14px 0 10px}
-.req{color:#c00}
-.form-err{display:none;background:#fef2f2;border:1px solid #fecaca;color:#c00;padding:7px 10px;margin-bottom:10px;font-size:12px}
+.f-section{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;color:var(--adm-text-secondary);background:var(--adm-bg);border:1px solid #e0e0e0;border-radius:var(--radius-sm);padding:5px 10px;margin:14px 0 10px}
+.req{color:var(--adm-danger)}
+.form-err{display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius-sm);color:var(--adm-danger);padding:7px 10px;margin-bottom:10px;font-size:12px}
 
 /* ── Sale price live preview ── */
-.sale-preview{display:flex;align-items:center;gap:10px;background:#fff7f7;border:1px solid #fecaca;padding:10px 12px;margin:2px 0 12px;font-size:13px}
-.sale-preview .sp-old{color:#888;text-decoration:line-through}
-.sale-preview .sp-new{color:#c00;font-weight:bold;font-size:15px}
-.sale-preview .sp-pct{background:#c00;color:#fff;font-weight:bold;font-size:11px;padding:2px 7px;border-radius:2px;white-space:nowrap}
-.sale-preview .sp-err{color:#c00;font-size:12px}
+.sale-preview{display:flex;align-items:center;gap:10px;background:#fff7f7;border:1px solid #fecaca;border-radius:var(--radius-sm);padding:10px 12px;margin:2px 0 12px;font-size:13px;flex-wrap:wrap}
+.sale-preview .sp-old{color:var(--adm-muted);text-decoration:line-through}
+.sale-preview .sp-new{color:var(--adm-danger);font-weight:bold;font-size:15px}
+.sale-preview .sp-pct{background:var(--adm-danger);color:#fff;font-weight:bold;font-size:11px;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.sale-preview .sp-err{color:var(--adm-danger);font-size:12px}
 
 /* ── Image upload ── */
 .img-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.img-thumb{position:relative;width:70px;height:70px;border:1px solid #ddd}
+.img-thumb{position:relative;width:70px;height:70px;border:1px solid var(--adm-border);border-radius:var(--radius-sm);overflow:hidden}
 .img-thumb img{width:100%;height:100%;object-fit:contain}
-.img-thumb .rm{position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
-.img-add{width:70px;height:70px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:#bbb;background:#fafafa}
-.img-add:hover{border-color:#0099cc;color:#0099cc}
+.img-thumb .rm{position:absolute;top:-6px;right:-6px;background:var(--adm-danger);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.img-add{width:70px;height:70px;border:2px dashed var(--adm-border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:#bbb;background:#fafafa}
+.img-add:hover{border-color:var(--adm-accent);color:var(--adm-accent)}
 
 /* ── Tiers ── */
-.tier-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;font-size:12px}
-.tier-row input{border:1px solid #ccc;padding:5px 7px;font-size:12px;width:90px}
-.tier-row .rm-tier{background:none;border:none;color:#dc2626;cursor:pointer;font-size:15px;padding:0 2px}
+.tier-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;font-size:12px;flex-wrap:wrap}
+.tier-row input{border:1px solid var(--adm-border);border-radius:var(--radius-sm);padding:5px 7px;font-size:12px;width:90px}
+.tier-row .rm-tier{background:none;border:none;color:var(--adm-danger);cursor:pointer;font-size:15px;padding:0 2px}
 
 /* ── Bulk import grid ── */
 .bulk-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .bulk-toolbar .spacer{flex:1}
-.bulk-grid-wrap{background:#fff;border:1px solid #ddd;overflow:auto;max-width:100%}
+.bulk-grid-wrap{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius-md);overflow:auto;max-width:100%}
 .bulk-grid{border-collapse:collapse;font-size:12px;min-width:1400px}
-.bulk-grid th{background:#f0f0f0;text-align:left;padding:6px 8px;border-bottom:1px solid #ddd;border-right:1px solid #eee;font-weight:bold;font-size:10.5px;text-transform:uppercase;white-space:nowrap;position:sticky;top:0}
-.bulk-grid td{padding:3px;border-bottom:1px solid #eee;border-right:1px solid #f2f2f2;vertical-align:middle}
+.bulk-grid th{background:var(--adm-bg);text-align:left;padding:6px 8px;border-bottom:1px solid var(--adm-border);border-right:1px solid var(--adm-border-soft);font-weight:bold;font-size:10.5px;text-transform:uppercase;white-space:nowrap;position:sticky;top:0}
+.bulk-grid td{padding:3px;border-bottom:1px solid var(--adm-border-soft);border-right:1px solid #f2f2f2;vertical-align:middle}
 .bulk-grid tr.bulk-row-done td{background:#f0fdf4}
 .bulk-grid tr.bulk-row-error td{background:#fef2f2}
 .bulk-grid input[type=text],.bulk-grid input[type=number]{width:100%;min-width:80px;border:1px solid transparent;padding:5px 6px;font-size:12px;font-family:inherit;outline:none;background:transparent}
-.bulk-grid input[type=text]:focus,.bulk-grid input[type=number]:focus{border-color:#0099cc;background:#fff}
-.bulk-grid input:disabled{color:#888;background:transparent}
+.bulk-grid input[type=text]:focus,.bulk-grid input[type=number]:focus{border-color:var(--adm-accent);background:var(--adm-surface)}
+.bulk-grid input:disabled{color:var(--adm-muted);background:transparent}
 .bulk-row-num{width:26px;text-align:center;color:#aaa;font-size:11px}
-.bulk-rm-row{background:none;border:none;color:#dc2626;cursor:pointer;font-size:14px;padding:2px 4px}
+.bulk-rm-row{background:none;border:none;color:var(--adm-danger);cursor:pointer;font-size:14px;padding:2px 4px}
 .bulk-img-cell{width:52px;height:52px;position:relative}
-.bulk-img-btn{width:48px;height:48px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:#bbb;background:#fafafa}
-.bulk-img-btn:hover{border-color:#0099cc;color:#0099cc}
-.bulk-img-thumb{width:48px;height:48px;object-fit:contain;border:1px solid #ddd;cursor:pointer;background:#fafafa}
-.bulk-img-uploading{width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#0099cc;border:1px solid #ddd;background:#f0f9ff}
+.bulk-img-btn{width:48px;height:48px;border:2px dashed var(--adm-border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:#bbb;background:#fafafa}
+.bulk-img-btn:hover{border-color:var(--adm-accent);color:var(--adm-accent)}
+.bulk-img-thumb{width:48px;height:48px;object-fit:contain;border:1px solid var(--adm-border);border-radius:var(--radius-sm);cursor:pointer;background:#fafafa}
+.bulk-img-uploading{width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--adm-accent);border:1px solid var(--adm-border);border-radius:var(--radius-sm);background:#f0f9ff}
 .bulk-status-cell{min-width:150px;font-size:11px}
 .bulk-status-ok{color:#166534;font-weight:bold}
-.bulk-status-err{color:#c00}
+.bulk-status-err{color:var(--adm-danger)}
 .bulk-status-pending{color:#999}
 .bulk-req-missing{border-color:#fca5a5 !important;background:#fef2f2 !important}
 
 /* ── Misc ── */
-.empty{text-align:center;padding:40px;color:#888;font-size:13px}
-.page-title{font-size:16px;font-weight:bold;margin-bottom:16px;color:#222}
+.empty{text-align:center;padding:40px;color:var(--adm-muted);font-size:13px}
+.page-title{font-size:16px;font-weight:bold;margin-bottom:16px;color:var(--adm-text)}
 .filter-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
-.filter-bar input,.filter-bar select{border:1px solid #ccc;padding:6px 9px;font-size:12px;outline:none}
-.profile-box{background:#fff;border:1px solid #ddd;padding:18px;margin-bottom:20px;font-size:12px}
+.filter-bar input,.filter-bar select{border:1px solid var(--adm-border);border-radius:var(--radius-sm);padding:6px 9px;font-size:12px;outline:none}
+.profile-box{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius-md);padding:18px;margin-bottom:20px;font-size:12px}
 .profile-box h3{font-size:13px;font-weight:bold;margin-bottom:10px}
-.profile-row{display:flex;gap:6px;margin-bottom:6px}
-.profile-row .lbl{min-width:130px;color:#777;font-weight:bold}
-.alert{padding:10px 14px;font-size:12px;margin-bottom:16px;border:1px solid}
+.profile-row{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.profile-row .lbl{min-width:130px;color:var(--adm-muted);font-weight:bold}
+.alert{padding:10px 14px;font-size:12px;margin-bottom:16px;border:1px solid;border-radius:var(--radius-sm)}
 .alert-warn{background:#fef9c3;border-color:#fde047;color:#854d0e}
 .alert-info{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
 #fileInput{display:none}
 
-/* ── Responsive: stack sidebar above content, scroll nav horizontally ── */
+/* ── Responsive ──────────────────────────────────────────────────────────
+   Tablet (860-1024px): just trims dash-main's padding a little — sidebar and
+   content both still comfortably fit side-by-side.
+   ≤860px: sidebar becomes a horizontally-scrollable tab bar above the
+   content (rather than a full off-canvas drawer — with only 5-6 top-level
+   sections this stays reachable in one swipe and needs no open/close state).
+   ≤480px: further tightens stat cards, table text, and modals for phone
+   widths so nothing overflows the viewport. */
+@media(max-width:1024px){
+  .dash-main{padding:20px 16px}
+}
 @media(max-width:860px){
   .dash-wrap{flex-direction:column;min-height:0}
   .dash-sidebar{width:100%;display:flex;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .dash-sidebar .logo-area{border-bottom:0;border-right:1px solid #444;flex-shrink:0}
+  .dash-sidebar .logo-area{border-bottom:0;border-right:1px solid var(--adm-sidebar-border);flex-shrink:0}
   .nav-item{border-left:0;border-bottom:3px solid transparent;white-space:nowrap;flex-shrink:0}
-  .nav-item.active{border-left-color:transparent;border-bottom-color:#0099cc}
-  .sidebar-footer{position:static;width:auto;margin-top:0;border-top:0;border-left:1px solid #444;padding:0 10px;flex-shrink:0}
+  .nav-item.active{border-left-color:transparent;border-bottom-color:var(--adm-accent)}
+  .sidebar-footer{position:static;width:auto;margin-top:0;border-top:0;border-left:1px solid var(--adm-sidebar-border);padding:0 10px;flex-shrink:0}
   .dash-main{padding:14px}
   .stat-card{min-width:110px}
   .modal-bg.open{padding:0}
-  .modal{max-width:100%;min-height:100vh;min-height:100dvh}
+  .modal{max-width:100%;min-height:100vh;min-height:100dvh;border-radius:0}
   .f-cols{flex-direction:column}
   .f-cols .f-row{min-width:0}
+}
+@media(max-width:480px){
+  .dash-main{padding:10px}
+  .stat-row{gap:8px}
+  .stat-card{min-width:100%;padding:12px 14px}
+  table{font-size:11px}
+  th,td{padding:7px 6px}
+  .btn{padding:8px 12px}
+  .actions{min-width:0;justify-content:flex-start}
 }
 </style>
 </head>
@@ -1382,17 +1434,11 @@ function renderOrderRows() {
     const phone = esc(o.recipient_phone || '—');
     const addr = esc(o.shipping_address || o.recipient_address || '—');
 
-    const statusBadge = o.status === 'pending'
-      ? `<span class="badge badge-pending">Oczekujące</span>`
-      : o.status === 'confirmed'
-      ? `<span class="badge badge-approved">Potwierdzone</span>`
-      : o.status === 'shipped'
-      ? `<span class="badge badge-stock">Wysłane</span>`
-      : o.status === 'out_for_delivery'
-      ? `<span class="badge" style="background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc">W dostawie</span>`
-      : o.status === 'cancelled'
-      ? `<span class="badge badge-inactive">Anulowane</span>`
-      : `<span class="badge" style="background:#e2e8f0;color:#0f172a">${esc(o.status)}</span>`;
+    // Reuses the same .status-badge/.status-* classes (css/style.css) that
+    // orders.html shows buyers — so a given order status is always the same
+    // color on both sides of the same order.
+    const ORDER_STATUS_LABELS = {pending:'Oczekujące', confirmed:'Potwierdzone', shipped:'Wysłane', out_for_delivery:'W dostawie', delivered:'Zrealizowane', cancelled:'Anulowane'};
+    const statusBadge = `<span class="status-badge status-${esc(o.status)}">${ORDER_STATUS_LABELS[o.status] || esc(o.status)}</span>`;
 
     // ── items breakdown for expanded panel ──────────────────────────────
     const itemRows = (o.items || []).map(it => {
@@ -1570,7 +1616,7 @@ function orderActionButtons(o) {
   // deleted — nothing still in progress, since that would mean losing track of
   // an order a courier may still be handling.
   const deleteBtn = (o.status === 'cancelled' || o.status === 'delivered')
-    ? `<button class="btn btn-sm" style="color:#888" onclick="deleteOrderAction('${o.id}','${o.status}')">🗑 Usuń</button>`
+    ? `<button class="btn btn-ghost btn-sm" onclick="deleteOrderAction('${o.id}','${o.status}')">🗑 Usuń</button>`
     : '';
   return nextBtn + cancelBtn + printBtn + deleteBtn;
 }
