@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 
 from app.models.user import User, UserRole, BuyerStatus
-from app.models.product import Product, StockStatus
+from app.models.product import Product
 from app.models.category import Category
 from app.core.auth import get_password_hash
 from app.core.config import settings
@@ -66,8 +66,6 @@ async def test_order_confirmation_flow():
             price_net=25.00,
             price_gross=30.75,
             vat_rate=23.00,
-            stock_quantity=50,
-            stock_status=StockStatus.in_stock,
             is_active=True,
             cost_price=20.00,
             stall_location="Hall A",
@@ -86,8 +84,6 @@ async def test_order_confirmation_flow():
             price_net=18.50,
             price_gross=22.76,
             vat_rate=23.00,
-            stock_quantity=30,
-            stock_status=StockStatus.in_stock,
             is_active=True,
             cost_price=15.00,
             stall_location="Hall B",

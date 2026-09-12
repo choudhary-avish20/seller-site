@@ -5,8 +5,6 @@ import re
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
-from app.models.product import StockStatus
-
 
 def slugify(value: str) -> str:
     value = value.lower().strip()
@@ -21,7 +19,6 @@ class ProductVariantCreate(BaseModel):
     option_name: str = Field(..., min_length=1, max_length=64, examples=["size"])
     option_value: str = Field(..., min_length=1, max_length=64, examples=["XL"])
     price_net_override: Optional[float] = Field(None, gt=0)
-    stock_quantity: int = Field(0, ge=0)
 
 
 class ProductVariantUpdate(BaseModel):
@@ -29,7 +26,6 @@ class ProductVariantUpdate(BaseModel):
     option_name: Optional[str] = None
     option_value: Optional[str] = None
     price_net_override: Optional[float] = Field(None, gt=0)
-    stock_quantity: Optional[int] = Field(None, ge=0)
 
 
 class ProductVariantResponse(BaseModel):
@@ -39,7 +35,6 @@ class ProductVariantResponse(BaseModel):
     option_name: str
     option_value: str
     price_net_override: Optional[float]
-    stock_quantity: int
     created_at: datetime
     updated_at: datetime
 
@@ -86,8 +81,6 @@ class ProductBase(BaseModel):
     price_net: float = Field(..., gt=0)
     price_gross: Optional[float] = Field(None, gt=0, description="If omitted, computed from net + VAT")
     vat_rate: float = Field(23.00, ge=0, le=100)
-    stock_quantity: int = Field(0, ge=0)
-    stock_status: StockStatus = StockStatus.in_stock
     is_active: bool = True
     # wholesale extras
     pack_increment: int = Field(1, ge=1, description="Per-product increment, e.g. 12 or 40 pcs")
@@ -116,8 +109,6 @@ class ProductUpdate(BaseModel):
     price_net: Optional[float] = Field(None, gt=0)
     price_gross: Optional[float] = Field(None, gt=0)
     vat_rate: Optional[float] = Field(None, ge=0, le=100)
-    stock_quantity: Optional[int] = Field(None, ge=0)
-    stock_status: Optional[StockStatus] = None
     is_active: Optional[bool] = None
     pack_increment: Optional[int] = Field(None, ge=1)
     cost_price: Optional[float] = Field(None, ge=0)
@@ -142,8 +133,6 @@ class ProductResponse(BaseModel):
     price_net: float
     price_gross: float
     vat_rate: float
-    stock_quantity: int
-    stock_status: StockStatus
     is_active: bool
     pack_increment: int
     cost_price: Optional[float]
@@ -183,8 +172,6 @@ class ProductListResponse(BaseModel):
     price_net: float
     price_gross: float
     vat_rate: float
-    stock_quantity: int
-    stock_status: StockStatus
     is_active: bool
     pack_increment: int
     cost_price: Optional[float]
@@ -210,8 +197,3 @@ class ProductListResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class StockToggleRequest(BaseModel):
-    stock_status: Optional[StockStatus] = None
-    stock_quantity: Optional[int] = Field(None, ge=0)

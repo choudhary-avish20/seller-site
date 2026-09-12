@@ -195,6 +195,17 @@ Płacisz gotówką bezpośrednio kierowcy w momencie dostawy (płatność za pob
 Odbiór towaru
 Przy odbiorze prosimy o sprawdzenie zgodności przesyłki z zamówieniem oraz jej stanu w obecności kierowcy — wszelkie niezgodności najlepiej zgłosić od razu."""
 
+_DEFAULT_CANCELLATION_POLICY = """Polityka anulowania zamówień
+
+Anulowanie przez Kupującego
+Zamówienie o statusie „Oczekujące" lub „Potwierdzone" możesz anulować samodzielnie w każdej chwili w zakładce „Moje zamówienia" — nie jest do tego potrzebny kontakt z nami.
+
+Zamówienie wysłane, w trakcie dostawy lub dostarczone
+Z chwilą wysyłki zamówienie nie może już zostać anulowane — towar jest w drodze do Ciebie. W takim przypadku prosimy o kontakt (dane kontaktowe na stronie Kontakt) w sprawie ewentualnego zwrotu towaru.
+
+Płatność i zwroty
+Ponieważ jedyną formą płatności jest płatność za pobraniem (COD), anulowanie zamówienia przed dostawą nie wiąże się z żadnym zwrotem pieniędzy — nic nie zostało jeszcze zapłacone."""
+
 # Sensible defaults so the public Contact page isn't empty before an admin
 # fills in the real details — matches what was previously hardcoded in the UI.
 _DEFAULTS = {
@@ -206,6 +217,7 @@ _DEFAULTS = {
     "privacy_content": _DEFAULT_PRIVACY,
     "faq_content": _DEFAULT_FAQ,
     "shipping_content": _DEFAULT_SHIPPING,
+    "cancellation_policy_content": _DEFAULT_CANCELLATION_POLICY,
 }
 
 # Long-form content fields that get lazily backfilled onto a settings row that
@@ -216,6 +228,7 @@ _CONTENT_FIELD_DEFAULTS = {
     "privacy_content": _DEFAULT_PRIVACY,
     "faq_content": _DEFAULT_FAQ,
     "shipping_content": _DEFAULT_SHIPPING,
+    "cancellation_policy_content": _DEFAULT_CANCELLATION_POLICY,
 }
 
 

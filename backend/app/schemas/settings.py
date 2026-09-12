@@ -16,6 +16,7 @@ class SiteSettingsResponse(BaseModel):
     privacy_content: Optional[str] = None
     faq_content: Optional[str] = None
     shipping_content: Optional[str] = None
+    cancellation_policy_content: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -36,3 +37,4 @@ class SiteSettingsUpdate(BaseModel):
     privacy_content: Optional[str] = None
     faq_content: Optional[str] = None
     shipping_content: Optional[str] = None
+    cancellation_policy_content: Optional[str] = None

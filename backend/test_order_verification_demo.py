@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 
 from app.models.user import User, UserRole, BuyerStatus
-from app.models.product import Product, StockStatus
+from app.models.product import Product
 from app.models.category import Category
 from app.core.auth import get_password_hash
 from app.core.config import settings
@@ -60,8 +60,6 @@ async def test_order_verification_logic():
             price_net=10.00,
             price_gross=12.30,
             vat_rate=23.00,
-            stock_quantity=100,
-            stock_status=StockStatus.in_stock,
             is_active=True
         )
         db.add(product)

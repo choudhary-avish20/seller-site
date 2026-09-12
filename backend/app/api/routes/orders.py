@@ -4,7 +4,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse
-from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user, require_seller_or_admin
@@ -15,7 +14,7 @@ from app.api.routes.coupons import get_valid_coupon
 from app.models.coupon import Coupon
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.order_item import OrderItem
-from app.models.product import Product, StockStatus
+from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.product_price_tier import ProductPriceTier
 from app.models.user import User, UserRole
@@ -56,44 +55,6 @@ def _tiered_price(product: Product, quantity: int, db: Session) -> float:
     if quantity > tiers[-1].min_quantity:
         return float(tiers[-1].price_net)
     return _base_price(product)
-
-
-def _atomic_decrement_stock(db: Session, model, obj_id, quantity: int, label: str) -> None:
-    """Decrement stock in a single guarded UPDATE so two concurrent orders for the
-    same product can't both pass a check-then-act stock check and oversell it."""
-    result = db.execute(
-        sa_update(model)
-        .where(model.id == obj_id, model.stock_quantity >= quantity)
-        .values(stock_quantity=model.stock_quantity - quantity)
-    )
-    if result.rowcount == 0:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Stock for {label} changed while placing your order. Please review your cart and try again.",
-        )
-
-
-def _restore_stock_for_order(db: Session, order: Order) -> None:
-    """Return reserved stock to inventory when an order is cancelled, undoing the
-    decrement applied at order-creation time."""
-    items = db.query(OrderItem).filter(OrderItem.order_id == order.id).all()
-    for item in items:
-        db.execute(
-            sa_update(Product)
-            .where(Product.id == item.product_id)
-            .values(stock_quantity=Product.stock_quantity + item.pack_quantity)
-        )
-        product = db.query(Product).filter(Product.id == item.product_id).first()
-        if product:
-            db.refresh(product)
-            if product.stock_quantity > 0:
-                product.stock_status = StockStatus.in_stock
-        if item.variant_id:
-            db.execute(
-                sa_update(ProductVariant)
-                .where(ProductVariant.id == item.variant_id)
-                .values(stock_quantity=ProductVariant.stock_quantity + item.pack_quantity)
-            )
 
 
 def _redact_internal_fields(resp: OrderResponse, viewer: User) -> OrderResponse:
@@ -153,12 +114,8 @@ async def create_order(
             raise HTTPException(status_code=404, detail=f"Product {item.product_id} not found")
         if not product.is_active:
             raise HTTPException(status_code=400, detail=f"Product {product.name} is archived")
-        if product.stock_status == StockStatus.out_of_stock:
-            raise HTTPException(status_code=400, detail=f"Product {product.name} out of stock")
         # Buyers may order any whole number of packs (>=1, enforced by the
         # OrderItemCreate schema) — no forced multiple of pack_increment.
-        if product.stock_quantity < item.pack_quantity:
-            raise HTTPException(status_code=400, detail=f"Insufficient stock for {product.name}: {product.stock_quantity} packs available")
 
         variant = None
         # tiered pricing: use quantity to get price_net
@@ -168,8 +125,6 @@ async def create_order(
             variant = db.query(ProductVariant).filter(ProductVariant.id == item.variant_id, ProductVariant.product_id == product.id).first()
             if not variant:
                 raise HTTPException(status_code=404, detail=f"Variant {item.variant_id} not found for product {product.name}")
-            if variant.stock_quantity < item.pack_quantity:
-                raise HTTPException(status_code=400, detail=f"Insufficient variant stock for {product.name} ({variant.option_value})")
             if variant.price_net_override is not None:
                 price_net = float(variant.price_net_override)
                 price_gross = round(price_net * (1 + float(product.vat_rate) / 100), 2)
@@ -251,16 +206,6 @@ async def create_order(
             buyer_note=entry["buyer_note"],
         )
         db.add(oi)
-        _atomic_decrement_stock(db, Product, p.id, entry["pack_quantity"], p.name)
-        if entry["variant"]:
-            v = entry["variant"]
-            _atomic_decrement_stock(db, ProductVariant, v.id, entry["pack_quantity"], f"{p.name} ({v.option_value})")
-
-    for entry in items_to_create:
-        p = entry["product"]
-        db.refresh(p)
-        if p.stock_quantity == 0:
-            p.stock_status = StockStatus.out_of_stock
 
     db.commit()
     db.refresh(order)
@@ -336,8 +281,11 @@ def get_order(
 _ALLOWED_STATUS_TRANSITIONS = {
     OrderStatus.pending: {OrderStatus.confirmed, OrderStatus.cancelled},
     OrderStatus.confirmed: {OrderStatus.shipped, OrderStatus.cancelled},
-    OrderStatus.shipped: {OrderStatus.out_for_delivery, OrderStatus.cancelled},
-    OrderStatus.out_for_delivery: {OrderStatus.delivered, OrderStatus.cancelled},
+    # Cancellation is only available while pending/confirmed — once an order
+    # has shipped, the goods are already moving/out with the courier, so
+    # neither staff nor the buyer can cancel it through the app anymore.
+    OrderStatus.shipped: {OrderStatus.out_for_delivery},
+    OrderStatus.out_for_delivery: {OrderStatus.delivered},
     OrderStatus.delivered: set(),
     OrderStatus.cancelled: set(),
 }
@@ -361,8 +309,8 @@ async def update_order_status(
             raise HTTPException(status_code=403, detail="Not authorized")
         if payload.status != OrderStatus.cancelled:
             raise HTTPException(status_code=403, detail="Buyers can only cancel orders")
-        if order.status != OrderStatus.pending:
-            raise HTTPException(status_code=400, detail="Only pending orders can be cancelled")
+        if order.status not in (OrderStatus.pending, OrderStatus.confirmed):
+            raise HTTPException(status_code=400, detail="Orders can only be cancelled while pending or confirmed")
     elif payload.status not in _ALLOWED_STATUS_TRANSITIONS.get(order.status, set()):
         raise HTTPException(
             status_code=400,
@@ -370,9 +318,6 @@ async def update_order_status(
         )
 
     old_status = order.status
-    if payload.status == OrderStatus.cancelled and old_status != OrderStatus.cancelled:
-        _restore_stock_for_order(db, order)
-
     order.status = payload.status
     db.commit()
     db.refresh(order)

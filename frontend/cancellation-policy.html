@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Polityka anulowania — WolkaGo</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
+<link rel="apple-touch-icon" href="assets/favicon-180.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#333333">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<style>
+.terms-wrap{max-width:760px;margin:30px auto;padding:0 10px}
+.terms-card{background:#fff;border:1px solid #ddd;padding:28px 30px;font-size:13px;line-height:1.7;color:#222;white-space:pre-wrap;word-wrap:break-word}
+</style>
+</head>
+<body>
+<div class="topbar"><div class="container">
+  <a href="index.html">Strona główna</a>
+  <a href="contact.html" class="topbar-contact"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg><span data-i18n="contact">Kontakt z nami</span></a>
+</div></div>
+
+<div class="header"><div class="container">
+  <a href="index.html" class="logo"><img src="assets/wolkago-logo.png" alt="WolkaGo"></a>
+  <div style="flex:1"></div>
+  <div class="header-actions">
+    <div id="wishlistMenuSlot"></div>
+    <a href="cart.html" class="cart" aria-label="Koszyk">
+      <svg viewBox="0 0 24 24"><path d="M6 8h12l-1 12H7L6 8z"/><path d="M9 8V6a3 3 0 016 0v2"/></svg>
+      <span class="cart-copy">
+        <span class="cart-label">Koszyk (<b data-cart-count>0</b>)</span>
+        <span class="cart-total" data-cart-net>0.00 zł</span>
+      </span>
+    </a>
+    <div id="accountMenuSlot"></div>
+  </div>
+</div></div>
+
+<div class="terms-wrap">
+  <h1 style="font-size:20px;margin-bottom:14px">Polityka anulowania</h1>
+  <div class="terms-card" id="termsBody">Ładowanie…</div>
+</div>
+
+<div id="site-footer"></div>
+<script src="config.js"></script>
+<script src="js/app.js"></script>
+<script>
+async function loadContent(){
+  const el = document.getElementById('termsBody');
+  try{
+    const s = await Api.getSettings();
+    el.textContent = s.cancellation_policy_content || 'Polityka anulowania zostanie wkrótce opublikowana.';
+  }catch(e){
+    el.textContent = 'Nie udało się załadować treści. Spróbuj ponownie później.';
+  }
+}
+loadContent();
+</script>
+</body>
+</html>

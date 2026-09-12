@@ -59,7 +59,6 @@ tr:hover td{background:#fafafa}
 .badge-active{background:#dcfce7;color:#166534}
 .badge-inactive{background:#f3f4f6;color:#6b7280}
 .badge-stock{background:#dbeafe;color:#1e40af}
-.badge-nostock{background:#fef2f2;color:#b91c1c}
 .badge-pending{background:#fef9c3;color:#854d0e}
 .badge-approved{background:#dcfce7;color:#166534}
 .badge-rejected{background:#fef2f2;color:#b91c1c}
@@ -193,6 +192,7 @@ tr:hover td{background:#fafafa}
     <div class="nav-item" data-view="privacy" onclick="switchView('privacy')"><span class="icon">🔒</span> Prywatność</div>
     <div class="nav-item" data-view="faq" onclick="switchView('faq')"><span class="icon">❓</span> FAQ</div>
     <div class="nav-item" data-view="shipping" onclick="switchView('shipping')"><span class="icon">🚚</span> Dostawa</div>
+    <div class="nav-item" data-view="cancellation" onclick="switchView('cancellation')"><span class="icon">↩️</span> Polityka anulowania</div>
     <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙</span> Ustawienia</div>
     <div class="sidebar-footer">
       <div class="nav-item" onclick="doLogout()"><span class="icon">🚪</span> Wyloguj</div>
@@ -262,19 +262,8 @@ tr:hover td{background:#fafafa}
         <div class="hint">Jednostek w jednej paczce — kupujący zawsze zamawia paczkami: 1, 2, 3…</div>
       </div>
 
-      <div class="f-section">Stan magazynowy</div>
+      <div class="f-section">Status</div>
       <div class="f-cols">
-        <div class="f-row">
-          <label>Ilość w magazynie</label>
-          <input id="f_stock_qty" type="number" min="0" value="0">
-        </div>
-        <div class="f-row">
-          <label>Status</label>
-          <select id="f_stock_status">
-            <option value="in_stock">Dostępny</option>
-            <option value="out_of_stock">Niedostępny</option>
-          </select>
-        </div>
         <div class="f-row">
           <label>Aktywny</label>
           <select id="f_active">
@@ -463,6 +452,7 @@ function switchView(view) {
   else if (view === 'privacy') renderContentPageView('privacy');
   else if (view === 'faq') renderContentPageView('faq');
   else if (view === 'shipping') renderContentPageView('shipping');
+  else if (view === 'cancellation') renderContentPageView('cancellation');
   else if (view === 'settings') renderSettingsView();
 }
 
@@ -579,9 +569,7 @@ async function renderProductsView() {
     <div class="stat-row">
       <div class="stat-card"><div class="val">${stats.total}</div><div class="lbl">Wszystkie produkty</div></div>
       <div class="stat-card"><div class="val">${stats.active}</div><div class="lbl">Aktywne</div><div class="trend">widoczne w sklepie</div></div>
-      <div class="stat-card"><div class="val">${stats.inStock}</div><div class="lbl">W magazynie</div></div>
       <div class="stat-card"><div class="val">${stats.inactive}</div><div class="lbl">Archiwum</div></div>
-      <div class="stat-card"><div class="val">${stats.lowStock}</div><div class="lbl">Niski stan magazynowy</div><div class="trend">wymaga uzupełnienia</div></div>
     </div>
 
     <div class="sec-head">
@@ -599,12 +587,6 @@ async function renderProductsView() {
         <option value="active">Aktywne</option>
         <option value="inactive">Archiwum</option>
       </select>
-      <select id="filterStock" onchange="filterProducts()">
-        <option value="">Każdy stan mag.</option>
-        <option value="in_stock">W magazynie</option>
-        <option value="out_of_stock">Brak</option>
-        <option value="low_stock">⚠️ Niski stan</option>
-      </select>
     </div>
 
     <div class="tbl-wrap">
@@ -615,7 +597,6 @@ async function renderProductsView() {
             <th>Nazwa</th>
             <th>Kategoria</th>
             <th>Cena netto</th>
-            <th>Magazyn</th>
             <th>Status</th>
             <th>Akcje</th>
           </tr>
@@ -644,7 +625,6 @@ const BULK_COLS = [
   { key: 'pack_size',       label: 'Szt. / paczka',    type: 'number', placeholder: '1' },
   { key: 'price_net',       label: 'Cena netto',       type: 'number', required: true, step: '0.01' },
   { key: 'vat_rate',        label: 'VAT %',            type: 'number', step: '0.01', placeholder: '23' },
-  { key: 'stock_quantity',  label: 'Stan mag. (szt.)', type: 'number', placeholder: '0' },
   { key: 'cost_price',      label: 'Cena zakupu',      type: 'number', step: '0.01' },
   { key: 'stall_location',  label: 'Hala / stoisko',   type: 'text' },
   { key: 'counter_number',  label: 'Nr lady',          type: 'text' },
@@ -929,7 +909,6 @@ async function submitBulkRows() {
         price_net: priceNet,
         vat_rate: row.vat_rate ? parseFloat(row.vat_rate) : 23,
         pack_size: row.pack_size ? parseInt(row.pack_size, 10) : 1,
-        stock_quantity: row.stock_quantity ? parseInt(row.stock_quantity, 10) : 0,
         cost_price: row.cost_price ? parseFloat(row.cost_price) : null,
         stall_location: row.stall_location.trim() || null,
         counter_number: row.counter_number.trim() || null,
@@ -982,39 +961,28 @@ function hideBulkErr() {
   if (el) el.style.display = 'none';
 }
 
-function isLowStock(p) {
-  // stock_quantity is already a count of packs — no per-product divisor.
-  const packsLeft = p.stock_quantity || 0;
-  return p.is_active && packsLeft > 0 && packsLeft <= 2;
-}
-
 function calcStats(prods) {
   return {
     total: prods.length,
     active: prods.filter(p => p.is_active).length,
     inactive: prods.filter(p => !p.is_active).length,
-    inStock: prods.filter(p => p.stock_status === 'in_stock' && p.is_active).length,
-    lowStock: prods.filter(isLowStock).length,
   };
 }
 
 function filterProducts() {
   const search = (document.getElementById('filterSearch')?.value || '').toLowerCase();
   const status = document.getElementById('filterStatus')?.value || '';
-  const stock = document.getElementById('filterStock')?.value || '';
 
   let filtered = products;
   if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search));
   if (status === 'active') filtered = filtered.filter(p => p.is_active);
   if (status === 'inactive') filtered = filtered.filter(p => !p.is_active);
-  if (stock === 'low_stock') filtered = filtered.filter(isLowStock);
-  else if (stock) filtered = filtered.filter(p => p.stock_status === stock);
 
   const tbody = document.getElementById('prodTbody');
   if (!tbody) return;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty">Brak produktów</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Brak produktów</td></tr>`;
     return;
   }
 
@@ -1023,10 +991,6 @@ function filterProducts() {
     const imgHtml = imgs.length
       ? `<img class="prod-img" src="${Api.img(imgs[0])}" alt="" loading="lazy">`
       : `<div class="prod-img-placeholder">📷</div>`;
-    const stockBadge = (p.stock_status === 'in_stock'
-      ? `<span class="badge badge-stock">W mag. (${p.stock_quantity})</span>`
-      : `<span class="badge badge-nostock">Brak</span>`)
-      + (isLowStock(p) ? ` <span class="badge" style="background:#fff7ed;color:#c2410c">⚠️ Niski stan</span>` : '');
     const activeBadge = p.is_active
       ? `<span class="badge badge-active">Aktywny</span>`
       : `<span class="badge badge-inactive">Archiwum</span>`;
@@ -1047,12 +1011,10 @@ function filterProducts() {
         <td>${p.is_on_sale && p.sale_price_net!=null
           ? `<span style="color:#999;text-decoration:line-through;font-size:11px">${fmtPrice(p.price_net)} zł</span><br><b style="color:#c00">${fmtPrice(p.sale_price_net)}</b> zł`
           : `<b>${fmtPrice(p.price_net)}</b> zł`}<br><span style="font-size:10px;color:#888">${fmtPrice(p.price_gross)} zł brutto</span></td>
-        <td>${stockBadge}</td>
         <td>${activeBadge}</td>
         <td>
           <div class="actions">
             <button class="btn btn-ghost btn-sm" onclick="openEditModal('${p.id}')">✏️ Edytuj</button>
-            <button class="btn btn-ghost btn-sm" onclick="openStockModal('${p.id}')">📊 Magazyn</button>
             <button class="btn btn-ghost btn-sm" onclick="confirmArchive('${p.id}',this.dataset.name,${p.is_active})" data-name="${esc(p.name)}">${archiveLabel}</button>
             <button class="btn btn-danger btn-sm" onclick="confirmDelete('${p.id}',this.dataset.name)" data-name="${esc(p.name)}">🗑 Usuń</button>
           </div>
@@ -1282,8 +1244,8 @@ async function saveCat() {
 }
 
 // Every confirm-style action (delete product/category, archive, change order
-// status, edit stock) reuses this one modal + #confirmOk button rather than
-// having its own. Routing every open through here guarantees the button
+// status) reuses this one modal + #confirmOk button rather than having its
+// own. Routing every open through here guarantees the button
 // always starts enabled — without it, a handler that disables the button
 // while it works (confirmDelete did) and forgets to re-enable it on success
 // leaves the button permanently stuck for every *other* action too, since
@@ -1440,21 +1402,25 @@ function renderOrderRows() {
       // Cross-reference live product state to surface warnings
       const liveProd = products.find(p => p.id === it.product_id);
       const isArchived  = liveProd && !liveProd.is_active;
-      const isOutOfStock = liveProd && liveProd.stock_status === 'out_of_stock';
       const productMissing = !liveProd; // product list not loaded yet or was hard-deleted
 
       const warnings = [];
       if (isArchived)    warnings.push(`<span title="Produkt jest zarchiwizowany i niewidoczny w sklepie" style="display:inline-flex;align-items:center;gap:3px;background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap">📦 Archiwum</span>`);
-      if (isOutOfStock)  warnings.push(`<span title="Produkt jest aktualnie niedostępny w magazynie" style="display:inline-flex;align-items:center;gap:3px;background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap">⚠️ Brak w mag.</span>`);
       const warnHtml = warnings.length ? `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${warnings.join('')}</div>` : '';
       // Per-product note the buyer left in their cart — distinct from the one
       // whole-order note (o.notes) shown in the left "Dostawa" column below.
       const noteHtml = it.buyer_note ? `<div style="margin-top:4px;font-size:11px;color:#7c3aed;font-style:italic">📝 „${esc(it.buyer_note)}”</div>` : '';
       const sourceLabel = formatItemSource(it);
+      // Link straight to the product's edit panel so the admin doesn't have to
+      // leave Orders and search for it by name in Products — falls back to
+      // plain text if the product was hard-deleted (liveProd is null).
+      const productNameHtml = liveProd
+        ? `<a href="#" onclick="openEditModal('${liveProd.id}');return false" style="color:#0099cc;font-weight:bold">${esc(it.product_name_snapshot)}</a>`
+        : esc(it.product_name_snapshot);
 
       return `
         <tr>
-          <td style="padding:5px 10px;border-bottom:1px solid #eee">${esc(it.product_name_snapshot)}${warnHtml}${noteHtml}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee">${productNameHtml}${warnHtml}${noteHtml}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;font-size:11px;color:${sourceLabel?'#333':'#bbb'}">${sourceLabel || '—'}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:center">${it.pack_size_snapshot}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:center">${it.pack_quantity}</td>
@@ -1584,8 +1550,10 @@ function renderOrderRows() {
   }).join('');
 }
 
-// Linear fulfillment flow: pending → confirmed → shipped → out_for_delivery → delivered,
-// with cancel available at any point before delivered/cancelled (both terminal).
+// Linear fulfillment flow: pending → confirmed → shipped → out_for_delivery → delivered.
+// Cancel is only available while pending/confirmed — once shipped, the goods
+// are already moving/out with the courier, so neither staff nor the buyer can
+// cancel it anymore (mirrors the backend's _ALLOWED_STATUS_TRANSITIONS).
 function orderActionButtons(o) {
   const next = {
     pending: ['confirmed', '🔄 Potwierdź'],
@@ -1594,16 +1562,29 @@ function orderActionButtons(o) {
     out_for_delivery: ['delivered', '✅ Zrealizowane'],
   }[o.status];
   const nextBtn = next ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.id}','${next[0]}')">${next[1]}</button>` : '';
-  const cancelBtn = (o.status !== 'delivered' && o.status !== 'cancelled')
+  const cancelBtn = (o.status === 'pending' || o.status === 'confirmed')
     ? `<button class="btn btn-danger btn-sm" onclick="setOrderStatus('${o.id}','cancelled')">✕ Anuluj</button>`
     : '';
+  const printBtn = `<button class="btn btn-ghost btn-sm" onclick="printOrderAction('${o.id}')">🖨️ Drukuj</button>`;
   // Only a terminal-state order (cancelled or delivered) can be permanently
   // deleted — nothing still in progress, since that would mean losing track of
   // an order a courier may still be handling.
   const deleteBtn = (o.status === 'cancelled' || o.status === 'delivered')
     ? `<button class="btn btn-sm" style="color:#888" onclick="deleteOrderAction('${o.id}','${o.status}')">🗑 Usuń</button>`
     : '';
-  return nextBtn + cancelBtn + deleteBtn;
+  return nextBtn + cancelBtn + printBtn + deleteBtn;
+}
+
+async function printOrderAction(id) {
+  try {
+    const html = await Api.printOrder(id);
+    const w = window.open('', '_blank');
+    if (!w) { alert('Zezwól na wyskakujące okna, aby wydrukować zamówienie.'); return; }
+    w.document.write(html);
+    w.document.close();
+  } catch (e) {
+    alert('Błąd drukowania: ' + e.message);
+  }
 }
 
 async function deleteOrderAction(id, orderStatus) {
@@ -2027,6 +2008,7 @@ const CONTENT_PAGES = {
   privacy:  { field: 'privacy_content',  icon: '🔒', title: 'Polityka prywatności',    url: 'privacy.html',  warn: true },
   faq:      { field: 'faq_content',      icon: '❓', title: 'FAQ',                     url: 'faq.html',      warn: false },
   shipping: { field: 'shipping_content', icon: '🚚', title: 'Koszty i czas dostawy',   url: 'shipping.html', warn: false },
+  cancellation: { field: 'cancellation_policy_content', icon: '↩️', title: 'Polityka anulowania', url: 'cancellation-policy.html', warn: false },
 };
 
 async function renderContentPageView(key) {
@@ -2104,8 +2086,6 @@ async function openEditModal(id) {
   document.getElementById('f_vat').value = prod.vat_rate ?? 23;
   document.getElementById('f_price_gross').value = prod.price_gross || '';
   document.getElementById('f_pack_size').value = prod.pack_size || 1;
-  document.getElementById('f_stock_qty').value = prod.stock_quantity ?? 0;
-  document.getElementById('f_stock_status').value = prod.stock_status || 'in_stock';
   document.getElementById('f_active').value = prod.is_active ? 'true' : 'false';
   document.getElementById('f_cost').value = prod.cost_price ?? '';
   document.getElementById('f_stall').value = prod.stall_location || '';
@@ -2144,8 +2124,6 @@ function clearModalForm() {
   });
   document.getElementById('f_vat').value = '23';
   document.getElementById('f_pack_size').value = '1';
-  document.getElementById('f_stock_qty').value = '0';
-  document.getElementById('f_stock_status').value = 'in_stock';
   document.getElementById('f_active').value = 'true';
   document.getElementById('f_bestseller').checked = false;
   document.getElementById('f_popular').checked = false;
@@ -2343,8 +2321,6 @@ async function saveProduct() {
     vat_rate: parseFloat(document.getElementById('f_vat').value) || 23,
     price_gross: grossVal ? parseFloat(grossVal) : null,
     pack_size: parseInt(document.getElementById('f_pack_size').value) || 1,
-    stock_quantity: parseInt(document.getElementById('f_stock_qty').value) || 0,
-    stock_status: document.getElementById('f_stock_status').value,
     is_active: document.getElementById('f_active').value === 'true',
     cost_price: costVal ? parseFloat(costVal) : null,
     stall_location: document.getElementById('f_stall').value.trim() || null,
@@ -2382,50 +2358,11 @@ function renderStats() {
   // re-render stat cards without full re-render
   const stats = calcStats(products);
   const cards = document.querySelectorAll('.stat-card .val');
-  if (cards.length >= 4) {
+  if (cards.length >= 3) {
     cards[0].textContent = stats.total;
     cards[1].textContent = stats.active;
-    cards[2].textContent = stats.inStock;
-    cards[3].textContent = stats.inactive;
+    cards[2].textContent = stats.inactive;
   }
-}
-
-// ── Stock modal (inline quick-edit) ───────────────────────────────────────
-function openStockModal(id) {
-  const prod = products.find(p => p.id === id);
-  if (!prod) return;
-
-  const confirmDiv = document.getElementById('confirmMsg');
-  confirmDiv.innerHTML = `
-    <div style="margin-bottom:12px"><b>${esc(prod.name)}</b></div>
-    <div class="f-row" style="margin-bottom:10px">
-      <label style="font-size:12px;font-weight:bold">Ilość w magazynie</label>
-      <input id="sq_qty" type="number" min="0" value="${prod.stock_quantity}" style="width:100%;border:1px solid #ccc;padding:7px 9px;font-size:13px">
-    </div>
-    <div class="f-row">
-      <label style="font-size:12px;font-weight:bold">Status</label>
-      <select id="sq_status" style="width:100%;border:1px solid #ccc;padding:7px 9px;font-size:13px">
-        <option value="in_stock" ${prod.stock_status==='in_stock'?'selected':''}>W magazynie</option>
-        <option value="out_of_stock" ${prod.stock_status==='out_of_stock'?'selected':''}>Niedostępny</option>
-      </select>
-    </div>`;
-
-  const okBtn = document.getElementById('confirmOk');
-  okBtn.textContent = '💾 Zapisz';
-  okBtn.className = 'btn btn-primary';
-  okBtn.onclick = async () => {
-    const qty = parseInt(document.getElementById('sq_qty').value) || 0;
-    const status = document.getElementById('sq_status').value;
-    try {
-      const updated = await Api.toggleStock(id, { stock_quantity: qty, stock_status: status });
-      const idx = products.findIndex(p => p.id === id);
-      if (idx >= 0) products[idx] = { ...products[idx], ...updated };
-      document.getElementById('confirmModal').classList.remove('open');
-      filterProducts();
-      renderStats();
-    } catch (e) { alert('Błąd: ' + e.message); }
-  };
-  openConfirmModal();
 }
 
 // ── Archive / delete ───────────────────────────────────────────────────────
@@ -2542,6 +2479,7 @@ function renderSettingsView() {
 
 async function changePassword() {
   const errEl = document.getElementById('pwErr');
+  
   const okEl  = document.getElementById('pwOk');
   errEl.style.display = 'none';
   okEl.style.display  = 'none';

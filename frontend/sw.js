@@ -1,7 +1,7 @@
 // Service worker: caches static assets for speed/offline shell only.
-// Product data, prices, stock and auth all come from /api/* — those are
-// NEVER cached here, since stale stock/pricing/order data would be a real
-// correctness bug on a live wholesale storefront.
+// Product data, prices and auth all come from /api/* — those are NEVER
+// cached here, since stale pricing/order data would be a real correctness
+// bug on a live wholesale storefront.
 const CACHE_NAME = 'wolkago-static-v1';
 const PRECACHE_URLS = [
   'css/style.css',
@@ -34,7 +34,7 @@ self.addEventListener('fetch', (event) => {
 
   if (req.method !== 'GET' || url.origin !== self.location.origin) return;
 
-  // Never cache API calls — always hit the network so prices/stock/orders are live.
+  // Never cache API calls — always hit the network so prices/orders are live.
   if (url.pathname.startsWith('/api/')) return;
 
   // Page navigations: network-first, falling back to the offline shell.

@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.models.user import User, UserRole, BuyerStatus
-from app.models.product import Product, StockStatus
+from app.models.product import Product
 from app.models.category import Category
 from app.core.auth import get_password_hash
 from app.core.config import settings
@@ -60,8 +60,6 @@ def create_test_product(db_session: Session) -> Product:
         price_net=10.00,
         price_gross=12.30,
         vat_rate=23.00,
-        stock_quantity=100,
-        stock_status=StockStatus.in_stock,
         is_active=True
     )
     db_session.add(product)
@@ -198,9 +196,7 @@ def test_admin_user_bypasses_email_verification():
             mock_product.id = uuid4()
             mock_product.name = "Test Product"
             mock_product.is_active = True
-            mock_product.stock_status = StockStatus.in_stock
             mock_product.pack_increment = 1
-            mock_product.stock_quantity = 100
             mock_product.price_net = 10.00
             mock_product.vat_rate = 23.00
             

@@ -63,6 +63,7 @@ const API = (()=>{
     updateOrderStatus:(id,status)=>req('/orders/'+id+'/status',{method:'PATCH',body:JSON.stringify({status})}),
     hideOrder:(id)=>req('/orders/'+id+'/hide',{method:'PATCH'}),
     deleteOrder:(id)=>req('/orders/'+id,{method:'DELETE'}),
+    printOrder:(id)=>req('/orders/'+id+'/print'),
     uploadImage:(file)=>{
       const fd=new FormData(); fd.append('file',file);
       const h={}; const {a}=getT(); if(a) h['Authorization']='Bearer '+a;
@@ -73,7 +74,6 @@ const API = (()=>{
     createProduct:(d)=>req('/products',{method:'POST',body:JSON.stringify(d)}),
     updateProduct:(id,d)=>req('/products/'+id,{method:'PUT',body:JSON.stringify(d)}),
     deleteProduct:(id)=>req('/products/'+id,{method:'DELETE'}),
-    toggleStock:(id,d)=>req('/products/'+id+'/stock',{method:'PATCH',body:JSON.stringify(d)}),
     archiveProduct:(id,force)=>req('/products/'+id+'/archive'+(force?'?force=true':''),{method:'PATCH'}),
     // Admin seller management
     getPendingSellers:()=>req('/sellers/pending'),
@@ -319,16 +319,10 @@ window._productRegistry = window._productRegistry || new Map();
 
 function renderProductCard(p){
   window._productRegistry.set(p.id, p);
-  const out = p.stock_status === 'out_of_stock' || p.stock_quantity === 0;
   const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/400x400?text=No+image';
   const img2 = p.images && p.images[1] ? Api.img(p.images[1]) : null;
   const showSale = p.is_on_sale && p.sale_price_net != null;
   const slugUrl = encodeURIComponent(p.slug);
-  // stock_quantity is already a count of packs — dividing it by anything
-  // else here was mislabeling "batches of pack_increment remaining" as
-  // "packs left", understating how much stock was actually available.
-  const packsLeft = p.stock_quantity || 0;
-  const lowStock = packsLeft > 0 && packsLeft <= 2;
 
   let badge;
   if(showSale && p.discount_percent) badge = `<span class="pill pill-sale">-${p.discount_percent}%</span>`;
@@ -354,14 +348,13 @@ function renderProductCard(p){
     <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
     ${p.review_count ? `<div style="font-size:11px;color:#f5a623">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:var(--muted)">(${p.review_count})</span></div>` : ''}
     <div class="package-bar">Pack of ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
-    ${lowStock ? `<div class="stock-low">Only ${packsLeft} pack${packsLeft>1?'s':''} left</div>` : ''}
     <div class="price">${netGross}</div>
     <div class="qty">
       <button onclick="cardChg('${p.id}',-1)" aria-label="Zmniejsz ilość">−</button>
       <input id="qty-${p.id}" value="1" inputmode="numeric">
       <button onclick="cardChg('${p.id}',1)" aria-label="Zwiększ ilość">+</button>
     </div>
-    <button class="add" onclick="cardAddToCart(this,'${p.id}')" ${out?'disabled style="opacity:.5;cursor:not-allowed"':''}>${out?'Niedostępny':'Dodaj do koszyka'}</button>
+    <button class="add" onclick="cardAddToCart(this,'${p.id}')">Dodaj do koszyka</button>
   </div>`;
 }
 
@@ -665,6 +658,7 @@ function renderMobileNav(u){
           <a href="shipping.html">Koszty wysyłki</a>
           <a href="terms.html">Regulamin</a>
           <a href="privacy.html">Prywatność</a>
+          <a href="cancellation-policy.html">Polityka anulowania</a>
           <a href="contact.html">Kontakt z nami</a>
         </div>
       </div>`;
@@ -944,6 +938,7 @@ async function renderFooter(){
           <a href="shipping.html">Koszty i czas dostawy</a>
           <a href="terms.html">Regulamin</a>
           <a href="privacy.html">Polityka prywatności</a>
+          <a href="cancellation-policy.html">Polityka anulowania</a>
           <a href="contact.html">Kontakt</a>
         </div>
         <div class="footer-col" id="footerContactCol">

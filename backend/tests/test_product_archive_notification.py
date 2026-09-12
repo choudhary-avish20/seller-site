@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models.user import User, UserRole, BuyerStatus
-from app.models.product import Product, StockStatus
+from app.models.product import Product
 from app.models.category import Category
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.order_item import OrderItem
@@ -37,8 +37,6 @@ def create_test_data(db_session: Session):
         price_net=10.00,
         price_gross=12.30,
         vat_rate=23.00,
-        stock_quantity=100,
-        stock_status=StockStatus.in_stock,
         is_active=True  # Active product
     )
     db_session.add(product)
@@ -153,8 +151,6 @@ async def test_archive_product_without_open_orders_no_notification(db_session: S
         price_net=10.00,
         price_gross=12.30,
         vat_rate=23.00,
-        stock_quantity=100,
-        stock_status=StockStatus.in_stock,
         is_active=True
     )
     db_session.add(product)
@@ -244,8 +240,6 @@ async def test_archive_product_multiple_buyers_multiple_notifications(db_session
         price_net=10.00,
         price_gross=12.30,
         vat_rate=23.00,
-        stock_quantity=100,
-        stock_status=StockStatus.in_stock,
         is_active=True
     )
     db_session.add(product)
