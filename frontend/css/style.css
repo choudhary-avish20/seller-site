@@ -141,6 +141,11 @@ button,input,select,textarea{font-family:inherit}
   .logo img{height:26px}
   .search{flex:1 1 100%;max-width:none;order:3}
   .search input{padding:11px 14px}
+  /* On desktop the search bar's flex:1 already pushes header-actions to the
+     right edge. Once the header wraps here, search drops to its own row
+     (order:3 above) and header-actions would otherwise sit right after the
+     logo with dead space before the true right edge — push it there. */
+  .header-actions{margin-left:auto}
 }
 /* The 480-760px band keeps full text chips (wishlist/cart/account) on one
    row with the logo+hamburger — with a long account name this is the
