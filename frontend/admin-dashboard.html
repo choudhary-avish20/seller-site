@@ -49,6 +49,14 @@
 .nav-item:hover{background:var(--adm-sidebar-hover)}
 .nav-item.active{background:var(--adm-sidebar-hover);border-left-color:var(--adm-accent);color:#fff;font-weight:bold}
 .nav-item .icon{font-size:15px;width:18px;text-align:center}
+/* Groups the flat nav-item list into labeled clusters (Overview/Catalog/
+   Sales/Site content/Settings) instead of one undifferentiated 14-item
+   list — the label styling mirrors the storefront's .mobile-drawer-label. */
+.nav-group{border-bottom:1px solid var(--adm-sidebar-border);padding-bottom:6px;margin-bottom:6px}
+.nav-group:last-of-type{border-bottom:0}
+.nav-group-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8a8a8a;padding:10px 14px 4px}
+.nav-badge{margin-left:auto;background:var(--adm-danger);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;line-height:1}
+.nav-badge[hidden]{display:none}
 .dash-main{flex:1;min-width:0;padding:20px 22px;background:var(--adm-bg)}
 
 /* ── Cards ── */
@@ -197,6 +205,12 @@ tr:hover td{background:#fafafa}
   .dash-sidebar .logo-area{border-bottom:0;border-right:1px solid var(--adm-sidebar-border);flex-shrink:0}
   .nav-item{border-left:0;border-bottom:3px solid transparent;white-space:nowrap;flex-shrink:0}
   .nav-item.active{border-left-color:transparent;border-bottom-color:var(--adm-accent)}
+  /* Groups become horizontal strips in the swipeable tab bar — no room for
+     the uppercase label text here, but a trailing divider keeps the
+     grouping legible while swiping through. */
+  .nav-group{display:flex;align-items:center;border-bottom:0;padding-bottom:0;margin-bottom:0;border-right:1px solid var(--adm-sidebar-border);flex-shrink:0}
+  .nav-group:last-of-type{border-right:0}
+  .nav-group-label{display:none}
   .sidebar-footer{position:static;width:auto;margin-top:0;border-top:0;border-left:1px solid var(--adm-sidebar-border);padding:0 10px;flex-shrink:0}
   .dash-main{padding:14px}
   .stat-card{min-width:110px}
@@ -231,21 +245,35 @@ tr:hover td{background:#fafafa}
   <!-- Sidebar -->
   <div class="dash-sidebar">
     <div class="logo-area"><img src="assets/wolkago-logo-light.png" alt="WolkaGo"><div class="sub">Panel sprzedawcy</div></div>
-    <div class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')"><span class="icon">📊</span> Statystyki</div>
-    <div class="nav-item" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
-    <div class="nav-item" data-view="bulk" onclick="switchView('bulk')"><span class="icon">📥</span> Import masowy</div>
-    <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
-    <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia</div>
-    <div class="nav-item" data-view="sellers" onclick="switchView('sellers')"><span class="icon">🧑‍💼</span> Sprzedawcy</div>
-    <div class="nav-item" data-view="buyers" onclick="switchView('buyers')"><span class="icon">🧑</span> Kupujący</div>
-    <div class="nav-item" data-view="coupons" onclick="switchView('coupons')"><span class="icon">🏷</span> Kupony</div>
-    <div class="nav-item" data-view="contact" onclick="switchView('contact')"><span class="icon">📇</span> Dane kontaktowe</div>
-    <div class="nav-item" data-view="terms" onclick="switchView('terms')"><span class="icon">📜</span> Regulamin</div>
-    <div class="nav-item" data-view="privacy" onclick="switchView('privacy')"><span class="icon">🔒</span> Prywatność</div>
-    <div class="nav-item" data-view="faq" onclick="switchView('faq')"><span class="icon">❓</span> FAQ</div>
-    <div class="nav-item" data-view="shipping" onclick="switchView('shipping')"><span class="icon">🚚</span> Dostawa</div>
-    <div class="nav-item" data-view="cancellation" onclick="switchView('cancellation')"><span class="icon">↩️</span> Polityka anulowania</div>
-    <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙</span> Ustawienia</div>
+    <div class="nav-group">
+      <div class="nav-group-label">Przegląd</div>
+      <div class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')"><span class="icon">📊</span> Statystyki</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Katalog</div>
+      <div class="nav-item" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
+      <div class="nav-item" data-view="bulk" onclick="switchView('bulk')"><span class="icon">📥</span> Import masowy</div>
+      <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Sprzedaż</div>
+      <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia<span class="nav-badge" id="ordersBadge" hidden></span></div>
+      <div class="nav-item" data-view="buyers" onclick="switchView('buyers')"><span class="icon">🧑</span> Kupujący</div>
+      <div class="nav-item" data-view="coupons" onclick="switchView('coupons')"><span class="icon">🏷</span> Kupony</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Treści strony</div>
+      <div class="nav-item" data-view="contact" onclick="switchView('contact')"><span class="icon">📇</span> Dane kontaktowe</div>
+      <div class="nav-item" data-view="terms" onclick="switchView('terms')"><span class="icon">📜</span> Regulamin</div>
+      <div class="nav-item" data-view="privacy" onclick="switchView('privacy')"><span class="icon">🔒</span> Prywatność</div>
+      <div class="nav-item" data-view="faq" onclick="switchView('faq')"><span class="icon">❓</span> FAQ</div>
+      <div class="nav-item" data-view="shipping" onclick="switchView('shipping')"><span class="icon">🚚</span> Dostawa</div>
+      <div class="nav-item" data-view="cancellation" onclick="switchView('cancellation')"><span class="icon">↩️</span> Polityka anulowania</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Ustawienia</div>
+      <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙</span> Ustawienia</div>
+    </div>
     <div class="sidebar-footer">
       <div class="nav-item" onclick="doLogout()"><span class="icon">🚪</span> Wyloguj</div>
     </div>
@@ -450,7 +478,7 @@ let currentUser = null;
 // Keeps the open tab in the URL hash (#products, #bulk, …) via replaceState —
 // no new history entry per click, just so a refresh lands back on the tab you
 // were actually looking at instead of always resetting to Statystyki.
-const VALID_VIEWS = ['dashboard','products','bulk','categories','orders','sellers','buyers','coupons','contact','terms','privacy','faq','shipping','settings'];
+const VALID_VIEWS = ['dashboard','products','bulk','categories','orders','buyers','coupons','contact','terms','privacy','faq','shipping','settings'];
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
@@ -465,16 +493,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   localStorage.setItem('user', JSON.stringify(user));
   document.getElementById('topUser').textContent = user.full_name;
 
-  // Seller/buyer approval are admin-only actions server-side — hide the nav
-  // items for sellers rather than let them click in and hit a 403.
+  // Buyer approval is an admin-only action server-side — hide the nav item
+  // for sellers rather than let them click in and hit a 403.
   if (user.role !== 'admin') {
-    document.querySelectorAll('[data-view="sellers"], [data-view="buyers"]').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('[data-view="buyers"]').forEach(el => el.style.display = 'none');
   }
 
   categories = await Api.getCategoryTree({include_inactive:true}).catch(() => []);
 
   const hashView = location.hash.slice(1);
   switchView(VALID_VIEWS.includes(hashView) ? hashView : 'dashboard');
+
+  // Seed the seen-orders baseline from whatever the initial view already
+  // fetched (dashboard/orders both call Api.listOrders()), then start
+  // polling so a new order shows up without the seller reloading the page.
+  seedSeenOrderIds().then(() => setInterval(pollForNewOrders, ORDER_POLL_MS));
 });
 
 // Manually editing/pasting a URL with a different #hash (or following a link
@@ -491,12 +524,13 @@ function switchView(view) {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
+  // Opening the Orders tab counts as "seen" — clear the new-order badge.
+  if (view === 'orders') clearNewOrdersBadge();
   if (view === 'dashboard') renderDashboardView();
   else if (view === 'products') renderProductsView();
   else if (view === 'bulk') renderBulkImportView();
   else if (view === 'categories') renderCategoriesView();
   else if (view === 'orders') renderOrdersView();
-  else if (view === 'sellers') renderSellersView();
   else if (view === 'buyers') renderBuyersView();
   else if (view === 'coupons') renderCouponsView();
   else if (view === 'contact') renderContactSettingsView();
@@ -506,6 +540,52 @@ function switchView(view) {
   else if (view === 'shipping') renderContentPageView('shipping');
   else if (view === 'cancellation') renderContentPageView('cancellation');
   else if (view === 'settings') renderSettingsView();
+}
+
+// ── Live order updates ───────────────────────────────────────────────────────
+// No websocket/push infrastructure exists, so a lightweight poll is what
+// keeps a new order (placed by a buyer while the seller is looking at a
+// different tab, or just sitting idle) from requiring a manual reload to
+// notice. Polling only tracks order IDs — it never touches order content,
+// so it can't clash with in-progress edits elsewhere on the page.
+const ORDER_POLL_MS = 30000;
+let seenOrderIds = new Set();
+let newOrdersCount = 0;
+
+async function seedSeenOrderIds() {
+  try {
+    const orders = await Api.listOrders();
+    seenOrderIds = new Set(orders.map(o => o.id));
+  } catch { /* first poll will just treat everything as new — harmless */ }
+}
+
+function clearNewOrdersBadge() {
+  newOrdersCount = 0;
+  const badge = document.getElementById('ordersBadge');
+  if (badge) { badge.hidden = true; badge.textContent = ''; }
+}
+
+async function pollForNewOrders() {
+  let orders;
+  try { orders = await Api.listOrders(); } catch { return; }
+
+  const freshIds = orders.filter(o => !seenOrderIds.has(o.id));
+  seenOrderIds = new Set(orders.map(o => o.id));
+  if (!freshIds.length) return;
+
+  // Viewing the Orders tab already counts as "seen", so only grow the badge
+  // while the seller is looking elsewhere.
+  if (currentView !== 'orders') {
+    newOrdersCount += freshIds.length;
+    const badge = document.getElementById('ordersBadge');
+    if (badge) { badge.hidden = false; badge.textContent = newOrdersCount > 99 ? '99+' : String(newOrdersCount); }
+  }
+
+  // Never yank content out from under an in-progress edit — skip the
+  // auto-refresh (the badge above still updates) if a modal is open.
+  if (document.querySelector('.modal-bg.open')) return;
+  if (currentView === 'orders') renderOrdersView();
+  else if (currentView === 'dashboard') renderDashboardView();
 }
 
 // ── Products view ──────────────────────────────────────────────────────────
@@ -1702,77 +1782,6 @@ async function setOrderStatus(id, newStatus) {
     }
   };
   openConfirmModal();
-}
-
-// ── Sellers view (admin approval of pending seller registrations) ─────────────
-async function renderSellersView() {
-  const main = document.getElementById('mainContent');
-  main.innerHTML = '<div class="empty">Ładowanie sprzedawców…</div>';
-  let pending;
-  try { pending = await Api.getPendingSellers(); }
-  catch (e) { main.innerHTML = `<div class="alert alert-warn">Błąd: ${e.message}</div>`; return; }
-
-  main.innerHTML = `
-    <div class="page-title">🧑‍💼 Sprzedawcy oczekujący na akceptację</div>
-    <div class="stat-row">
-      <div class="stat-card"><div class="val">${pending.length}</div><div class="lbl">Oczekujący</div></div>
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Firma</th>
-            <th>Osoba kontaktowa</th>
-            <th>E-mail</th>
-            <th>Data zgłoszenia</th>
-            <th>Akcje</th>
-          </tr>
-        </thead>
-        <tbody id="sellersTbody"></tbody>
-      </table>
-    </div>`;
-
-  const tbody = document.getElementById('sellersTbody');
-  if (!pending.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">Brak oczekujących zgłoszeń</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = pending.map(s => {
-    const d = new Date(s.created_at).toLocaleString('pl-PL', {dateStyle:'short', timeStyle:'short'});
-    return `
-      <tr>
-        <td><b>${esc(s.business_name)}</b></td>
-        <td>${esc(s.full_name)}</td>
-        <td><a href="mailto:${esc(s.email)}" style="color:#0099cc">${esc(s.email)}</a></td>
-        <td style="font-size:11px;color:#888">${d}</td>
-        <td>
-          <div class="actions">
-            <button class="btn btn-primary btn-sm" onclick="approveSellerAction('${s.id}')">✅ Zatwierdź</button>
-            <button class="btn btn-danger btn-sm" onclick="rejectSellerAction('${s.id}')">✕ Odrzuć</button>
-          </div>
-        </td>
-      </tr>`;
-  }).join('');
-}
-
-async function approveSellerAction(id) {
-  try {
-    await Api.approveSeller(id, { status: 'approved' });
-    renderSellersView();
-  } catch (e) {
-    alert('Błąd zatwierdzania: ' + e.message);
-  }
-}
-
-async function rejectSellerAction(id) {
-  const reason = prompt('Podaj powód odrzucenia zgłoszenia:');
-  if (!reason) return; // cancelled or left empty — backend requires a non-empty reason
-  try {
-    await Api.approveSeller(id, { status: 'rejected', rejection_reason: reason });
-    renderSellersView();
-  } catch (e) {
-    alert('Błąd odrzucania: ' + e.message);
-  }
 }
 
 // ── Buyers view (full visibility into every registered buyer) ─────────────
