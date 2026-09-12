@@ -40,8 +40,13 @@
 
 /* ── Layout ── */
 .dash-wrap{display:flex;gap:0;min-height:calc(100vh - 90px);min-height:calc(100dvh - 90px)}
-.dash-sidebar{width:200px;flex-shrink:0;background:var(--adm-sidebar-bg);color:var(--adm-sidebar-text);position:relative}
-.sidebar-footer{border-top:1px solid var(--adm-sidebar-border);margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px}
+.dash-sidebar{width:200px;flex-shrink:0;background:var(--adm-sidebar-bg);color:var(--adm-sidebar-text);display:flex;flex-direction:column}
+/* margin-top:auto is the classic flexbox "sticky footer" — it pushes this
+   to the bottom of any leftover space in the column, but (unlike the
+   position:absolute this replaced) it stays in normal flow, so it can never
+   overlap the nav content above it even when that content grows taller
+   than the visible viewport. */
+.sidebar-footer{border-top:1px solid var(--adm-sidebar-border);margin-top:auto;padding:10px 0}
 .dash-sidebar .logo-area{padding:14px;border-bottom:1px solid var(--adm-sidebar-border)}
 .dash-sidebar .logo-area img{height:26px;display:block}
 .dash-sidebar .logo-area .sub{font-size:10px;color:#aaa;font-weight:normal;margin-top:4px}
@@ -201,7 +206,7 @@ tr:hover td{background:#fafafa}
 }
 @media(max-width:860px){
   .dash-wrap{flex-direction:column;min-height:0}
-  .dash-sidebar{width:100%;display:flex;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .dash-sidebar{width:100%;display:flex;flex-direction:row;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .dash-sidebar .logo-area{border-bottom:0;border-right:1px solid var(--adm-sidebar-border);flex-shrink:0}
   .nav-item{border-left:0;border-bottom:3px solid transparent;white-space:nowrap;flex-shrink:0}
   .nav-item.active{border-left-color:transparent;border-bottom-color:var(--adm-accent)}
@@ -211,7 +216,7 @@ tr:hover td{background:#fafafa}
   .nav-group{display:flex;align-items:center;border-bottom:0;padding-bottom:0;margin-bottom:0;border-right:1px solid var(--adm-sidebar-border);flex-shrink:0}
   .nav-group:last-of-type{border-right:0}
   .nav-group-label{display:none}
-  .sidebar-footer{position:static;width:auto;margin-top:0;border-top:0;border-left:1px solid var(--adm-sidebar-border);padding:0 10px;flex-shrink:0}
+  .sidebar-footer{margin-top:0;border-top:0;border-left:1px solid var(--adm-sidebar-border);padding:0 10px;flex-shrink:0}
   .dash-main{padding:14px}
   .stat-card{min-width:110px}
   .modal-bg.open{padding:0}
