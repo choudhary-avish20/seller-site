@@ -351,21 +351,24 @@ function renderProductCard(p){
     <div class="price">${netGross}</div>
     <div class="qty">
       <button onclick="cardChg('${p.id}',-1)" aria-label="Zmniejsz ilość">−</button>
-      <input id="qty-${p.id}" value="1" inputmode="numeric">
+      <input id="qty-${p.id}" value="${p.pack_size||1}" inputmode="numeric">
       <button onclick="cardChg('${p.id}',1)" aria-label="Zwiększ ilość">+</button>
     </div>
     <button class="add" onclick="cardAddToCart(this,'${p.id}')">Dodaj do koszyka</button>
   </div>`;
 }
 
-// Quantity is a plain pack count — every click moves it by exactly 1 pack,
-// with 1 pack as the floor (no snapping to any product-specific multiple).
+// Quantity shown here is pieces, always a whole multiple of the product's
+// pack_size (mirrors product.html's qty control) — every click moves it by
+// exactly 1 pack (packSize pieces), with 1 pack as the floor.
 function cardChg(id, dir){
   const inp = document.getElementById('qty-'+id);
   if(!inp) return;
-  let v = parseInt(inp.value || 1, 10) + dir;
-  if(v < 1) v = 1;
-  inp.value = v;
+  const p = window._productRegistry.get(id);
+  const packSize = (p && p.pack_size) || 1;
+  let packs = Math.max(1, Math.round((parseInt(inp.value, 10) || packSize) / packSize)) + dir;
+  if(packs < 1) packs = 1;
+  inp.value = packs * packSize;
 }
 
 // Cart.add() is a synchronous, local-only write — it cannot be "in
@@ -376,17 +379,21 @@ function cardChg(id, dir){
 function cardAddToCart(btn, id){
   const p = window._productRegistry.get(id);
   if(!p) return;
+  const packSize = p.pack_size || 1;
   const inp = document.getElementById('qty-'+id);
-  let qty = parseInt((inp && inp.value) || 1, 10);
-  if(qty < 1) qty = 1;
+  let pieces = parseInt((inp && inp.value) || packSize, 10);
+  if(pieces < packSize) pieces = packSize;
+  const packs = Math.max(1, Math.round(pieces / packSize));
+  pieces = packs * packSize;
+  if(inp) inp.value = pieces;
   try{
-    Cart.add(p, qty);
+    Cart.add(p, packs);
   }catch(e){
     showToast('Nie udało się dodać produktu do koszyka.');
     return;
   }
   flashAddedState(btn);
-  showCartToast(p, qty);
+  showCartToast(p, pieces);
 }
 
 // Briefly swaps a "Dodaj do koszyka" button to "✓ Dodano" and back —

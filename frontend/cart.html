@@ -159,7 +159,7 @@ function render(){
         <div class="ct-controls">
           <div class="ct-stepper">
             <button onclick="changeQty('${it.product.id}','${it.variantId||''}',${it.packQuantity-1})">−</button>
-            <span>${it.packQuantity}</span>
+            <span>${it.packQuantity * (it.product.pack_size||1)} szt.</span>
             <button onclick="changeQty('${it.product.id}','${it.variantId||''}',${it.packQuantity+1})">+</button>
           </div>
           <button class="ct-remove" onclick="Cart.remove('${it.product.id}','${it.variantId||''}');render()">Usuń</button>

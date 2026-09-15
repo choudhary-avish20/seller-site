@@ -298,16 +298,17 @@ async function load(){
         ${tierRows}
       </div>
       ${p.variants&&p.variants.length? `<div style="margin-bottom:12px;font-size:12px"><b>Kolory / Rozmiary:</b> ${p.variants.map(v=>`${esc(v.option_name)}: ${esc(v.option_value)} (${esc(v.sku)})`).join(', ')}</div>`:''}
-      <div class="pd-qty-label">Ilość</div>
+      <div class="pd-qty-label">Ilość (szt.)</div>
       <div class="pd-qty-row">
         <div class="pd-qty-stepper">
           <button onclick="chg(-1)">−</button>
-          <input id="qty" value="1">
+          <input id="qty" value="${p.pack_size}">
           <button onclick="chg(1)">+</button>
         </div>
-        <button class="pd-qty-quick" onclick="chg(12)">+12</button>
-        <button class="pd-qty-quick" onclick="chg(40)">+40</button>
+        <button class="pd-qty-quick" onclick="chg(2)">+${p.pack_size*2}</button>
+        <button class="pd-qty-quick" onclick="chg(5)">+${p.pack_size*5}</button>
       </div>
+      <div class="pd-qty-hint">Zamawiane w krokach po ${p.pack_size} szt. (1 paczka)</div>
       <button class="pd-cta" id="addBtn"><span>🛒</span> Dodaj do koszyka</button>
       <div class="pd-secondary-actions">
         <button class="pd-wish-btn" id="wishlistBtn" type="button">
@@ -322,25 +323,37 @@ async function load(){
       `}
     `;
     if(!hide){
-      document.getElementById('addBtn').onclick=(e)=>{
+      const packSize = p.pack_size || 1;
+      // Quantity shown to the buyer is always pieces, snapped to a whole
+      // number of packs (multiples of packSize) — converted to a pack count
+      // only at the boundary where it's handed to Cart.add()/pack_quantity.
+      const piecesToPacks = (pieces) => Math.max(1, Math.round(pieces / packSize));
+      const snapInput = () => {
         const inp=document.getElementById('qty');
-        let q=parseInt(inp.value||1,10);
-        if(q<1) q=1;
+        let v=parseInt(inp.value,10);
+        if(isNaN(v) || v<packSize) v=packSize;
+        inp.value = piecesToPacks(v) * packSize;
+      };
+      document.getElementById('qty').addEventListener('change', snapInput);
+      document.getElementById('addBtn').onclick=(e)=>{
+        snapInput();
+        const inp=document.getElementById('qty');
+        const pieces=parseInt(inp.value,10);
+        const packs=piecesToPacks(pieces);
         // No frozen price passed here — Cart.linePrice() recomputes sale/tier pricing
         // live from packQuantity every time the cart is rendered or the qty changes,
         // so it never goes stale the way a snapshot taken at add-to-cart time would.
-        Cart.add(p, q);
+        Cart.add(p, packs);
         flashAddedState(e.currentTarget);
-        showCartToast(p, q);
+        showCartToast(p, pieces);
       };
-      // Quantity is a plain pack count: the −/+ buttons move it by exactly 1
-      // pack, and the +12/+40 quick-add buttons (unrelated to any per-product
-      // rule) just add that many more packs in one click.
+      // −/+ move by exactly 1 pack (packSize pieces); the quick-add buttons
+      // move by 2 and 5 packs. Everything stays a whole multiple of packSize.
       window.chg=(dir)=>{
         const inp=document.getElementById('qty');
-        let v=parseInt(inp.value||1,10)+dir;
-        if(v<1) v=1;
-        inp.value=v;
+        let packs=piecesToPacks(parseInt(inp.value,10)||packSize)+dir;
+        if(packs<1) packs=1;
+        inp.value=packs*packSize;
       };
       // Sticky buy bar: reuses the real #addBtn click handler and #qty value
       // directly (no separate cart/quantity state), just proxies the click —

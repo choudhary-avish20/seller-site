@@ -343,8 +343,8 @@ tr:hover td{background:#fafafa}
       </div>
       <div class="f-row">
         <label>Rozmiar paczki (szt.) <span class="req">*</span></label>
-        <input id="f_pack_size" type="number" min="1" value="1">
-        <div class="hint">Jednostek w jednej paczce — kupujący zawsze zamawia paczkami: 1, 2, 3…</div>
+        <input id="f_pack_size" type="number" min="1" value="1" oninput="updatePackSizeHint()">
+        <div class="hint" id="f_pack_size_hint">Jednostek w jednej paczce — to jedyne ustawienie: kupujący zamawia w krokach po tyle sztuk (np. 1 → 1, 2, 3…).</div>
       </div>
 
       <div class="f-section">Status</div>
@@ -2146,6 +2146,7 @@ async function openEditModal(id) {
   document.getElementById('f_vat').value = prod.vat_rate ?? 23;
   document.getElementById('f_price_gross').value = prod.price_gross || '';
   document.getElementById('f_pack_size').value = prod.pack_size || 1;
+  updatePackSizeHint();
   document.getElementById('f_active').value = prod.is_active ? 'true' : 'false';
   document.getElementById('f_cost').value = prod.cost_price ?? '';
   document.getElementById('f_stall').value = prod.stall_location || '';
@@ -2184,6 +2185,7 @@ function clearModalForm() {
   });
   document.getElementById('f_vat').value = '23';
   document.getElementById('f_pack_size').value = '1';
+  updatePackSizeHint();
   document.getElementById('f_active').value = 'true';
   document.getElementById('f_bestseller').checked = false;
   document.getElementById('f_popular').checked = false;
@@ -2225,6 +2227,16 @@ function onSalePercentInput() {
     saleEl.value = '';
   }
   updateSalePreview();
+}
+
+// This one field IS the buyer-facing order increment: a buyer's quantity
+// always starts at pack_size pieces and steps up by pack_size (e.g. 6 →
+// 12 → 18…), so there's no separate "increment" setting to configure.
+function updatePackSizeHint() {
+  const hintEl = document.getElementById('f_pack_size_hint');
+  if (!hintEl) return;
+  const n = parseInt(document.getElementById('f_pack_size').value, 10) || 1;
+  hintEl.textContent = `Jednostek w jednej paczce — to jedyne ustawienie: kupujący zamawia w krokach po ${n} szt. (np. ${n} → ${n*2} → ${n*3}…).`;
 }
 
 function updateSalePreview() {
