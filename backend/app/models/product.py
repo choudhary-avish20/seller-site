@@ -1,16 +1,10 @@
-import enum
 import uuid
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base, TimestampMixin, UUIDPKMixin
-
-
-class StockStatus(str, enum.Enum):
-    in_stock = "in_stock"
-    out_of_stock = "out_of_stock"
 
 
 class Product(UUIDPKMixin, TimestampMixin, Base):
@@ -35,15 +29,11 @@ class Product(UUIDPKMixin, TimestampMixin, Base):
     # If no tiers, single price_net is used
     pack_increment: Mapped[int] = mapped_column(Integer, default=1, nullable=False)  # e.g. 12 or 40 pcs per increment
 
-    # Stock management: where to buy after order (wholesale works by buying after order)
+    # Sourcing info: where staff buy this item after an order comes in (wholesale
+    # works by buying after order — no inventory is tracked)
     cost_price: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)  # purchase (cost) price for staff
     stall_location: Mapped[str | None] = mapped_column(String(255), nullable=True)  # e.g. "Hall A"
     counter_number: Mapped[str | None] = mapped_column(String(64), nullable=True)  # e.g. "Counter 12"
-
-    stock_quantity: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
-    stock_status: Mapped[StockStatus] = mapped_column(
-        Enum(StockStatus, name="stock_status"), default=StockStatus.in_stock, nullable=False
-    )
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)  # archived if False
 

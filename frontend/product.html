@@ -14,7 +14,12 @@
 <style>
 .pd-gallery{flex:1;min-width:280px}
 .pd-img-box{border:1px solid var(--border);background:var(--surface);position:relative;border-radius:var(--radius-md);overflow:hidden;cursor:zoom-in;box-shadow:var(--shadow-sm)}
-.pd-img-box img{width:100%;display:block;transition:transform var(--t-base)}
+/* Fixed aspect-ratio (unlike the plain width:100% this used to be) so the
+   gallery box is the same height for every product regardless of that
+   product's own photo dimensions — object-fit:contain keeps the whole
+   wholesale product photo visible rather than cropping it like the grid
+   card's cover-fit thumbnails do. */
+.pd-img-box img{width:100%;height:100%;aspect-ratio:1/1;object-fit:contain;display:block;transition:transform var(--t-base)}
 .pd-img-box:hover img{transform:scale(1.035)}
 .pd-zoom-hint{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.6);color:#fff;font-size:11px;padding:5px 10px;border-radius:20px;display:flex;align-items:center;gap:4px;opacity:0;transition:opacity var(--t-fast);pointer-events:none}
 .pd-img-box:hover .pd-zoom-hint{opacity:1}
@@ -124,6 +129,7 @@ body.has-sticky-bar{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
     </a>
     <div id="accountMenuSlot"></div>
   </div></div></div>
+<div id="catnavSlot"></div>
 
 <div class="container">
 <div class="breadcrumb" id="crumb"><a href="index.html">⌂</a><a href="index.html" id="crumb-cat" style="display:none"></a><span class="current" id="crumb-current"></span></div>
@@ -134,7 +140,7 @@ body.has-sticky-bar{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
   <div class="pd-gallery">
     <div class="pd-img-box" id="imgBox">
       <div class="badge-row" style="position:absolute;top:10px;left:10px"><span class="pill" id="detailRibbon">New</span></div>
-      <img id="mainImg" src="" alt="" style="min-height:260px">
+      <img id="mainImg" src="" alt="">
       <div class="pd-zoom-hint">🔍 Kliknij, aby powiększyć</div>
       <button class="pd-img-nav prev" id="galPrev" style="display:none" onclick="event.stopPropagation();stepImage(-1)">‹</button>
       <button class="pd-img-nav next" id="galNext" style="display:none" onclick="event.stopPropagation();stepImage(1)">›</button>
@@ -265,7 +271,6 @@ async function load(){
     const isGuest=!localStorage.getItem('access_token');
     // check config for hide prices
     let hide=false; try{ const cfg=await Api.getConfig(); hide=cfg.require_login_to_see_prices && isGuest; }catch{}
-    const inc=p.pack_increment||1;
     document.getElementById('info').innerHTML=`
       <h1 class="pd-title">${esc(p.name)}</h1>
       <div class="pd-meta-row">
@@ -274,7 +279,11 @@ async function load(){
         ${p.review_count ? `<a href="#reviewsSection" class="pd-rating-link">${renderStars(p.avg_rating, false)} ${p.avg_rating} (${p.review_count})</a>` : ''}
       </div>
       ${hide? `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:12px;margin:10px 0;font-size:12px">Ceny widoczne po zalogowaniu — <a href="login.html" style="color:#0066cc">Zaloguj się</a> / <a href="signup.html" style="color:#0066cc">Zarejestruj się</a></div>` : `
-      <div class="pd-pack-bar">w paczce: <b>${p.pack_size} ${p.pack_size===1?'para':'szt.'}</b>${p.stall_location? ` • Stoisko ${p.stall_location}${p.counter_number? ' / Lada '+p.counter_number:''}`:''}</div>
+      <!-- stall_location/counter_number are staff-only sourcing info (where to
+           physically buy this at the wholesale market after an order comes
+           in) — the API already omits them for non-staff callers, but this
+           customer-facing page never reads them at all, on principle. -->
+      <div class="pd-pack-bar">w paczce: <b>${p.pack_size} ${p.pack_size===1?'para':'szt.'}</b></div>
       <div class="pd-price-card">
         ${p.is_on_sale && p.sale_price_net!=null && p.discount_percent ? `<span class="pd-price-badge">-${p.discount_percent}%</span>` : ''}
         ${p.is_on_sale && p.sale_price_net!=null ? `
@@ -293,13 +302,12 @@ async function load(){
       <div class="pd-qty-row">
         <div class="pd-qty-stepper">
           <button onclick="chg(-1)">−</button>
-          <input id="qty" value="${inc}" data-inc="${inc}">
+          <input id="qty" value="1">
           <button onclick="chg(1)">+</button>
         </div>
         <button class="pd-qty-quick" onclick="chg(12)">+12</button>
         <button class="pd-qty-quick" onclick="chg(40)">+40</button>
       </div>
-      <div class="pd-qty-hint">Minimalna ilość zamówienia dla tego produktu to ${inc}</div>
       <button class="pd-cta" id="addBtn"><span>🛒</span> Dodaj do koszyka</button>
       <div class="pd-secondary-actions">
         <button class="pd-wish-btn" id="wishlistBtn" type="button">
@@ -316,8 +324,8 @@ async function load(){
     if(!hide){
       document.getElementById('addBtn').onclick=(e)=>{
         const inp=document.getElementById('qty');
-        let q=parseInt(inp.value||inc,10);
-        q=Math.ceil(q/inc)*inc;
+        let q=parseInt(inp.value||1,10);
+        if(q<1) q=1;
         // No frozen price passed here — Cart.linePrice() recomputes sale/tier pricing
         // live from packQuantity every time the cart is rendered or the qty changes,
         // so it never goes stale the way a snapshot taken at add-to-cart time would.
@@ -325,14 +333,13 @@ async function load(){
         flashAddedState(e.currentTarget);
         showCartToast(p, q);
       };
+      // Quantity is a plain pack count: the −/+ buttons move it by exactly 1
+      // pack, and the +12/+40 quick-add buttons (unrelated to any per-product
+      // rule) just add that many more packs in one click.
       window.chg=(dir)=>{
         const inp=document.getElementById('qty');
-        let v=parseInt(inp.value||inc,10);
-        if(dir===1) v+=inc;
-        else if(dir===-1) v-=inc;
-        else v+=dir;
-        if(v<inc) v=inc;
-        v=Math.ceil(v/inc)*inc;
+        let v=parseInt(inp.value||1,10)+dir;
+        if(v<1) v=1;
         inp.value=v;
       };
       // Sticky buy bar: reuses the real #addBtn click handler and #qty value

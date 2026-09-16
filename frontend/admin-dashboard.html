@@ -13,129 +13,225 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 <style>
+/* ── Admin design tokens ──────────────────────────────────────────────────
+   A deliberately different accent (blue) from the storefront's warm orange —
+   this is a distinct seller/admin tool, not a re-skin of the storefront —
+   but every component below now draws from ONE set of variables instead of
+   ~15 independently hand-picked hex values, and reuses the storefront's
+   radius/shadow/motion tokens (css/style.css) so corners/shadows/transitions
+   feel the same across both surfaces even though the color language differs. */
+:root{
+  --adm-accent:#0099cc;
+  --adm-accent-hover:#007aa8;
+  --adm-danger:#dc2626;
+  --adm-danger-hover:#b91c1c;
+  --adm-bg:#f5f5f5;
+  --adm-surface:#fff;
+  --adm-border:#ddd;
+  --adm-border-soft:#eee;
+  --adm-text:#222;
+  --adm-text-secondary:#555;
+  --adm-muted:#888;
+  --adm-sidebar-bg:#2b2b2b;
+  --adm-sidebar-hover:#3a3a3a;
+  --adm-sidebar-border:#444;
+  --adm-sidebar-text:#ccc;
+}
+
 /* ── Layout ── */
-.dash-wrap{display:flex;gap:0;min-height:calc(100vh - 90px)}
-.dash-sidebar{width:200px;flex-shrink:0;background:#2b2b2b;color:#ccc}
-.dash-sidebar .logo-area{padding:14px;border-bottom:1px solid #444}
+.dash-wrap{display:flex;gap:0;min-height:calc(100vh - 90px);min-height:calc(100dvh - 90px)}
+.dash-sidebar{width:200px;flex-shrink:0;background:var(--adm-sidebar-bg);color:var(--adm-sidebar-text);display:flex;flex-direction:column}
+/* margin-top:auto is the classic flexbox "sticky footer" — it pushes this
+   to the bottom of any leftover space in the column, but (unlike the
+   position:absolute this replaced) it stays in normal flow, so it can never
+   overlap the nav content above it even when that content grows taller
+   than the visible viewport. */
+.sidebar-footer{border-top:1px solid var(--adm-sidebar-border);margin-top:auto;padding:10px 0}
+.dash-sidebar .logo-area{padding:14px;border-bottom:1px solid var(--adm-sidebar-border)}
 .dash-sidebar .logo-area img{height:26px;display:block}
 .dash-sidebar .logo-area .sub{font-size:10px;color:#aaa;font-weight:normal;margin-top:4px}
-.nav-item{display:flex;align-items:center;gap:8px;padding:11px 14px;font-size:12px;cursor:pointer;border-left:3px solid transparent;transition:background .15s}
-.nav-item:hover{background:#3a3a3a}
-.nav-item.active{background:#3a3a3a;border-left-color:#0099cc;color:#fff;font-weight:bold}
+.nav-item{display:flex;align-items:center;gap:8px;padding:11px 14px;font-size:12px;cursor:pointer;border-left:3px solid transparent;transition:background var(--t-fast)}
+.nav-item:hover{background:var(--adm-sidebar-hover)}
+.nav-item.active{background:var(--adm-sidebar-hover);border-left-color:var(--adm-accent);color:#fff;font-weight:bold}
 .nav-item .icon{font-size:15px;width:18px;text-align:center}
-.dash-main{flex:1;min-width:0;padding:20px 22px;background:#f5f5f5}
+/* Groups the flat nav-item list into labeled clusters (Overview/Catalog/
+   Sales/Site content/Settings) instead of one undifferentiated 14-item
+   list — the label styling mirrors the storefront's .mobile-drawer-label. */
+.nav-group{border-bottom:1px solid var(--adm-sidebar-border);padding-bottom:6px;margin-bottom:6px}
+.nav-group:last-of-type{border-bottom:0}
+.nav-group-label{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#8a8a8a;padding:10px 14px 4px}
+.nav-badge{margin-left:auto;background:var(--adm-danger);color:#fff;font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 4px;line-height:1}
+.nav-badge[hidden]{display:none}
+.dash-main{flex:1;min-width:0;padding:20px 22px;background:var(--adm-bg)}
 
 /* ── Cards ── */
 .stat-row{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
-.stat-card{background:#fff;border:1px solid #ddd;padding:14px 18px;flex:1;min-width:130px}
-.stat-card .val{font-size:24px;font-weight:bold;color:#333;line-height:1.2}
-.stat-card .lbl{font-size:11px;color:#777;margin-top:2px}
-.stat-card .trend{font-size:11px;color:#0099cc;margin-top:4px}
+.stat-card{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius-md);padding:14px 18px;flex:1;min-width:130px}
+.stat-card .val{font-size:24px;font-weight:bold;color:var(--adm-text);line-height:1.2}
+.stat-card .lbl{font-size:11px;color:var(--adm-muted);margin-top:2px}
+.stat-card .trend{font-size:11px;color:var(--adm-accent);margin-top:4px}
 
 /* ── Section header ── */
-.sec-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sec-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
 .sec-head h2{font-size:14px;font-weight:bold}
 
 /* ── Buttons ── */
-.btn{padding:7px 14px;font-size:12px;font-weight:bold;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
-.btn-primary{background:#0099cc;color:#fff}
-.btn-primary:hover{background:#007aa8}
-.btn-danger{background:#dc2626;color:#fff}
-.btn-danger:hover{background:#b91c1c}
-.btn-ghost{background:#fff;color:#333;border:1px solid #ccc}
-.btn-ghost:hover{background:#f5f5f5}
+.btn{padding:7px 14px;border-radius:var(--radius-sm);font-size:12px;font-weight:bold;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:background var(--t-fast)}
+.btn-primary{background:var(--adm-accent);color:#fff}
+.btn-primary:hover{background:var(--adm-accent-hover)}
+.btn-danger{background:var(--adm-danger);color:#fff}
+.btn-danger:hover{background:var(--adm-danger-hover)}
+.btn-ghost{background:var(--adm-surface);color:var(--adm-text-secondary);border:1px solid var(--adm-border)}
+.btn-ghost:hover{background:var(--adm-bg)}
 .btn-sm{padding:4px 9px;font-size:11px}
 .btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* ── Table ── */
-.tbl-wrap{background:#fff;border:1px solid #ddd;overflow-x:auto}
+.tbl-wrap{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius-md);overflow-x:auto;position:relative}
+/* A right-edge fade hints there's more to scroll to on narrow screens,
+   instead of the overflow being entirely silent. Purely decorative (no
+   pointer-events), always present — harmless on wide screens where there's
+   nothing to scroll to. */
+.tbl-wrap::after{content:'';position:absolute;top:0;right:0;bottom:0;width:24px;background:linear-gradient(to right,rgba(255,255,255,0),rgba(255,255,255,.9));pointer-events:none}
 table{width:100%;border-collapse:collapse;font-size:12px}
-th{background:#f0f0f0;text-align:left;padding:8px 10px;border-bottom:1px solid #ddd;font-weight:bold;font-size:11px;text-transform:uppercase;white-space:nowrap}
-td{padding:8px 10px;border-bottom:1px solid #eee;vertical-align:middle}
+th{background:var(--adm-bg);text-align:left;padding:8px 10px;border-bottom:1px solid var(--adm-border);font-weight:bold;font-size:11px;text-transform:uppercase;white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid var(--adm-border-soft);vertical-align:middle}
 tr:last-child td{border-bottom:0}
 tr:hover td{background:#fafafa}
-.badge{display:inline-block;padding:2px 7px;border-radius:2px;font-size:10px;font-weight:bold;text-transform:uppercase}
+.badge{display:inline-block;padding:2px 7px;border-radius:999px;font-size:10px;font-weight:bold;text-transform:uppercase}
 .badge-active{background:#dcfce7;color:#166534}
 .badge-inactive{background:#f3f4f6;color:#6b7280}
 .badge-stock{background:#dbeafe;color:#1e40af}
-.badge-nostock{background:#fef2f2;color:#b91c1c}
 .badge-pending{background:#fef9c3;color:#854d0e}
 .badge-approved{background:#dcfce7;color:#166534}
 .badge-rejected{background:#fef2f2;color:#b91c1c}
-.prod-img{width:40px;height:40px;object-fit:contain;border:1px solid #eee;background:#fafafa}
-.prod-img-placeholder{width:40px;height:40px;background:#f0f0f0;border:1px solid #eee;display:flex;align-items:center;justify-content:center;font-size:18px;color:#bbb}
-.actions{display:flex;gap:4px;flex-wrap:wrap}
+.prod-img{width:40px;height:40px;object-fit:contain;border:1px solid var(--adm-border-soft);border-radius:var(--radius-sm);background:#fafafa}
+.prod-img-placeholder{width:40px;height:40px;background:var(--adm-bg);border:1px solid var(--adm-border-soft);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:18px;color:#bbb}
+/* Fixed min-width + always-right-aligned so a row with one action button and
+   a row with four line up on the same right edge instead of the column
+   ragged-edging based on how many buttons a given row happens to have. */
+.actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;min-width:96px}
 
 /* ── Modal ── */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;overflow-y:auto}
 .modal-bg.open{display:flex;align-items:flex-start;justify-content:center;padding:30px 10px}
-.modal{background:#fff;width:100%;max-width:640px;border:1px solid #ccc;position:relative}
-.modal-head{background:#333;color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:bold}
+.modal{background:var(--adm-surface);width:100%;max-width:640px;border-radius:var(--radius-md);overflow:hidden;position:relative}
+.modal-head{background:var(--adm-text);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:bold}
 .modal-head button{background:none;border:none;color:#fff;font-size:18px;cursor:pointer;line-height:1}
 .modal-body{padding:20px 18px}
-.modal-foot{padding:12px 18px;border-top:1px solid #eee;display:flex;justify-content:flex-end;gap:8px}
+.modal-foot{padding:12px 18px;border-top:1px solid var(--adm-border-soft);display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 
 /* ── Form fields ── */
 .f-row{margin-bottom:12px}
 .f-row label{display:block;font-size:12px;font-weight:bold;margin-bottom:3px}
-.f-row input,.f-row textarea,.f-row select{width:100%;border:1px solid #ccc;padding:7px 9px;font-size:13px;font-family:inherit;outline:none}
-.f-row input:focus,.f-row textarea:focus,.f-row select:focus{border-color:#0099cc}
+.f-row input,.f-row textarea,.f-row select{width:100%;border:1px solid var(--adm-border);border-radius:var(--radius-sm);padding:7px 9px;font-size:13px;font-family:inherit;outline:none}
+.f-row input:focus,.f-row textarea:focus,.f-row select:focus{border-color:var(--adm-accent)}
 .f-row textarea{resize:vertical;min-height:68px}
-.f-row .hint{font-size:11px;color:#888;margin-top:2px}
+.f-row .hint{font-size:11px;color:var(--adm-muted);margin-top:2px}
 .f-cols{display:flex;gap:10px;flex-wrap:wrap}
 .f-cols .f-row{flex:1;min-width:120px}
-.f-section{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;color:#555;background:#f5f5f5;border:1px solid #e0e0e0;padding:5px 10px;margin:14px 0 10px}
-.req{color:#c00}
-.form-err{display:none;background:#fef2f2;border:1px solid #fecaca;color:#c00;padding:7px 10px;margin-bottom:10px;font-size:12px}
+.f-section{font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.04em;color:var(--adm-text-secondary);background:var(--adm-bg);border:1px solid #e0e0e0;border-radius:var(--radius-sm);padding:5px 10px;margin:14px 0 10px}
+.req{color:var(--adm-danger)}
+.form-err{display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:var(--radius-sm);color:var(--adm-danger);padding:7px 10px;margin-bottom:10px;font-size:12px}
 
 /* ── Sale price live preview ── */
-.sale-preview{display:flex;align-items:center;gap:10px;background:#fff7f7;border:1px solid #fecaca;padding:10px 12px;margin:2px 0 12px;font-size:13px}
-.sale-preview .sp-old{color:#888;text-decoration:line-through}
-.sale-preview .sp-new{color:#c00;font-weight:bold;font-size:15px}
-.sale-preview .sp-pct{background:#c00;color:#fff;font-weight:bold;font-size:11px;padding:2px 7px;border-radius:2px;white-space:nowrap}
-.sale-preview .sp-err{color:#c00;font-size:12px}
+.sale-preview{display:flex;align-items:center;gap:10px;background:#fff7f7;border:1px solid #fecaca;border-radius:var(--radius-sm);padding:10px 12px;margin:2px 0 12px;font-size:13px;flex-wrap:wrap}
+.sale-preview .sp-old{color:var(--adm-muted);text-decoration:line-through}
+.sale-preview .sp-new{color:var(--adm-danger);font-weight:bold;font-size:15px}
+.sale-preview .sp-pct{background:var(--adm-danger);color:#fff;font-weight:bold;font-size:11px;padding:2px 7px;border-radius:999px;white-space:nowrap}
+.sale-preview .sp-err{color:var(--adm-danger);font-size:12px}
 
 /* ── Image upload ── */
 .img-list{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.img-thumb{position:relative;width:70px;height:70px;border:1px solid #ddd}
+.img-thumb{position:relative;width:70px;height:70px;border:1px solid var(--adm-border);border-radius:var(--radius-sm);overflow:hidden}
 .img-thumb img{width:100%;height:100%;object-fit:contain}
-.img-thumb .rm{position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
-.img-add{width:70px;height:70px;border:2px dashed #ccc;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:#bbb;background:#fafafa}
-.img-add:hover{border-color:#0099cc;color:#0099cc}
+.img-thumb .rm{position:absolute;top:-6px;right:-6px;background:var(--adm-danger);color:#fff;border:none;border-radius:50%;width:16px;height:16px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.img-add{width:70px;height:70px;border:2px dashed var(--adm-border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;color:#bbb;background:#fafafa}
+.img-add:hover{border-color:var(--adm-accent);color:var(--adm-accent)}
 
 /* ── Tiers ── */
-.tier-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;font-size:12px}
-.tier-row input{border:1px solid #ccc;padding:5px 7px;font-size:12px;width:90px}
-.tier-row .rm-tier{background:none;border:none;color:#dc2626;cursor:pointer;font-size:15px;padding:0 2px}
+.tier-row{display:flex;gap:6px;align-items:center;margin-bottom:6px;font-size:12px;flex-wrap:wrap}
+.tier-row input{border:1px solid var(--adm-border);border-radius:var(--radius-sm);padding:5px 7px;font-size:12px;width:90px}
+.tier-row .rm-tier{background:none;border:none;color:var(--adm-danger);cursor:pointer;font-size:15px;padding:0 2px}
+
+/* ── Bulk import grid ── */
+.bulk-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.bulk-toolbar .spacer{flex:1}
+.bulk-grid-wrap{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius-md);overflow:auto;max-width:100%}
+.bulk-grid{border-collapse:collapse;font-size:12px;min-width:1400px}
+.bulk-grid th{background:var(--adm-bg);text-align:left;padding:6px 8px;border-bottom:1px solid var(--adm-border);border-right:1px solid var(--adm-border-soft);font-weight:bold;font-size:10.5px;text-transform:uppercase;white-space:nowrap;position:sticky;top:0}
+.bulk-grid td{padding:3px;border-bottom:1px solid var(--adm-border-soft);border-right:1px solid #f2f2f2;vertical-align:middle}
+.bulk-grid tr.bulk-row-done td{background:#f0fdf4}
+.bulk-grid tr.bulk-row-error td{background:#fef2f2}
+.bulk-grid input[type=text],.bulk-grid input[type=number]{width:100%;min-width:80px;border:1px solid transparent;padding:5px 6px;font-size:12px;font-family:inherit;outline:none;background:transparent}
+.bulk-grid input[type=text]:focus,.bulk-grid input[type=number]:focus{border-color:var(--adm-accent);background:var(--adm-surface)}
+.bulk-grid input:disabled{color:var(--adm-muted);background:transparent}
+.bulk-row-num{width:26px;text-align:center;color:#aaa;font-size:11px}
+.bulk-rm-row{background:none;border:none;color:var(--adm-danger);cursor:pointer;font-size:14px;padding:2px 4px}
+.bulk-img-cell{width:52px;height:52px;position:relative}
+.bulk-img-btn{width:48px;height:48px;border:2px dashed var(--adm-border);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;color:#bbb;background:#fafafa}
+.bulk-img-btn:hover{border-color:var(--adm-accent);color:var(--adm-accent)}
+.bulk-img-thumb{width:48px;height:48px;object-fit:contain;border:1px solid var(--adm-border);border-radius:var(--radius-sm);cursor:pointer;background:#fafafa}
+.bulk-img-uploading{width:48px;height:48px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--adm-accent);border:1px solid var(--adm-border);border-radius:var(--radius-sm);background:#f0f9ff}
+.bulk-status-cell{min-width:150px;font-size:11px}
+.bulk-status-ok{color:#166534;font-weight:bold}
+.bulk-status-err{color:var(--adm-danger)}
+.bulk-status-pending{color:#999}
+.bulk-req-missing{border-color:#fca5a5 !important;background:#fef2f2 !important}
 
 /* ── Misc ── */
-.empty{text-align:center;padding:40px;color:#888;font-size:13px}
-.page-title{font-size:16px;font-weight:bold;margin-bottom:16px;color:#222}
+.empty{text-align:center;padding:40px;color:var(--adm-muted);font-size:13px}
+.page-title{font-size:16px;font-weight:bold;margin-bottom:16px;color:var(--adm-text)}
 .filter-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
-.filter-bar input,.filter-bar select{border:1px solid #ccc;padding:6px 9px;font-size:12px;outline:none}
-.profile-box{background:#fff;border:1px solid #ddd;padding:18px;margin-bottom:20px;font-size:12px}
+.filter-bar input,.filter-bar select{border:1px solid var(--adm-border);border-radius:var(--radius-sm);padding:6px 9px;font-size:12px;outline:none}
+.profile-box{background:var(--adm-surface);border:1px solid var(--adm-border);border-radius:var(--radius-md);padding:18px;margin-bottom:20px;font-size:12px}
 .profile-box h3{font-size:13px;font-weight:bold;margin-bottom:10px}
-.profile-row{display:flex;gap:6px;margin-bottom:6px}
-.profile-row .lbl{min-width:130px;color:#777;font-weight:bold}
-.alert{padding:10px 14px;font-size:12px;margin-bottom:16px;border:1px solid}
+.profile-row{display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap}
+.profile-row .lbl{min-width:130px;color:var(--adm-muted);font-weight:bold}
+.alert{padding:10px 14px;font-size:12px;margin-bottom:16px;border:1px solid;border-radius:var(--radius-sm)}
 .alert-warn{background:#fef9c3;border-color:#fde047;color:#854d0e}
 .alert-info{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
 #fileInput{display:none}
 
-/* ── Responsive: stack sidebar above content, scroll nav horizontally ── */
+/* ── Responsive ──────────────────────────────────────────────────────────
+   Tablet (860-1024px): just trims dash-main's padding a little — sidebar and
+   content both still comfortably fit side-by-side.
+   ≤860px: sidebar becomes a horizontally-scrollable tab bar above the
+   content (rather than a full off-canvas drawer — with only 5-6 top-level
+   sections this stays reachable in one swipe and needs no open/close state).
+   ≤480px: further tightens stat cards, table text, and modals for phone
+   widths so nothing overflows the viewport. */
+@media(max-width:1024px){
+  .dash-main{padding:20px 16px}
+}
 @media(max-width:860px){
   .dash-wrap{flex-direction:column;min-height:0}
-  .dash-sidebar{width:100%;display:flex;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch}
-  .dash-sidebar .logo-area{border-bottom:0;border-right:1px solid #444;flex-shrink:0}
+  .dash-sidebar{width:100%;display:flex;flex-direction:row;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .dash-sidebar .logo-area{border-bottom:0;border-right:1px solid var(--adm-sidebar-border);flex-shrink:0}
   .nav-item{border-left:0;border-bottom:3px solid transparent;white-space:nowrap;flex-shrink:0}
-  .nav-item.active{border-left-color:transparent;border-bottom-color:#0099cc}
-  .sidebar-footer{position:static;width:auto;margin-top:0;border-top:0;border-left:1px solid #444;padding:0 10px;flex-shrink:0}
+  .nav-item.active{border-left-color:transparent;border-bottom-color:var(--adm-accent)}
+  /* Groups become horizontal strips in the swipeable tab bar — no room for
+     the uppercase label text here, but a trailing divider keeps the
+     grouping legible while swiping through. */
+  .nav-group{display:flex;align-items:center;border-bottom:0;padding-bottom:0;margin-bottom:0;border-right:1px solid var(--adm-sidebar-border);flex-shrink:0}
+  .nav-group:last-of-type{border-right:0}
+  .nav-group-label{display:none}
+  .sidebar-footer{margin-top:0;border-top:0;border-left:1px solid var(--adm-sidebar-border);padding:0 10px;flex-shrink:0}
   .dash-main{padding:14px}
   .stat-card{min-width:110px}
   .modal-bg.open{padding:0}
-  .modal{max-width:100%;min-height:100vh}
+  .modal{max-width:100%;min-height:100vh;min-height:100dvh;border-radius:0}
   .f-cols{flex-direction:column}
   .f-cols .f-row{min-width:0}
+}
+@media(max-width:480px){
+  .dash-main{padding:10px}
+  .stat-row{gap:8px}
+  .stat-card{min-width:100%;padding:12px 14px}
+  table{font-size:11px}
+  th,td{padding:7px 6px}
+  .btn{padding:8px 12px}
+  .actions{min-width:0;justify-content:flex-start}
 }
 </style>
 </head>
@@ -154,20 +250,36 @@ tr:hover td{background:#fafafa}
   <!-- Sidebar -->
   <div class="dash-sidebar">
     <div class="logo-area"><img src="assets/wolkago-logo-light.png" alt="WolkaGo"><div class="sub">Panel sprzedawcy</div></div>
-    <div class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')"><span class="icon">📊</span> Statystyki</div>
-    <div class="nav-item" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
-    <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
-    <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia</div>
-    <div class="nav-item" data-view="sellers" onclick="switchView('sellers')"><span class="icon">🧑‍💼</span> Sprzedawcy</div>
-    <div class="nav-item" data-view="buyers" onclick="switchView('buyers')"><span class="icon">🧑</span> Kupujący</div>
-    <div class="nav-item" data-view="coupons" onclick="switchView('coupons')"><span class="icon">🏷</span> Kupony</div>
-    <div class="nav-item" data-view="contact" onclick="switchView('contact')"><span class="icon">📇</span> Dane kontaktowe</div>
-    <div class="nav-item" data-view="terms" onclick="switchView('terms')"><span class="icon">📜</span> Regulamin</div>
-    <div class="nav-item" data-view="privacy" onclick="switchView('privacy')"><span class="icon">🔒</span> Prywatność</div>
-    <div class="nav-item" data-view="faq" onclick="switchView('faq')"><span class="icon">❓</span> FAQ</div>
-    <div class="nav-item" data-view="shipping" onclick="switchView('shipping')"><span class="icon">🚚</span> Dostawa</div>
-    <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙</span> Ustawienia</div>
-    <div class="sidebar-footer" style="border-top:1px solid #444;margin-top:auto;padding:10px 0;position:absolute;bottom:0;width:200px">
+    <div class="nav-group">
+      <div class="nav-group-label">Przegląd</div>
+      <div class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')"><span class="icon">📊</span> Statystyki</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Katalog</div>
+      <div class="nav-item" data-view="products" onclick="switchView('products')"><span class="icon">📦</span> Produkty</div>
+      <div class="nav-item" data-view="bulk" onclick="switchView('bulk')"><span class="icon">📥</span> Import masowy</div>
+      <div class="nav-item" data-view="categories" onclick="switchView('categories')"><span class="icon">📂</span> Kategorie</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Sprzedaż</div>
+      <div class="nav-item" data-view="orders" onclick="switchView('orders')"><span class="icon">🛒</span> Zamówienia<span class="nav-badge" id="ordersBadge" hidden></span></div>
+      <div class="nav-item" data-view="buyers" onclick="switchView('buyers')"><span class="icon">🧑</span> Kupujący</div>
+      <div class="nav-item" data-view="coupons" onclick="switchView('coupons')"><span class="icon">🏷</span> Kupony</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Treści strony</div>
+      <div class="nav-item" data-view="contact" onclick="switchView('contact')"><span class="icon">📇</span> Dane kontaktowe</div>
+      <div class="nav-item" data-view="terms" onclick="switchView('terms')"><span class="icon">📜</span> Regulamin</div>
+      <div class="nav-item" data-view="privacy" onclick="switchView('privacy')"><span class="icon">🔒</span> Prywatność</div>
+      <div class="nav-item" data-view="faq" onclick="switchView('faq')"><span class="icon">❓</span> FAQ</div>
+      <div class="nav-item" data-view="shipping" onclick="switchView('shipping')"><span class="icon">🚚</span> Dostawa</div>
+      <div class="nav-item" data-view="cancellation" onclick="switchView('cancellation')"><span class="icon">↩️</span> Polityka anulowania</div>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Ustawienia</div>
+      <div class="nav-item" data-view="settings" onclick="switchView('settings')"><span class="icon">⚙</span> Ustawienia</div>
+    </div>
+    <div class="sidebar-footer">
       <div class="nav-item" onclick="doLogout()"><span class="icon">🚪</span> Wyloguj</div>
     </div>
   </div>
@@ -229,32 +341,14 @@ tr:hover td{background:#fafafa}
           <div class="hint">Zostaw puste = netto × (1+VAT)</div>
         </div>
       </div>
-      <div class="f-cols">
-        <div class="f-row">
-          <label>Rozmiar paczki (szt.) <span class="req">*</span></label>
-          <input id="f_pack_size" type="number" min="1" value="1">
-          <div class="hint">Jednostek w jednej paczce</div>
-        </div>
-        <div class="f-row">
-          <label>Inkrement zamówienia</label>
-          <input id="f_pack_inc" type="number" min="1" value="1">
-          <div class="hint">Kupujący zamawia wielokrotność</div>
-        </div>
+      <div class="f-row">
+        <label>Rozmiar paczki (szt.) <span class="req">*</span></label>
+        <input id="f_pack_size" type="number" min="1" value="1">
+        <div class="hint">Jednostek w jednej paczce — kupujący zawsze zamawia paczkami: 1, 2, 3…</div>
       </div>
 
-      <div class="f-section">Stan magazynowy</div>
+      <div class="f-section">Status</div>
       <div class="f-cols">
-        <div class="f-row">
-          <label>Ilość w magazynie</label>
-          <input id="f_stock_qty" type="number" min="0" value="0">
-        </div>
-        <div class="f-row">
-          <label>Status</label>
-          <select id="f_stock_status">
-            <option value="in_stock">Dostępny</option>
-            <option value="out_of_stock">Niedostępny</option>
-          </select>
-        </div>
         <div class="f-row">
           <label>Aktywny</label>
           <select id="f_active">
@@ -386,6 +480,11 @@ let pendingImages = []; // {url, file?, uploading?}
 let currentView = 'products';
 let currentUser = null;
 
+// Keeps the open tab in the URL hash (#products, #bulk, …) via replaceState —
+// no new history entry per click, just so a refresh lands back on the tab you
+// were actually looking at instead of always resetting to Statystyki.
+const VALID_VIEWS = ['dashboard','products','bulk','categories','orders','buyers','coupons','contact','terms','privacy','faq','shipping','settings'];
+
 // ── Boot ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
   const tok = localStorage.getItem('access_token');
@@ -399,28 +498,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   localStorage.setItem('user', JSON.stringify(user));
   document.getElementById('topUser').textContent = user.full_name;
 
-  // Seller/buyer approval are admin-only actions server-side — hide the nav
-  // items for sellers rather than let them click in and hit a 403.
+  // Buyer approval is an admin-only action server-side — hide the nav item
+  // for sellers rather than let them click in and hit a 403.
   if (user.role !== 'admin') {
-    document.querySelectorAll('[data-view="sellers"], [data-view="buyers"]').forEach(el => el.style.display = 'none');
+    document.querySelectorAll('[data-view="buyers"]').forEach(el => el.style.display = 'none');
   }
 
   categories = await Api.getCategoryTree({include_inactive:true}).catch(() => []);
 
-  switchView('dashboard');
+  const hashView = location.hash.slice(1);
+  switchView(VALID_VIEWS.includes(hashView) ? hashView : 'dashboard');
+
+  // Seed the seen-orders baseline from whatever the initial view already
+  // fetched (dashboard/orders both call Api.listOrders()), then start
+  // polling so a new order shows up without the seller reloading the page.
+  seedSeenOrderIds().then(() => setInterval(pollForNewOrders, ORDER_POLL_MS));
+});
+
+// Manually editing/pasting a URL with a different #hash (or following a link
+// straight to one) should also switch tabs, not just the initial load.
+window.addEventListener('hashchange', () => {
+  const hashView = location.hash.slice(1);
+  if (VALID_VIEWS.includes(hashView) && hashView !== currentView) switchView(hashView);
 });
 
 // ── Navigation ─────────────────────────────────────────────────────────────
 function switchView(view) {
   currentView = view;
+  history.replaceState(null, '', '#' + view);
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
+  // Opening the Orders tab counts as "seen" — clear the new-order badge.
+  if (view === 'orders') clearNewOrdersBadge();
   if (view === 'dashboard') renderDashboardView();
   else if (view === 'products') renderProductsView();
+  else if (view === 'bulk') renderBulkImportView();
   else if (view === 'categories') renderCategoriesView();
   else if (view === 'orders') renderOrdersView();
-  else if (view === 'sellers') renderSellersView();
   else if (view === 'buyers') renderBuyersView();
   else if (view === 'coupons') renderCouponsView();
   else if (view === 'contact') renderContactSettingsView();
@@ -428,7 +543,54 @@ function switchView(view) {
   else if (view === 'privacy') renderContentPageView('privacy');
   else if (view === 'faq') renderContentPageView('faq');
   else if (view === 'shipping') renderContentPageView('shipping');
+  else if (view === 'cancellation') renderContentPageView('cancellation');
   else if (view === 'settings') renderSettingsView();
+}
+
+// ── Live order updates ───────────────────────────────────────────────────────
+// No websocket/push infrastructure exists, so a lightweight poll is what
+// keeps a new order (placed by a buyer while the seller is looking at a
+// different tab, or just sitting idle) from requiring a manual reload to
+// notice. Polling only tracks order IDs — it never touches order content,
+// so it can't clash with in-progress edits elsewhere on the page.
+const ORDER_POLL_MS = 30000;
+let seenOrderIds = new Set();
+let newOrdersCount = 0;
+
+async function seedSeenOrderIds() {
+  try {
+    const orders = await Api.listOrders();
+    seenOrderIds = new Set(orders.map(o => o.id));
+  } catch { /* first poll will just treat everything as new — harmless */ }
+}
+
+function clearNewOrdersBadge() {
+  newOrdersCount = 0;
+  const badge = document.getElementById('ordersBadge');
+  if (badge) { badge.hidden = true; badge.textContent = ''; }
+}
+
+async function pollForNewOrders() {
+  let orders;
+  try { orders = await Api.listOrders(); } catch { return; }
+
+  const freshIds = orders.filter(o => !seenOrderIds.has(o.id));
+  seenOrderIds = new Set(orders.map(o => o.id));
+  if (!freshIds.length) return;
+
+  // Viewing the Orders tab already counts as "seen", so only grow the badge
+  // while the seller is looking elsewhere.
+  if (currentView !== 'orders') {
+    newOrdersCount += freshIds.length;
+    const badge = document.getElementById('ordersBadge');
+    if (badge) { badge.hidden = false; badge.textContent = newOrdersCount > 99 ? '99+' : String(newOrdersCount); }
+  }
+
+  // Never yank content out from under an in-progress edit — skip the
+  // auto-refresh (the badge above still updates) if a modal is open.
+  if (document.querySelector('.modal-bg.open')) return;
+  if (currentView === 'orders') renderOrdersView();
+  else if (currentView === 'dashboard') renderDashboardView();
 }
 
 // ── Products view ──────────────────────────────────────────────────────────
@@ -544,14 +706,15 @@ async function renderProductsView() {
     <div class="stat-row">
       <div class="stat-card"><div class="val">${stats.total}</div><div class="lbl">Wszystkie produkty</div></div>
       <div class="stat-card"><div class="val">${stats.active}</div><div class="lbl">Aktywne</div><div class="trend">widoczne w sklepie</div></div>
-      <div class="stat-card"><div class="val">${stats.inStock}</div><div class="lbl">W magazynie</div></div>
       <div class="stat-card"><div class="val">${stats.inactive}</div><div class="lbl">Archiwum</div></div>
-      <div class="stat-card"><div class="val">${stats.lowStock}</div><div class="lbl">Niski stan magazynowy</div><div class="trend">wymaga uzupełnienia</div></div>
     </div>
 
     <div class="sec-head">
       <h2>Lista produktów</h2>
-      <button class="btn btn-primary" onclick="openAddModal()">＋ Dodaj produkt</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" onclick="switchView('bulk')">📥 Import masowy</button>
+        <button class="btn btn-primary" onclick="openAddModal()">＋ Dodaj produkt</button>
+      </div>
     </div>
 
     <div class="filter-bar">
@@ -560,12 +723,6 @@ async function renderProductsView() {
         <option value="">Wszystkie statusy</option>
         <option value="active">Aktywne</option>
         <option value="inactive">Archiwum</option>
-      </select>
-      <select id="filterStock" onchange="filterProducts()">
-        <option value="">Każdy stan mag.</option>
-        <option value="in_stock">W magazynie</option>
-        <option value="out_of_stock">Brak</option>
-        <option value="low_stock">⚠️ Niski stan</option>
       </select>
     </div>
 
@@ -577,7 +734,6 @@ async function renderProductsView() {
             <th>Nazwa</th>
             <th>Kategoria</th>
             <th>Cena netto</th>
-            <th>Magazyn</th>
             <th>Status</th>
             <th>Akcje</th>
           </tr>
@@ -589,10 +745,357 @@ async function renderProductsView() {
   filterProducts();
 }
 
-function isLowStock(p) {
-  const inc = p.pack_increment || 1;
-  const packsLeft = Math.floor((p.stock_quantity || 0) / inc);
-  return p.is_active && packsLeft > 0 && packsLeft <= 2;
+// ── Bulk import ──────────────────────────────────────────────────────────────
+// Lets the admin add many products in one pass, spreadsheet-style: type into
+// cells, or paste a block copied straight out of Excel (tab/newline-separated)
+// and it fills rows and columns from wherever the paste landed. Each product
+// gets exactly ONE image — deliberately simpler than the full edit modal's
+// multi-image gallery, since that's the whole point of a bulk tool: get many
+// products in fast, then flesh out any one of them later in the normal editor.
+// Reuses the same POST /products the single-product modal uses (row by row),
+// so every validation rule (slug uniqueness, category checks, etc.) is
+// guaranteed to behave identically instead of duplicating that logic here.
+const BULK_COLS = [
+  { key: 'name',            label: 'Nazwa',            type: 'text',   required: true },
+  { key: 'categoryText',    label: 'Kategoria',        type: 'text',   required: true, list: 'bulkCatList' },
+  { key: 'description',     label: 'Opis',             type: 'text' },
+  { key: 'pack_size',       label: 'Szt. / paczka',    type: 'number', placeholder: '1' },
+  { key: 'price_net',       label: 'Cena netto',       type: 'number', required: true, step: '0.01' },
+  { key: 'vat_rate',        label: 'VAT %',            type: 'number', step: '0.01', placeholder: '23' },
+  { key: 'cost_price',      label: 'Cena zakupu',      type: 'number', step: '0.01' },
+  { key: 'stall_location',  label: 'Hala / stoisko',   type: 'text' },
+  { key: 'counter_number',  label: 'Nr lady',          type: 'text' },
+];
+
+let bulkRows = [];
+let bulkRowSeq = 0;
+let bulkSubmitting = false;
+
+function newBulkRow() {
+  const row = { _id: ++bulkRowSeq, _touched: false, status: 'idle', error: null,
+    imagePreview: null, imageUrl: null, imageUploading: false };
+  BULK_COLS.forEach(c => { row[c.key] = ''; });
+  return row;
+}
+
+function flattenCategories(nodes, depth = 0, out = []) {
+  nodes.forEach(n => {
+    out.push({ id: n.id, name: n.name, is_active: n.is_active, depth });
+    if (n.children && n.children.length) flattenCategories(n.children, depth + 1, out);
+  });
+  return out;
+}
+
+function renderBulkImportView() {
+  const main = document.getElementById('mainContent');
+  if (!bulkRows.length) bulkRows = Array.from({ length: 5 }, newBulkRow);
+  const flatCats = flattenCategories(categories);
+  const hasActiveCategory = flatCats.some(c => c.is_active);
+
+  main.innerHTML = `
+    <div class="page-title">📥 Import masowy produktów</div>
+    ${!hasActiveCategory ? `<div class="alert alert-warn">Nie masz jeszcze żadnej aktywnej kategorii — <a href="#" onclick="switchView('categories');return false" style="color:#854d0e;font-weight:bold">utwórz przynajmniej jedną</a> zanim zaczniesz dodawać produkty, każdy wiersz musi mieć przypisaną kategorię.</div>` : ''}
+    <div class="alert alert-info">
+      Wpisuj dane ręcznie albo zaznacz i skopiuj komórki w Excelu, kliknij pierwszą komórkę w wybranym wierszu poniżej i wklej (Ctrl+V) —
+      wiersze i kolumny rozłożą się automatycznie, dokładając kolejne wiersze w miarę potrzeby.
+      Do każdego produktu dodaj <b>jedno zdjęcie</b>: kliknij ikonę 📷 w wierszu, albo przyciskiem „Wybierz zdjęcia” zaznacz od razu
+      wiele plików — zostaną przypisane po kolei do wierszy (od góry, pomijając te, które już mają zdjęcie).
+    </div>
+    <datalist id="bulkCatList">${flatCats.filter(c => c.is_active).map(c => `<option value="${esc(c.name)}">`).join('')}</datalist>
+
+    <div class="bulk-toolbar">
+      <button class="btn btn-ghost btn-sm" onclick="addBulkRow()">＋ Dodaj wiersz</button>
+      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('bulkImgPicker').click()">📎 Wybierz zdjęcia (po kolei)</button>
+      <input type="file" id="bulkImgPicker" accept="image/*" multiple style="display:none" onchange="handleBulkImagePicker(event)">
+      <button class="btn btn-ghost btn-sm" onclick="clearBulkRows()">🗑 Wyczyść wszystko</button>
+      <div class="spacer"></div>
+      <span id="bulkSummary" style="font-size:12px;color:#666"></span>
+      <button class="btn btn-primary" id="bulkSubmitBtn" onclick="submitBulkRows()">🚀 Utwórz wszystkie produkty</button>
+    </div>
+
+    <div class="form-err" id="bulkErr"></div>
+
+    <div class="bulk-grid-wrap">
+      <table class="bulk-grid">
+        <thead><tr>
+          <th class="bulk-row-num">#</th>
+          <th>Zdjęcie<span class="req">*</span></th>
+          ${BULK_COLS.map(c => `<th>${esc(c.label)}${c.required ? '<span class="req">*</span>' : ''}</th>`).join('')}
+          <th>Status</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="bulkTbody"></tbody>
+      </table>
+    </div>`;
+
+  renderBulkRows();
+}
+
+function findBulkRow(id) { return bulkRows.find(r => r._id === id); }
+
+function renderBulkRows() {
+  const tbody = document.getElementById('bulkTbody');
+  if (!tbody) return;
+  tbody.innerHTML = bulkRows.map((row, i) => renderBulkRowHtml(row, i)).join('');
+  updateBulkSummary();
+}
+
+function renderBulkRowHtml(row, i) {
+  const rowClass = row.status === 'done' ? 'bulk-row-done' : row.status === 'error' ? 'bulk-row-error' : '';
+  const inputsDisabled = row.status === 'done';
+
+  let imgCell;
+  if (row.imageUploading) {
+    imgCell = `<div class="bulk-img-uploading">⏳</div>`;
+  } else if (row.imagePreview) {
+    imgCell = `<img class="bulk-img-thumb" src="${esc(row.imagePreview)}" ${inputsDisabled ? '' : `onclick="document.getElementById('bulkFile_${row._id}').click()"`} title="${inputsDisabled ? '' : 'Zmień zdjęcie'}">`;
+  } else {
+    imgCell = `<div class="bulk-img-btn" onclick="document.getElementById('bulkFile_${row._id}').click()" title="Dodaj zdjęcie">📷</div>`;
+  }
+  if (!inputsDisabled) imgCell += `<input type="file" id="bulkFile_${row._id}" accept="image/*" style="display:none" onchange="handleBulkRowImage(${row._id}, event)">`;
+
+  const cells = BULK_COLS.map(c => {
+    const val = row[c.key] ?? '';
+    const missing = row._touched && c.required && !String(val).trim();
+    return `<td><input type="${c.type}" ${c.step ? `step="${c.step}"` : ''} ${c.list ? `list="${c.list}"` : ''}
+      value="${esc(val)}" placeholder="${esc(c.placeholder || '')}"
+      class="${missing ? 'bulk-req-missing' : ''}" ${inputsDisabled ? 'disabled' : ''}
+      oninput="updateBulkCell(${row._id}, '${c.key}', this.value)"
+      onpaste="handleBulkPaste(event, ${i}, '${c.key}')"></td>`;
+  }).join('');
+
+  let statusHtml;
+  if (row.status === 'done') statusHtml = `<span class="bulk-status-ok">✓ Utworzono</span>`;
+  else if (row.status === 'creating') statusHtml = `<span class="bulk-status-pending">⏳ Tworzenie…</span>`;
+  else if (row.status === 'error') statusHtml = `<span class="bulk-status-err">✗ ${esc(row.error || 'Błąd')}</span>`;
+  else statusHtml = `<span class="bulk-status-pending">—</span>`;
+
+  return `<tr class="${rowClass}" data-row-id="${row._id}">
+    <td class="bulk-row-num">${i + 1}</td>
+    <td class="bulk-img-cell">${imgCell}</td>
+    ${cells}
+    <td class="bulk-status-cell">${statusHtml}</td>
+    <td><button class="bulk-rm-row" onclick="removeBulkRow(${row._id})" title="Usuń wiersz">✕</button></td>
+  </tr>`;
+}
+
+function updateBulkCell(id, key, value) {
+  const row = findBulkRow(id);
+  if (row) row[key] = value;
+}
+
+function addBulkRow() {
+  bulkRows.push(newBulkRow());
+  renderBulkRows();
+}
+
+function removeBulkRow(id) {
+  bulkRows = bulkRows.filter(r => r._id !== id);
+  if (!bulkRows.length) bulkRows.push(newBulkRow());
+  renderBulkRows();
+}
+
+function clearBulkRows() {
+  if (!confirm('Usunąć wszystkie wiersze i zacząć od nowa? Utworzone już produkty zostaną — to czyści tylko ten formularz.')) return;
+  bulkRows = Array.from({ length: 5 }, newBulkRow);
+  hideBulkErr();
+  renderBulkRows();
+}
+
+// ── Bulk row images ──────────────────────────────────────────────────────────
+async function uploadBulkImage(row, file) {
+  row.imagePreview = URL.createObjectURL(file);
+  row.imageUrl = null;
+  row.imageUploading = true;
+  renderBulkRows();
+  try {
+    const res = await Api.uploadImage(file);
+    row.imageUrl = res.url || res.path || res.filename || '';
+  } catch (err) {
+    row.imagePreview = null;
+    showBulkErr(`„${file.name}": nie udało się wgrać zdjęcia — ${err.message}`);
+  }
+  row.imageUploading = false;
+  renderBulkRows();
+}
+
+async function handleBulkRowImage(id, e) {
+  const file = e.target.files[0];
+  e.target.value = '';
+  const row = findBulkRow(id);
+  if (file && row) await uploadBulkImage(row, file);
+}
+
+async function handleBulkImagePicker(e) {
+  const files = Array.from(e.target.files);
+  e.target.value = '';
+  if (!files.length) return;
+
+  // Fill rows that don't have an image yet, in order; add fresh rows once we run out.
+  const targets = bulkRows.filter(r => !r.imagePreview && r.status !== 'done');
+  while (targets.length < files.length) {
+    const r = newBulkRow();
+    bulkRows.push(r);
+    targets.push(r);
+  }
+  renderBulkRows();
+
+  for (let i = 0; i < files.length; i++) {
+    await uploadBulkImage(targets[i], files[i]);
+  }
+}
+
+// ── Paste-from-Excel ─────────────────────────────────────────────────────────
+function handleBulkPaste(e, rowIndex, colKey) {
+  const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+  if (!text) return;
+  const lines = text.replace(/\r/g, '').split('\n').filter((l, i, arr) => !(i === arr.length - 1 && l === ''));
+  const isGrid = lines.length > 1 || lines[0].includes('\t');
+  if (!isGrid) return; // a single plain value — let the browser do a normal paste
+
+  e.preventDefault();
+  const startCol = BULK_COLS.findIndex(c => c.key === colKey);
+  lines.forEach((line, li) => {
+    let targetRow = bulkRows[rowIndex + li];
+    if (!targetRow) { targetRow = newBulkRow(); bulkRows.push(targetRow); }
+    line.split('\t').forEach((val, vi) => {
+      const col = BULK_COLS[startCol + vi];
+      if (col) targetRow[col.key] = val.trim();
+    });
+  });
+  renderBulkRows();
+}
+
+// ── Validate + submit ────────────────────────────────────────────────────────
+function isBulkRowBlank(row) {
+  return !row.name.trim() && !row.categoryText.trim() && !row.description.trim() &&
+    !row.price_net && !row.imagePreview && !row.imageUrl;
+}
+
+function resolveBulkCategory(text, flatCats) {
+  const needle = text.trim().toLowerCase();
+  if (!needle) return null;
+  return flatCats.find(c => c.name.toLowerCase() === needle) || null;
+}
+
+function validateBulkRow(row, flatCats) {
+  const errors = [];
+  if (!row.name.trim()) errors.push('brak nazwy');
+  const category = resolveBulkCategory(row.categoryText, flatCats);
+  if (!row.categoryText.trim()) errors.push('brak kategorii');
+  else if (!category) errors.push(`nieznana kategoria „${row.categoryText}”`);
+  else if (!category.is_active) errors.push(`kategoria „${row.categoryText}” jest nieaktywna`);
+  const priceNet = parseFloat(row.price_net);
+  if (!row.price_net || isNaN(priceNet) || priceNet <= 0) errors.push('brak/nieprawidłowa cena netto');
+  if (row.imageUploading) errors.push('zdjęcie wciąż się wgrywa — poczekaj chwilę');
+  else if (!row.imageUrl) errors.push('brak zdjęcia');
+  return { errors, category, priceNet };
+}
+
+function updateBulkSummary() {
+  const el = document.getElementById('bulkSummary');
+  if (!el) return;
+  const total = bulkRows.filter(r => !isBulkRowBlank(r)).length;
+  const done = bulkRows.filter(r => r.status === 'done').length;
+  el.textContent = total ? `${done}/${total} utworzonych` : '';
+}
+
+async function submitBulkRows() {
+  if (bulkSubmitting) return;
+  hideBulkErr();
+
+  const flatCats = flattenCategories(categories);
+  const candidates = bulkRows.filter(r => r.status !== 'done' && !isBulkRowBlank(r));
+  if (!candidates.length) { showBulkErr('Brak wypełnionych wierszy do utworzenia.'); return; }
+
+  // Validate everything up front so every problem lights up at once, instead
+  // of the admin discovering them one failed request at a time.
+  let anyInvalid = false;
+  candidates.forEach(row => {
+    row._touched = true;
+    const { errors } = validateBulkRow(row, flatCats);
+    if (errors.length) { row.status = 'error'; row.error = 'Popraw: ' + errors.join(', '); anyInvalid = true; }
+    else if (row.status === 'error') { row.status = 'idle'; row.error = null; }
+  });
+  renderBulkRows();
+
+  const toCreate = candidates.filter(r => r.status !== 'error');
+  if (!toCreate.length) {
+    showBulkErr('Wszystkie wypełnione wiersze mają błędy — popraw zaznaczone pola (kolumna Status).');
+    return;
+  }
+  if (anyInvalid) showBulkErr(`${candidates.length - toCreate.length} wiersz(y) z błędami zostały pominięte — popraw je i uruchom ponownie. Reszta jest teraz tworzona…`, 'warn');
+
+  bulkSubmitting = true;
+  setBulkSubmitBtn(true, '⏳ Tworzenie…');
+  let created = 0, failed = 0;
+
+  try {
+    // Sequential on purpose: two rows with the same name would race on slug
+    // uniqueness if fired in parallel, and this lets each row's status update
+    // land the moment that row actually finishes instead of all-at-once.
+    for (const row of toCreate) {
+      row.status = 'creating';
+      renderBulkRows();
+      const { category, priceNet } = validateBulkRow(row, flatCats);
+      const payload = {
+        name: row.name.trim(),
+        category_id: category.id,
+        description: row.description.trim() || null,
+        images: [row.imageUrl],
+        price_net: priceNet,
+        vat_rate: row.vat_rate ? parseFloat(row.vat_rate) : 23,
+        pack_size: row.pack_size ? parseInt(row.pack_size, 10) : 1,
+        cost_price: row.cost_price ? parseFloat(row.cost_price) : null,
+        stall_location: row.stall_location.trim() || null,
+        counter_number: row.counter_number.trim() || null,
+      };
+      try {
+        const createdProd = await Api.createProduct(payload);
+        row.status = 'done'; row.error = null;
+        created++;
+        products.unshift(createdProd);
+      } catch (err) {
+        row.status = 'error'; row.error = err.message || 'Błąd tworzenia';
+        failed++;
+      }
+      renderBulkRows();
+    }
+  } finally {
+    // Always runs — even if the admin navigated away from this view mid-batch
+    // (renderBulkRows()/setBulkSubmitBtn() below just no-op when their
+    // elements aren't mounted anymore) — so the button can never get stuck
+    // disabled and a second attempt is never silently swallowed.
+    bulkSubmitting = false;
+    setBulkSubmitBtn(false, '🚀 Utwórz wszystkie produkty');
+  }
+
+  const summary = `Gotowe: utworzono ${created} produkt(y)` + (failed ? `, ${failed} nie powiodło się — patrz kolumna Status.` : '.');
+  showBulkErr(summary, failed ? 'warn' : 'ok');
+}
+
+function setBulkSubmitBtn(disabled, text) {
+  const btn = document.getElementById('bulkSubmitBtn');
+  if (!btn) return;
+  btn.disabled = disabled;
+  btn.textContent = text;
+}
+
+function showBulkErr(msg, kind = 'err') {
+  const el = document.getElementById('bulkErr');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  const palette = {
+    err:  ['#fef2f2', '#fecaca', '#c00'],
+    warn: ['#fffbeb', '#fde68a', '#92400e'],
+    ok:   ['#f0fdf4', '#bbf7d0', '#166534'],
+  }[kind] || ['#fef2f2', '#fecaca', '#c00'];
+  el.style.background = palette[0]; el.style.borderColor = palette[1]; el.style.color = palette[2];
+}
+function hideBulkErr() {
+  const el = document.getElementById('bulkErr');
+  if (el) el.style.display = 'none';
 }
 
 function calcStats(prods) {
@@ -600,28 +1103,23 @@ function calcStats(prods) {
     total: prods.length,
     active: prods.filter(p => p.is_active).length,
     inactive: prods.filter(p => !p.is_active).length,
-    inStock: prods.filter(p => p.stock_status === 'in_stock' && p.is_active).length,
-    lowStock: prods.filter(isLowStock).length,
   };
 }
 
 function filterProducts() {
   const search = (document.getElementById('filterSearch')?.value || '').toLowerCase();
   const status = document.getElementById('filterStatus')?.value || '';
-  const stock = document.getElementById('filterStock')?.value || '';
 
   let filtered = products;
   if (search) filtered = filtered.filter(p => p.name.toLowerCase().includes(search));
   if (status === 'active') filtered = filtered.filter(p => p.is_active);
   if (status === 'inactive') filtered = filtered.filter(p => !p.is_active);
-  if (stock === 'low_stock') filtered = filtered.filter(isLowStock);
-  else if (stock) filtered = filtered.filter(p => p.stock_status === stock);
 
   const tbody = document.getElementById('prodTbody');
   if (!tbody) return;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="7" class="empty">Brak produktów</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty">Brak produktów</td></tr>`;
     return;
   }
 
@@ -630,10 +1128,6 @@ function filterProducts() {
     const imgHtml = imgs.length
       ? `<img class="prod-img" src="${Api.img(imgs[0])}" alt="" loading="lazy">`
       : `<div class="prod-img-placeholder">📷</div>`;
-    const stockBadge = (p.stock_status === 'in_stock'
-      ? `<span class="badge badge-stock">W mag. (${p.stock_quantity})</span>`
-      : `<span class="badge badge-nostock">Brak</span>`)
-      + (isLowStock(p) ? ` <span class="badge" style="background:#fff7ed;color:#c2410c">⚠️ Niski stan</span>` : '');
     const activeBadge = p.is_active
       ? `<span class="badge badge-active">Aktywny</span>`
       : `<span class="badge badge-inactive">Archiwum</span>`;
@@ -654,12 +1148,10 @@ function filterProducts() {
         <td>${p.is_on_sale && p.sale_price_net!=null
           ? `<span style="color:#999;text-decoration:line-through;font-size:11px">${fmtPrice(p.price_net)} zł</span><br><b style="color:#c00">${fmtPrice(p.sale_price_net)}</b> zł`
           : `<b>${fmtPrice(p.price_net)}</b> zł`}<br><span style="font-size:10px;color:#888">${fmtPrice(p.price_gross)} zł brutto</span></td>
-        <td>${stockBadge}</td>
         <td>${activeBadge}</td>
         <td>
           <div class="actions">
             <button class="btn btn-ghost btn-sm" onclick="openEditModal('${p.id}')">✏️ Edytuj</button>
-            <button class="btn btn-ghost btn-sm" onclick="openStockModal('${p.id}')">📊 Magazyn</button>
             <button class="btn btn-ghost btn-sm" onclick="confirmArchive('${p.id}',this.dataset.name,${p.is_active})" data-name="${esc(p.name)}">${archiveLabel}</button>
             <button class="btn btn-danger btn-sm" onclick="confirmDelete('${p.id}',this.dataset.name)" data-name="${esc(p.name)}">🗑 Usuń</button>
           </div>
@@ -723,9 +1215,15 @@ function renderCatRows() {
   if (!tbody) return;
   const rows = [];
   function walk(nodes, depth) {
-    nodes.forEach(n => {
+    nodes.forEach((n, i) => {
       const indent = '\u00A0'.repeat(depth * 4);
       const parentName = depth === 0 ? '—' : findCatName(n.parent_id, categories);
+      // Only top-level categories have a manual order (arrows); subcategories
+      // are always shown alphabetically, so they get no reorder controls.
+      const order = depth === 0 ? `
+        <button class="btn btn-ghost btn-sm" title="Przesuń wyżej" ${i === 0 ? 'disabled' : ''} onclick="moveCat('${n.id}','up')">▲</button>
+        <button class="btn btn-ghost btn-sm" title="Przesuń niżej" ${i === nodes.length - 1 ? 'disabled' : ''} onclick="moveCat('${n.id}','down')">▼</button>
+      ` : '';
       rows.push(`
         <tr>
           <td><span style="color:#aaa">${indent}</span><b>${esc(n.name)}</b></td>
@@ -736,6 +1234,7 @@ function renderCatRows() {
             : '<span class="badge badge-inactive">Nieaktywna</span>'}</td>
           <td>
             <div class="actions">
+              ${order}
               <button class="btn btn-ghost btn-sm" onclick="openCatModal('${n.id}')">✏️ Edytuj</button>
               <button class="btn btn-ghost btn-sm" onclick="openAddSubcatModal('${n.id}')">＋ Podkat.</button>
               <button class="btn btn-danger btn-sm" onclick="confirmDeleteCat('${n.id}',this.dataset.name)" data-name="${esc(n.name)}">🗑</button>
@@ -747,6 +1246,16 @@ function renderCatRows() {
   }
   walk(categories, 0);
   tbody.innerHTML = rows.length ? rows.join('') : `<tr><td colspan="5" class="empty">Brak kategorii</td></tr>`;
+}
+
+async function moveCat(id, direction) {
+  try {
+    await Api.moveCategory(id, direction);
+    categories = await Api.getCategoryTree({ include_inactive: true });
+    renderCatRows();
+  } catch (e) {
+    alert('Nie udało się zmienić kolejności: ' + e.message);
+  }
 }
 
 function findCatName(id, nodes) {
@@ -871,6 +1380,19 @@ async function saveCat() {
   }
 }
 
+// Every confirm-style action (delete product/category, archive, change order
+// status) reuses this one modal + #confirmOk button rather than having its
+// own. Routing every open through here guarantees the button
+// always starts enabled — without it, a handler that disables the button
+// while it works (confirmDelete did) and forgets to re-enable it on success
+// leaves the button permanently stuck for every *other* action too, since
+// they all share the same element, until the page is reloaded.
+function openConfirmModal() {
+  const okBtn = document.getElementById('confirmOk');
+  okBtn.disabled = false;
+  document.getElementById('confirmModal').classList.add('open');
+}
+
 function confirmDeleteCat(id, name) {
   const confirmDiv = document.getElementById('confirmMsg');
   confirmDiv.innerHTML = `
@@ -891,7 +1413,7 @@ function confirmDeleteCat(id, name) {
       alert('Błąd usuwania: ' + e.message);
     }
   };
-  document.getElementById('confirmModal').classList.add('open');
+  openConfirmModal();
 }
 
 // ── Orders view ───────────────────────────────────────────────────────────
@@ -937,6 +1459,7 @@ async function renderOrdersView() {
             <th>Odbiorca</th>
             <th>📞 Telefon</th>
             <th>📍 Adres dostawy</th>
+            <th style="min-width:140px">🏪 Skąd kupić</th>
             <th>Netto</th>
             <th>Brutto</th>
             <th>Status</th>
@@ -951,12 +1474,43 @@ async function renderOrdersView() {
   renderOrderRows();
 }
 
+// Where staff physically go to buy this line item at the wholesale market —
+// snapshotted per order item at order time, so it stays accurate even if the
+// product's own stall/counter changes later. Never shown to buyers (see
+// products.py) — admin-only, picking-list information.
+function formatItemSource(it) {
+  const stall = (it.stall_location_snapshot || '').trim();
+  const counter = (it.counter_number_snapshot || '').trim();
+  if (!stall && !counter) return null;
+  const parts = [];
+  if (stall) parts.push(`Stoisko ${esc(stall)}`);
+  if (counter) parts.push(`Lada ${esc(counter)}`);
+  return parts.join(' / ');
+}
+
+// One order can span several stalls/vendors (each line item was snapshotted
+// with its own source) — this rolls all of them up into one compact,
+// de-duplicated list for the orders-table summary column, so a multi-vendor
+// order still shows everywhere it needs to be bought from at a glance.
+function orderSourcesHtml(o) {
+  const counts = new Map();
+  (o.items || []).forEach(it => {
+    const label = formatItemSource(it);
+    if (!label) return;
+    counts.set(label, (counts.get(label) || 0) + 1);
+  });
+  if (!counts.size) return '<span style="color:#bbb">—</span>';
+  return [...counts.entries()]
+    .map(([label, n]) => `<div style="white-space:nowrap">${label}${n > 1 ? ` <span style="color:#999">(×${n})</span>` : ''}</div>`)
+    .join('');
+}
+
 function renderOrderRows() {
   const tbody = document.getElementById('ordersTbody');
   if (!tbody) return;
   const visible = orderStatusFilter === 'all' ? orders : orders.filter(o => o.status === orderStatusFilter);
   if (!visible.length) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty">${orders.length ? 'Brak zamówień o wybranym statusie' : 'Brak zamówień'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">${orders.length ? 'Brak zamówień o wybranym statusie' : 'Brak zamówień'}</td></tr>`;
     return;
   }
   tbody.innerHTML = visible.map(o => {
@@ -965,17 +1519,11 @@ function renderOrderRows() {
     const phone = esc(o.recipient_phone || '—');
     const addr = esc(o.shipping_address || o.recipient_address || '—');
 
-    const statusBadge = o.status === 'pending'
-      ? `<span class="badge badge-pending">Oczekujące</span>`
-      : o.status === 'confirmed'
-      ? `<span class="badge badge-approved">Potwierdzone</span>`
-      : o.status === 'shipped'
-      ? `<span class="badge badge-stock">Wysłane</span>`
-      : o.status === 'out_for_delivery'
-      ? `<span class="badge" style="background:#ecfeff;color:#0e7490;border:1px solid #a5f3fc">W dostawie</span>`
-      : o.status === 'cancelled'
-      ? `<span class="badge badge-inactive">Anulowane</span>`
-      : `<span class="badge" style="background:#e2e8f0;color:#0f172a">${esc(o.status)}</span>`;
+    // Reuses the same .status-badge/.status-* classes (css/style.css) that
+    // orders.html shows buyers — so a given order status is always the same
+    // color on both sides of the same order.
+    const ORDER_STATUS_LABELS = {pending:'Oczekujące', confirmed:'Potwierdzone', shipped:'Wysłane', out_for_delivery:'W dostawie', delivered:'Zrealizowane', cancelled:'Anulowane'};
+    const statusBadge = `<span class="status-badge status-${esc(o.status)}">${ORDER_STATUS_LABELS[o.status] || esc(o.status)}</span>`;
 
     // ── items breakdown for expanded panel ──────────────────────────────
     const itemRows = (o.items || []).map(it => {
@@ -985,17 +1533,26 @@ function renderOrderRows() {
       // Cross-reference live product state to surface warnings
       const liveProd = products.find(p => p.id === it.product_id);
       const isArchived  = liveProd && !liveProd.is_active;
-      const isOutOfStock = liveProd && liveProd.stock_status === 'out_of_stock';
       const productMissing = !liveProd; // product list not loaded yet or was hard-deleted
 
       const warnings = [];
       if (isArchived)    warnings.push(`<span title="Produkt jest zarchiwizowany i niewidoczny w sklepie" style="display:inline-flex;align-items:center;gap:3px;background:#f1f5f9;border:1px solid #cbd5e1;color:#475569;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap">📦 Archiwum</span>`);
-      if (isOutOfStock)  warnings.push(`<span title="Produkt jest aktualnie niedostępny w magazynie" style="display:inline-flex;align-items:center;gap:3px;background:#fff7ed;border:1px solid #fed7aa;color:#c2410c;font-size:10px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap">⚠️ Brak w mag.</span>`);
       const warnHtml = warnings.length ? `<div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${warnings.join('')}</div>` : '';
+      // Per-product note the buyer left in their cart — distinct from the one
+      // whole-order note (o.notes) shown in the left "Dostawa" column below.
+      const noteHtml = it.buyer_note ? `<div style="margin-top:4px;font-size:11px;color:#7c3aed;font-style:italic">📝 „${esc(it.buyer_note)}”</div>` : '';
+      const sourceLabel = formatItemSource(it);
+      // Link straight to the product's edit panel so the admin doesn't have to
+      // leave Orders and search for it by name in Products — falls back to
+      // plain text if the product was hard-deleted (liveProd is null).
+      const productNameHtml = liveProd
+        ? `<a href="#" onclick="openEditModal('${liveProd.id}');return false" style="color:#0099cc;font-weight:bold">${esc(it.product_name_snapshot)}</a>`
+        : esc(it.product_name_snapshot);
 
       return `
         <tr>
-          <td style="padding:5px 10px;border-bottom:1px solid #eee">${esc(it.product_name_snapshot)}${warnHtml}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee">${productNameHtml}${warnHtml}${noteHtml}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee;font-size:11px;color:${sourceLabel?'#333':'#bbb'}">${sourceLabel || '—'}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:center">${it.pack_size_snapshot}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:center">${it.pack_quantity}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:right">${fmtPrice(it.price_net_snapshot)} zł</td>
@@ -1017,6 +1574,7 @@ function renderOrderRows() {
         </td>
         <td><a href="tel:${esc(o.recipient_phone||'')}" style="color:#0099cc;font-weight:bold" onclick="event.stopPropagation()">${phone}</a></td>
         <td style="max-width:200px;word-break:break-word;font-size:11px">${addr}</td>
+        <td style="font-size:11px">${orderSourcesHtml(o)}</td>
         <td><b>${fmtPrice(o.total_net)} zł</b></td>
         <td>${fmtPrice(o.total_gross)} zł${o.coupon_code && Number(o.discount_amount) > 0 ? `<br><span style="font-size:10px;color:#1a7f37">🏷 ${esc(o.coupon_code)} -${fmtPrice(o.discount_amount)} zł</span>` : ''}</td>
         <td>${statusBadge}</td>
@@ -1025,7 +1583,7 @@ function renderOrderRows() {
         </td>
       </tr>
       <tr id="detail-${o.id}" style="display:none">
-        <td colspan="8" style="padding:0;background:#f8fafc;border-top:2px solid #0099cc">
+        <td colspan="9" style="padding:0;background:#f8fafc;border-top:2px solid #0099cc">
           <div style="padding:16px 18px;display:flex;gap:20px;flex-wrap:wrap">
 
             <!-- LEFT: account + delivery info ──────────────────────────── -->
@@ -1081,7 +1639,7 @@ function renderOrderRows() {
 
               ${o.notes ? `
               <div style="margin-top:12px;background:#fffde7;border:1px solid #fde68a;padding:8px 10px;font-size:12px">
-                <b>📝 Uwagi:</b> ${esc(o.notes)}
+                <b>🚚 Uwagi do zamówienia/dostawy:</b> ${esc(o.notes)}
               </div>` : ''}
             </div>
 
@@ -1092,6 +1650,7 @@ function renderOrderRows() {
                 <thead>
                   <tr style="background:#f0f0f0">
                     <th style="padding:6px 10px;text-align:left;font-size:11px">Produkt</th>
+                    <th style="padding:6px 10px;text-align:left;font-size:11px">Skąd kupić</th>
                     <th style="padding:6px 10px;text-align:center;font-size:11px">Pack</th>
                     <th style="padding:6px 10px;text-align:center;font-size:11px">Szt. (paczek)</th>
                     <th style="padding:6px 10px;text-align:right;font-size:11px">Cena netto</th>
@@ -1103,7 +1662,7 @@ function renderOrderRows() {
                 <tbody>${itemRows}</tbody>
                 <tfoot>
                   <tr style="background:#f9f9f9;font-weight:bold;border-top:2px solid #ddd">
-                    <td colspan="5" style="padding:6px 10px;font-size:12px">Łącznie</td>
+                    <td colspan="6" style="padding:6px 10px;font-size:12px">Łącznie</td>
                     <td style="padding:6px 10px;text-align:right">${fmtPrice(o.total_net)} zł</td>
                     <td style="padding:6px 10px;text-align:right;color:#888">${fmtPrice(o.total_gross)} zł</td>
                   </tr>
@@ -1122,8 +1681,10 @@ function renderOrderRows() {
   }).join('');
 }
 
-// Linear fulfillment flow: pending → confirmed → shipped → out_for_delivery → delivered,
-// with cancel available at any point before delivered/cancelled (both terminal).
+// Linear fulfillment flow: pending → confirmed → shipped → out_for_delivery → delivered.
+// Cancel is only available while pending/confirmed — once shipped, the goods
+// are already moving/out with the courier, so neither staff nor the buyer can
+// cancel it anymore (mirrors the backend's _ALLOWED_STATUS_TRANSITIONS).
 function orderActionButtons(o) {
   const next = {
     pending: ['confirmed', '🔄 Potwierdź'],
@@ -1132,16 +1693,29 @@ function orderActionButtons(o) {
     out_for_delivery: ['delivered', '✅ Zrealizowane'],
   }[o.status];
   const nextBtn = next ? `<button class="btn btn-primary btn-sm" onclick="setOrderStatus('${o.id}','${next[0]}')">${next[1]}</button>` : '';
-  const cancelBtn = (o.status !== 'delivered' && o.status !== 'cancelled')
+  const cancelBtn = (o.status === 'pending' || o.status === 'confirmed')
     ? `<button class="btn btn-danger btn-sm" onclick="setOrderStatus('${o.id}','cancelled')">✕ Anuluj</button>`
     : '';
+  const printBtn = `<button class="btn btn-ghost btn-sm" onclick="printOrderAction('${o.id}')">🖨️ Drukuj</button>`;
   // Only a terminal-state order (cancelled or delivered) can be permanently
   // deleted — nothing still in progress, since that would mean losing track of
   // an order a courier may still be handling.
   const deleteBtn = (o.status === 'cancelled' || o.status === 'delivered')
-    ? `<button class="btn btn-sm" style="color:#888" onclick="deleteOrderAction('${o.id}','${o.status}')">🗑 Usuń</button>`
+    ? `<button class="btn btn-ghost btn-sm" onclick="deleteOrderAction('${o.id}','${o.status}')">🗑 Usuń</button>`
     : '';
-  return nextBtn + cancelBtn + deleteBtn;
+  return nextBtn + cancelBtn + printBtn + deleteBtn;
+}
+
+async function printOrderAction(id) {
+  try {
+    const html = await Api.printOrder(id);
+    const w = window.open('', '_blank');
+    if (!w) { alert('Zezwól na wyskakujące okna, aby wydrukować zamówienie.'); return; }
+    w.document.write(html);
+    w.document.close();
+  } catch (e) {
+    alert('Błąd drukowania: ' + e.message);
+  }
 }
 
 async function deleteOrderAction(id, orderStatus) {
@@ -1212,78 +1786,7 @@ async function setOrderStatus(id, newStatus) {
       alert('Błąd zmiany statusu: ' + e.message);
     }
   };
-  document.getElementById('confirmModal').classList.add('open');
-}
-
-// ── Sellers view (admin approval of pending seller registrations) ─────────────
-async function renderSellersView() {
-  const main = document.getElementById('mainContent');
-  main.innerHTML = '<div class="empty">Ładowanie sprzedawców…</div>';
-  let pending;
-  try { pending = await Api.getPendingSellers(); }
-  catch (e) { main.innerHTML = `<div class="alert alert-warn">Błąd: ${e.message}</div>`; return; }
-
-  main.innerHTML = `
-    <div class="page-title">🧑‍💼 Sprzedawcy oczekujący na akceptację</div>
-    <div class="stat-row">
-      <div class="stat-card"><div class="val">${pending.length}</div><div class="lbl">Oczekujący</div></div>
-    </div>
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Firma</th>
-            <th>Osoba kontaktowa</th>
-            <th>E-mail</th>
-            <th>Data zgłoszenia</th>
-            <th>Akcje</th>
-          </tr>
-        </thead>
-        <tbody id="sellersTbody"></tbody>
-      </table>
-    </div>`;
-
-  const tbody = document.getElementById('sellersTbody');
-  if (!pending.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty">Brak oczekujących zgłoszeń</td></tr>`;
-    return;
-  }
-  tbody.innerHTML = pending.map(s => {
-    const d = new Date(s.created_at).toLocaleString('pl-PL', {dateStyle:'short', timeStyle:'short'});
-    return `
-      <tr>
-        <td><b>${esc(s.business_name)}</b></td>
-        <td>${esc(s.full_name)}</td>
-        <td><a href="mailto:${esc(s.email)}" style="color:#0099cc">${esc(s.email)}</a></td>
-        <td style="font-size:11px;color:#888">${d}</td>
-        <td>
-          <div class="actions">
-            <button class="btn btn-primary btn-sm" onclick="approveSellerAction('${s.id}')">✅ Zatwierdź</button>
-            <button class="btn btn-danger btn-sm" onclick="rejectSellerAction('${s.id}')">✕ Odrzuć</button>
-          </div>
-        </td>
-      </tr>`;
-  }).join('');
-}
-
-async function approveSellerAction(id) {
-  try {
-    await Api.approveSeller(id, { status: 'approved' });
-    renderSellersView();
-  } catch (e) {
-    alert('Błąd zatwierdzania: ' + e.message);
-  }
-}
-
-async function rejectSellerAction(id) {
-  const reason = prompt('Podaj powód odrzucenia zgłoszenia:');
-  if (!reason) return; // cancelled or left empty — backend requires a non-empty reason
-  try {
-    await Api.approveSeller(id, { status: 'rejected', rejection_reason: reason });
-    renderSellersView();
-  } catch (e) {
-    alert('Błąd odrzucania: ' + e.message);
-  }
+  openConfirmModal();
 }
 
 // ── Buyers view (full visibility into every registered buyer) ─────────────
@@ -1565,6 +2068,7 @@ const CONTENT_PAGES = {
   privacy:  { field: 'privacy_content',  icon: '🔒', title: 'Polityka prywatności',    url: 'privacy.html',  warn: true },
   faq:      { field: 'faq_content',      icon: '❓', title: 'FAQ',                     url: 'faq.html',      warn: false },
   shipping: { field: 'shipping_content', icon: '🚚', title: 'Koszty i czas dostawy',   url: 'shipping.html', warn: false },
+  cancellation: { field: 'cancellation_policy_content', icon: '↩️', title: 'Polityka anulowania', url: 'cancellation-policy.html', warn: false },
 };
 
 async function renderContentPageView(key) {
@@ -1642,9 +2146,6 @@ async function openEditModal(id) {
   document.getElementById('f_vat').value = prod.vat_rate ?? 23;
   document.getElementById('f_price_gross').value = prod.price_gross || '';
   document.getElementById('f_pack_size').value = prod.pack_size || 1;
-  document.getElementById('f_pack_inc').value = prod.pack_increment || 1;
-  document.getElementById('f_stock_qty').value = prod.stock_quantity ?? 0;
-  document.getElementById('f_stock_status').value = prod.stock_status || 'in_stock';
   document.getElementById('f_active').value = prod.is_active ? 'true' : 'false';
   document.getElementById('f_cost').value = prod.cost_price ?? '';
   document.getElementById('f_stall').value = prod.stall_location || '';
@@ -1683,9 +2184,6 @@ function clearModalForm() {
   });
   document.getElementById('f_vat').value = '23';
   document.getElementById('f_pack_size').value = '1';
-  document.getElementById('f_pack_inc').value = '1';
-  document.getElementById('f_stock_qty').value = '0';
-  document.getElementById('f_stock_status').value = 'in_stock';
   document.getElementById('f_active').value = 'true';
   document.getElementById('f_bestseller').checked = false;
   document.getElementById('f_popular').checked = false;
@@ -1883,9 +2381,6 @@ async function saveProduct() {
     vat_rate: parseFloat(document.getElementById('f_vat').value) || 23,
     price_gross: grossVal ? parseFloat(grossVal) : null,
     pack_size: parseInt(document.getElementById('f_pack_size').value) || 1,
-    pack_increment: parseInt(document.getElementById('f_pack_inc').value) || 1,
-    stock_quantity: parseInt(document.getElementById('f_stock_qty').value) || 0,
-    stock_status: document.getElementById('f_stock_status').value,
     is_active: document.getElementById('f_active').value === 'true',
     cost_price: costVal ? parseFloat(costVal) : null,
     stall_location: document.getElementById('f_stall').value.trim() || null,
@@ -1923,50 +2418,11 @@ function renderStats() {
   // re-render stat cards without full re-render
   const stats = calcStats(products);
   const cards = document.querySelectorAll('.stat-card .val');
-  if (cards.length >= 4) {
+  if (cards.length >= 3) {
     cards[0].textContent = stats.total;
     cards[1].textContent = stats.active;
-    cards[2].textContent = stats.inStock;
-    cards[3].textContent = stats.inactive;
+    cards[2].textContent = stats.inactive;
   }
-}
-
-// ── Stock modal (inline quick-edit) ───────────────────────────────────────
-function openStockModal(id) {
-  const prod = products.find(p => p.id === id);
-  if (!prod) return;
-
-  const confirmDiv = document.getElementById('confirmMsg');
-  confirmDiv.innerHTML = `
-    <div style="margin-bottom:12px"><b>${esc(prod.name)}</b></div>
-    <div class="f-row" style="margin-bottom:10px">
-      <label style="font-size:12px;font-weight:bold">Ilość w magazynie</label>
-      <input id="sq_qty" type="number" min="0" value="${prod.stock_quantity}" style="width:100%;border:1px solid #ccc;padding:7px 9px;font-size:13px">
-    </div>
-    <div class="f-row">
-      <label style="font-size:12px;font-weight:bold">Status</label>
-      <select id="sq_status" style="width:100%;border:1px solid #ccc;padding:7px 9px;font-size:13px">
-        <option value="in_stock" ${prod.stock_status==='in_stock'?'selected':''}>W magazynie</option>
-        <option value="out_of_stock" ${prod.stock_status==='out_of_stock'?'selected':''}>Niedostępny</option>
-      </select>
-    </div>`;
-
-  const okBtn = document.getElementById('confirmOk');
-  okBtn.textContent = '💾 Zapisz';
-  okBtn.className = 'btn btn-primary';
-  okBtn.onclick = async () => {
-    const qty = parseInt(document.getElementById('sq_qty').value) || 0;
-    const status = document.getElementById('sq_status').value;
-    try {
-      const updated = await Api.toggleStock(id, { stock_quantity: qty, stock_status: status });
-      const idx = products.findIndex(p => p.id === id);
-      if (idx >= 0) products[idx] = { ...products[idx], ...updated };
-      document.getElementById('confirmModal').classList.remove('open');
-      filterProducts();
-      renderStats();
-    } catch (e) { alert('Błąd: ' + e.message); }
-  };
-  document.getElementById('confirmModal').classList.add('open');
 }
 
 // ── Archive / delete ───────────────────────────────────────────────────────
@@ -1980,7 +2436,7 @@ function confirmArchive(id, name, isActive) {
   okBtn.className = 'btn ' + (isActive ? 'btn-ghost' : 'btn-primary');
   okBtn.disabled = false;
   okBtn.onclick = () => _doArchive(id, name, isActive, false);
-  document.getElementById('confirmModal').classList.add('open');
+  openConfirmModal();
 }
 
 async function _doArchive(id, name, isActive, force) {
@@ -2047,10 +2503,10 @@ function confirmDelete(id, name) {
       okBtn.className = 'btn btn-ghost';
       okBtn.disabled = false;
       okBtn.onclick = () => document.getElementById('confirmModal').classList.remove('open');
-      document.getElementById('confirmModal').classList.add('open');
+      openConfirmModal();
     }
   };
-  document.getElementById('confirmModal').classList.add('open');
+  openConfirmModal();
 }
 
 // ── Settings view ──────────────────────────────────────────────────────────
@@ -2083,6 +2539,7 @@ function renderSettingsView() {
 
 async function changePassword() {
   const errEl = document.getElementById('pwErr');
+  
   const okEl  = document.getElementById('pwOk');
   errEl.style.display = 'none';
   okEl.style.display  = 'none';
@@ -2125,7 +2582,7 @@ async function changePassword() {
     btn.textContent = 'Zmień hasło';
   }
 }
-
+ 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function showModalErr(msg) { const e = document.getElementById('modalErr'); e.textContent = msg; e.style.display = 'block'; }
 function hideModalErr() { document.getElementById('modalErr').style.display = 'none'; }

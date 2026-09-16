@@ -19,12 +19,29 @@ const API = (()=>{
     try{const d=await (await fetch(base+'/auth/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({refresh_token:r})})).json(); if(d.access_token){setT(d.access_token,d.refresh_token);return true} }catch{}
     clr(); return false;
   }
+  // FastAPI's own request-validation errors (a malformed field, a value out of
+  // range) come back as detail: [{loc, msg, type}, ...] — everything else in
+  // this app raises detail as a plain string. Without this, the array shape
+  // stringifies to the useless literal "[object Object]" in every error
+  // message shown across the site.
+  function detailToMessage(detail, fallback){
+    if(!detail) return fallback;
+    if(typeof detail === 'string') return detail;
+    if(Array.isArray(detail)){
+      return detail.map(d=>{
+        if(typeof d === 'string') return d;
+        const field = Array.isArray(d.loc) ? d.loc.filter(p=>p!=='body').join('.') : null;
+        return field ? `${field}: ${d.msg}` : (d.msg || JSON.stringify(d));
+      }).join('; ') || fallback;
+    }
+    return fallback;
+  }
   async function req(path,opts={}){
     const h=Object.assign({'Content-Type':'application/json'},opts.headers||{});
     const {a}=getT(); if(a) h['Authorization']='Bearer '+a;
     let res=await fetch(base+path,Object.assign({},opts,{headers:h}));
     if(res.status===401 && getT().r){ if(await refresh()){ h['Authorization']='Bearer '+getT().a; res=await fetch(base+path,Object.assign({},opts,{headers:h}))}}
-    if(!res.ok){ const e=await res.json().catch(()=>({detail:res.statusText})); const err=new Error(e.detail||'Error '+res.status); err.status=res.status; throw err}
+    if(!res.ok){ const e=await res.json().catch(()=>({detail:res.statusText})); const err=new Error(detailToMessage(e.detail,'Error '+res.status)); err.status=res.status; throw err}
     if(res.status===204) return {}; const ct=res.headers.get('content-type')||''; if(ct.includes('text/html')) return res.text(); return res.json().catch(()=>({}));
   }
   function img(u){ if(!u) return ''; if(u.startsWith('http')) return u; if(u.startsWith('/')) return API_BASE+u; return u; }
@@ -46,17 +63,17 @@ const API = (()=>{
     updateOrderStatus:(id,status)=>req('/orders/'+id+'/status',{method:'PATCH',body:JSON.stringify({status})}),
     hideOrder:(id)=>req('/orders/'+id+'/hide',{method:'PATCH'}),
     deleteOrder:(id)=>req('/orders/'+id,{method:'DELETE'}),
+    printOrder:(id)=>req('/orders/'+id+'/print'),
     uploadImage:(file)=>{
       const fd=new FormData(); fd.append('file',file);
       const h={}; const {a}=getT(); if(a) h['Authorization']='Bearer '+a;
-      return fetch(base+'/uploads/image',{method:'POST',headers:h,body:fd}).then(async r=>{ if(!r.ok){const e=await r.json().catch(()=>({detail:'Upload failed'})); throw new Error(e.detail)} return r.json()});
+      return fetch(base+'/uploads/image',{method:'POST',headers:h,body:fd}).then(async r=>{ if(!r.ok){const e=await r.json().catch(()=>({detail:'Upload failed'})); throw new Error(detailToMessage(e.detail,'Upload failed'))} return r.json()});
     },
     // Seller profile
     getSellerProfile:()=>req('/sellers/me/profile'),
     createProduct:(d)=>req('/products',{method:'POST',body:JSON.stringify(d)}),
     updateProduct:(id,d)=>req('/products/'+id,{method:'PUT',body:JSON.stringify(d)}),
     deleteProduct:(id)=>req('/products/'+id,{method:'DELETE'}),
-    toggleStock:(id,d)=>req('/products/'+id+'/stock',{method:'PATCH',body:JSON.stringify(d)}),
     archiveProduct:(id,force)=>req('/products/'+id+'/archive'+(force?'?force=true':''),{method:'PATCH'}),
     // Admin seller management
     getPendingSellers:()=>req('/sellers/pending'),
@@ -88,11 +105,14 @@ const API = (()=>{
     createCategory:(d)=>req('/categories',{method:'POST',body:JSON.stringify(d)}),
     updateCategory:(id,d)=>req('/categories/'+id,{method:'PUT',body:JSON.stringify(d)}),
     deleteCategory:(id)=>req('/categories/'+id,{method:'DELETE'}),
+    moveCategory:(id,direction)=>req('/categories/'+id+'/move',{method:'PATCH',body:JSON.stringify({direction})}),
     // Site-wide contact info (Contact page + admin settings)
     getSettings:()=>req('/settings'),
     updateSettings:(d)=>req('/settings',{method:'PUT',body:JSON.stringify(d)}),
     // Account management
-    changePassword:(d)=>req('/auth/change-password',{method:'POST',body:JSON.stringify(d)}),
+    changePassword:(d)=>req('/auth/change-password',{method:'POST',body:JSON.stringify(d)}).then(d=>{setT(d.access_token,d.refresh_token);return d}),
+    forgotPassword:(email)=>req('/auth/forgot-password',{method:'POST',body:JSON.stringify({email})}),
+    resetPassword:(token,newPassword)=>req('/auth/reset-password',{method:'POST',body:JSON.stringify({token,new_password:newPassword})}),
     img, base:API_BASE, raw:base
   };
 })();
@@ -151,18 +171,29 @@ document.addEventListener('DOMContentLoaded',()=>{ document.querySelectorAll('[d
 // cart
 const Cart={
   key:'cart_v1',
+  // Fallback used until cart.html/checkout.html overwrite this from GET /auth/config
+  // (the backend's authoritative MIN_ORDER_VALUE_NET) — kept in sync with that default
+  // so an offline/failed config fetch still shows the right threshold.
+  MIN_ORDER_VALUE_NET:500,
   get(){ try{return JSON.parse(localStorage.getItem(this.key)||'[]')}catch{return []}},
   save(v){ localStorage.setItem(this.key,JSON.stringify(v)); updateCartUI(); },
+  // Quantity is a plain count of packs — buyers can order any whole number
+  // of packs (1, 2, 3…), no forced minimum/multiple beyond "at least 1".
   add(p,qty=1, varId=null, label=null, priceNet=null){
-    const inc=p.pack_increment||1;
-    qty=Math.max(inc, Math.ceil(qty/inc)*inc);
+    qty=Math.max(1, Math.round(qty));
     const items=this.get();
     const idx=items.findIndex(i=>i.product.id===p.id && (i.variantId||null)===(varId||null));
-    if(idx>=0){ items[idx].packQuantity+=qty; const tot=items[idx].packQuantity; items[idx].packQuantity=Math.ceil(tot/inc)*inc; }
+    if(idx>=0){ items[idx].packQuantity+=qty; }
     else items.push({product:p, packQuantity:qty, variantId:varId, variantLabel:label, variantPriceNet:priceNet});
     this.save(items);
   },
-  update(id,varId,qty){ let items=this.get(); const it=items.find(x=>x.product.id===id && (x.variantId||null)===(varId||null)); const inc=it? (it.product.pack_increment||1):1; qty=Math.max(inc, Math.ceil(qty/inc)*inc); items=items.map(x=> x.product.id===id && (x.variantId||null)===(varId||null)? {...x,packQuantity:qty}:x); this.save(items); },
+  update(id,varId,qty){ let items=this.get(); qty=Math.max(1, Math.round(qty)); items=items.map(x=> x.product.id===id && (x.variantId||null)===(varId||null)? {...x,packQuantity:qty}:x); this.save(items); },
+  // A free-text note the buyer attaches to ONE product line in their cart (a
+  // colour/size preference, a packing request…) — separate from the single
+  // whole-order shipping note entered at checkout. Sent to the backend as
+  // items[].note on order creation and stored per order line, so the seller
+  // sees exactly which product it was about.
+  setNote(id,varId,note){ const items=this.get().map(x=> x.product.id===id && (x.variantId||null)===(varId||null)? {...x,note}:x); this.save(items); },
   remove(id,varId){ this.save(this.get().filter(x=> !(x.product.id===id && (x.variantId||null)===(varId||null))))},
   clear(){ this.save([])},
   count(){return this.get().reduce((s,i)=>s+i.packQuantity,0)},
@@ -190,6 +221,14 @@ const Cart={
       net+=n*it.packQuantity; gross+=g*it.packQuantity;
     });
     return {net,gross}
+  },
+  // Site-wide minimum order value — checked against the raw items subtotal
+  // (same figure the backend validates at POST /orders), independent of any
+  // coupon discount. remaining is clamped to 0 once the cart already qualifies.
+  minOrderStatus(){
+    const {net} = this.totals();
+    const min = this.MIN_ORDER_VALUE_NET;
+    return {net, min, remaining:Math.max(0, +(min-net).toFixed(2)), met: net >= min};
   },
   // Applied coupon — kept separate from the line-items array so clearing/editing
   // the cart doesn't silently drop it; checkout re-validates it server-side anyway.
@@ -242,7 +281,7 @@ const Wishlist = {
   async toggle(productId){
     if(!localStorage.getItem('access_token')){
       const page = location.pathname.split('/').pop() || 'index.html';
-      location.href = API_BASE + '/login.html?next=' + encodeURIComponent(page + location.search);
+      location.href = Api.base + '/login.html?next=' + encodeURIComponent(page + location.search);
       return null;
     }
     const ids = await this.ids();
@@ -280,14 +319,10 @@ window._productRegistry = window._productRegistry || new Map();
 
 function renderProductCard(p){
   window._productRegistry.set(p.id, p);
-  const out = p.stock_status === 'out_of_stock' || p.stock_quantity === 0;
   const img = p.images && p.images[0] ? Api.img(p.images[0]) : 'https://via.placeholder.com/400x400?text=No+image';
   const img2 = p.images && p.images[1] ? Api.img(p.images[1]) : null;
-  const inc = p.pack_increment || 1;
   const showSale = p.is_on_sale && p.sale_price_net != null;
   const slugUrl = encodeURIComponent(p.slug);
-  const packsLeft = Math.floor((p.stock_quantity || 0) / inc);
-  const lowStock = packsLeft > 0 && packsLeft <= 2;
 
   let badge;
   if(showSale && p.discount_percent) badge = `<span class="pill pill-sale">-${p.discount_percent}%</span>`;
@@ -305,33 +340,31 @@ function renderProductCard(p){
     <div class="card-media">
       <a href="product.html?slug=${slugUrl}" class="card-img-wrap">
         <img class="img-a" src="${esc(img)}" alt="${esc(p.name)}" loading="lazy">
-        ${img2 ? `<img class="img-b" src="${esc(img2)}" alt="" loading="lazy">` : ''}
+        ${img2 ? `<img class="img-b" src="${esc(img2)}" alt="" loading="eager" fetchpriority="low">` : ''}
       </a>
       <div class="badge-row">${badge}</div>
       <button class="wl-heart" data-id="${p.id}" onclick="toggleWishlistCard(this,'${p.id}')" aria-label="Dodaj do listy życzeń" title="Dodaj do listy życzeń">♡</button>
     </div>
     <h3><a href="product.html?slug=${slugUrl}">${esc(p.name)}</a></h3>
-    ${p.review_count ? `<div style="font-size:11px;color:#f5a623">${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:var(--muted)">(${p.review_count})</span></div>` : ''}
+    <div class="card-rating">${p.review_count ? `${'★'.repeat(Math.round(p.avg_rating))}${'☆'.repeat(5-Math.round(p.avg_rating))} <span style="color:var(--muted)">(${p.review_count})</span>` : ''}</div>
     <div class="package-bar">Pack of ${p.pack_size} ${p.pack_size===1?'pair':'pcs'}</div>
-    ${lowStock ? `<div class="stock-low">Only ${packsLeft} pack${packsLeft>1?'s':''} left</div>` : ''}
     <div class="price">${netGross}</div>
     <div class="qty">
       <button onclick="cardChg('${p.id}',-1)" aria-label="Zmniejsz ilość">−</button>
-      <input id="qty-${p.id}" value="${inc}" data-inc="${inc}" inputmode="numeric">
+      <input id="qty-${p.id}" value="1" inputmode="numeric">
       <button onclick="cardChg('${p.id}',1)" aria-label="Zwiększ ilość">+</button>
     </div>
-    <button class="add" onclick="cardAddToCart(this,'${p.id}')" ${out?'disabled style="opacity:.5;cursor:not-allowed"':''}>${out?'Niedostępny':'Dodaj do koszyka'}</button>
+    <button class="add" onclick="cardAddToCart(this,'${p.id}')">Dodaj do koszyka</button>
   </div>`;
 }
 
+// Quantity is a plain pack count — every click moves it by exactly 1 pack,
+// with 1 pack as the floor (no snapping to any product-specific multiple).
 function cardChg(id, dir){
-  const p = window._productRegistry.get(id);
-  const inc = p ? (p.pack_increment || 1) : 1;
   const inp = document.getElementById('qty-'+id);
   if(!inp) return;
-  let v = parseInt(inp.value || inc, 10) + dir*inc;
-  if(v < inc) v = inc;
-  v = Math.ceil(v/inc)*inc;
+  let v = parseInt(inp.value || 1, 10) + dir;
+  if(v < 1) v = 1;
   inp.value = v;
 }
 
@@ -343,10 +376,9 @@ function cardChg(id, dir){
 function cardAddToCart(btn, id){
   const p = window._productRegistry.get(id);
   if(!p) return;
-  const inc = p.pack_increment || 1;
   const inp = document.getElementById('qty-'+id);
-  let qty = parseInt((inp && inp.value) || inc, 10);
-  qty = Math.ceil(qty/inc)*inc;
+  let qty = parseInt((inp && inp.value) || 1, 10);
+  if(qty < 1) qty = 1;
   try{
     Cart.add(p, qty);
   }catch(e){
@@ -499,7 +531,7 @@ function showSignInReminder(){
     <div class="signin-reminder-title">${esc(t('signinReminderTitle'))}</div>
     <div class="signin-reminder-body">${esc(t('signinReminderBody'))}</div>
     <div class="signin-reminder-actions">
-      <a class="signin-reminder-cta" href="${API_BASE}/login.html">${esc(t('signinReminderCta'))}</a>
+      <a class="signin-reminder-cta" href="${Api.base}/login.html">${esc(t('signinReminderCta'))}</a>
       <button type="button" class="signin-reminder-later">${esc(t('signinReminderLater'))}</button>
     </div>`;
   document.body.appendChild(el);
@@ -518,7 +550,7 @@ async function doLogout(){
   localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); localStorage.removeItem('user'); localStorage.removeItem('cart_v1');
   // Use the resolved backend base so logout always lands on the correct host,
   // not the static frontend host if the page happens to be served from there.
-  location.href = API_BASE + '/login.html';
+  location.href = Api.base + '/login.html';
 }
 async function refreshUser(){
   const tok=localStorage.getItem('access_token'); if(!tok) return null;
@@ -549,10 +581,24 @@ window.getCachedUser = getCachedUser;
 // wishlist popover contents, and the account dropdown. No-ops safely on
 // pages missing some of these elements (e.g. the admin dashboard, which
 // manages its own header).
+//
+// accountMenuSlot/wishlistMenuSlot start empty in every page's static HTML,
+// and refreshUser() is a network round trip — so waiting on it before the
+// first render left the header visibly missing its account/wishlist controls
+// (and reflowing narrower) for a beat on every single page load. Paint
+// immediately from the cached user (localStorage, written by the last
+// successful refreshUser()) so returning visitors see their real state
+// instantly and guests see the "Zaloguj się" link instantly, then correct
+// from the network response — the same re-render these functions already
+// support for the PL/EN toggle.
 async function renderAuthHeader(){
-  const myOrders = document.getElementById('myOrdersLink');
+  const cached = getCachedUser();
+  renderCatNav();
+  renderAccountMenu(cached);
+  renderWishlistMenu(cached);
+  renderMobileNav(cached);
+
   const u = await refreshUser().catch(()=>null);
-  if(myOrders) myOrders.style.display = (u && u.role==='buyer') ? '' : 'none';
   renderAccountMenu(u);
   renderWishlistMenu(u);
   renderMobileNav(u);
@@ -560,6 +606,28 @@ async function renderAuthHeader(){
   return u;
 }
 document.addEventListener('DOMContentLoaded', renderAuthHeader);
+
+// ── Shared category/utility nav row ──────────────────────────────────────
+// Injected into a `<div id="catnavSlot"></div>` placeholder present on every
+// storefront page (right after `.header`) — one source of markup instead of
+// each page hand-copying its own `.catnav` row (previously only index.html
+// had one, so this row was homepage-only). "Moje zamówienia" deliberately
+// does NOT live here: it's a logged-in-only link, and it already has two
+// consistent, always-reachable homes (the account dropdown and the mobile
+// drawer, both render it as their first item) — a third copy in this row
+// only invited it to end up in a different position on different pages, the
+// exact inconsistency this replaces. Built once; a no-op on pages without
+// the slot.
+function renderCatNav(){
+  const slot = document.getElementById('catnavSlot');
+  if(!slot || slot.dataset.built) return;
+  slot.dataset.built = '1';
+  slot.outerHTML = `<div class="catnav" id="catnavSlot"><div class="container">
+    <a href="index.html" data-i18n="new">Nowości</a><a href="index.html?filter=sale" data-i18n="sale">Wyprzedaż</a><a href="index.html?filter=bestseller" data-i18n="bestsellers">Bestsellery</a><a href="faq.html">FAQ</a><a href="shipping.html">Koszty wysyłki</a><a href="terms.html">Regulamin</a><a href="privacy.html">Prywatność</a>
+  </div></div>`;
+  applyLang();
+}
+window.renderCatNav = renderCatNav;
 
 // ── Mobile hamburger + drawer ────────────────────────────────────────────
 // Below 760px the permanent `.sidebar` category list (see style.css) and the
@@ -610,6 +678,7 @@ function renderMobileNav(u){
           <a href="shipping.html">Koszty wysyłki</a>
           <a href="terms.html">Regulamin</a>
           <a href="privacy.html">Prywatność</a>
+          <a href="cancellation-policy.html">Polityka anulowania</a>
           <a href="contact.html">Kontakt z nami</a>
         </div>
       </div>`;
@@ -702,7 +771,7 @@ function renderAccountMenu(u){
   if(!slot) return;
 
   if(!u){
-    slot.innerHTML = `<a href="${API_BASE}/login.html" class="cart" aria-label="Zaloguj się">
+    slot.innerHTML = `<a href="${Api.base}/login.html" class="cart" aria-label="Zaloguj się">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.5-7 8-7s8 3 8 7"/></svg>
       <span class="cart-copy">
         <span class="cart-label">Konto</span>
@@ -849,11 +918,16 @@ window.updateWishlistBadge = updateWishlistBadge;
 // the one place that builds it, so footer links/content can't drift between
 // pages the way the old per-page header auth checks used to. No-ops safely
 // if the placeholder or the contact-info API call is missing.
+//
+// Only the "Kontakt" column's phone/email/address/hours actually depend on
+// the settings API call — everything else (trust strip, nav columns,
+// copyright) is static. Painting the whole footer only after that network
+// call resolved left every page with a blank gap at the bottom (and a
+// layout jump once it finally appeared) for no reason. Render the static
+// shell immediately and patch in the Kontakt column once settings arrive.
 async function renderFooter(){
   const el = document.getElementById('site-footer');
   if(!el) return;
-  let s = {};
-  try{ s = await Api.getSettings(); }catch{}
 
   // Trust strip: only genuinely true claims this store actually supports —
   // no invented "free returns" / "24h shipping" marketing fluff.
@@ -884,20 +958,30 @@ async function renderFooter(){
           <a href="shipping.html">Koszty i czas dostawy</a>
           <a href="terms.html">Regulamin</a>
           <a href="privacy.html">Polityka prywatności</a>
+          <a href="cancellation-policy.html">Polityka anulowania</a>
           <a href="contact.html">Kontakt</a>
         </div>
-        <div class="footer-col">
+        <div class="footer-col" id="footerContactCol">
           <h4>Kontakt</h4>
-          ${s.phone ? `<a href="tel:${esc(s.phone.replace(/[^\d+]/g,''))}">📞 ${esc(s.phone)}</a>` : ''}
-          ${s.email ? `<a href="mailto:${esc(s.email)}">✉️ ${esc(s.email)}</a>` : ''}
-          ${s.address ? `<p>📍 ${esc(s.address)}</p>` : ''}
-          ${s.working_hours ? `<p>🕒 ${esc(s.working_hours)}</p>` : ''}
         </div>
       </div>
       <div class="footer-bottom">
         <span>© ${new Date().getFullYear()} WolkaGo. Wszystkie prawa zastrzeżone.</span>
       </div>
     </div></div>`;
+
+  let s = {};
+  try{ s = await Api.getSettings(); }catch{}
+
+  const contactCol = document.getElementById('footerContactCol');
+  if(contactCol){
+    contactCol.innerHTML = `
+      <h4>Kontakt</h4>
+      ${s.phone ? `<a href="tel:${esc(s.phone.replace(/[^\d+]/g,''))}">📞 ${esc(s.phone)}</a>` : ''}
+      ${s.email ? `<a href="mailto:${esc(s.email)}">✉️ ${esc(s.email)}</a>` : ''}
+      ${s.address ? `<p>📍 ${esc(s.address)}</p>` : ''}
+      ${s.working_hours ? `<p>🕒 ${esc(s.working_hours)}</p>` : ''}`;
+  }
 
   if(s.whatsapp_number && !document.getElementById('waFloat')){
     const a = document.createElement('a');

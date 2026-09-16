@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Polityka prywatności — WolkaGo</title>
+<title>Polityka anulowania — WolkaGo</title>
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/favicon-180.png">
 <link rel="manifest" href="manifest.json">
@@ -41,7 +41,7 @@
 <div id="catnavSlot"></div>
 
 <div class="terms-wrap">
-  <h1 style="font-size:20px;margin-bottom:14px">Polityka prywatności</h1>
+  <h1 style="font-size:20px;margin-bottom:14px">Polityka anulowania</h1>
   <div class="terms-card" id="termsBody">Ładowanie…</div>
 </div>
 
@@ -53,7 +53,7 @@ async function loadContent(){
   const el = document.getElementById('termsBody');
   try{
     const s = await Api.getSettings();
-    el.textContent = s.privacy_content || 'Polityka prywatności zostanie wkrótce opublikowana.';
+    el.textContent = s.cancellation_policy_content || 'Polityka anulowania zostanie wkrótce opublikowana.';
   }catch(e){
     el.textContent = 'Nie udało się załadować treści. Spróbuj ponownie później.';
   }

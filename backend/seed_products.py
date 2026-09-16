@@ -18,7 +18,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.db.session import SessionLocal
 from app.models.category import Category
-from app.models.product import Product, StockStatus
+from app.models.product import Product
 from app.schemas.category import slugify as cat_slugify
 from app.schemas.product import slugify as prod_slugify
 
@@ -173,8 +173,6 @@ def seed():
                 price_gross=price_gross,
                 vat_rate=23.00,
                 pack_increment=pack_increment,
-                stock_quantity=200,
-                stock_status=StockStatus.in_stock,
                 is_active=True,
                 is_bestseller=is_bestseller,
                 is_popular=is_popular,

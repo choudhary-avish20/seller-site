@@ -18,12 +18,16 @@ from app.core.auth import (
     get_user_by_email,
     get_user_by_id,
     get_password_hash,
+    get_password_hash_async,
     verify_password,
     verify_password_async,
-    get_password_hash_async,
+    needs_rehash,
     create_verification_token,
     verify_email_token,
     invalidate_user_verification_tokens,
+    create_password_reset_token,
+    verify_password_reset_token,
+    invalidate_user_password_reset_tokens,
 )
 from app.models.user import User, UserRole, BuyerStatus
 from app.models.seller import SellerProfile, SellerStatus
@@ -37,9 +41,11 @@ from app.schemas.auth import (
     BuyerListResponse,
     ResendVerificationResponse,
     PasswordChangeRequest,
+    PasswordResetRequest,
+    PasswordResetConfirmRequest,
     MessageResponse,
 )
-from app.services.email import send_verification_email
+from app.services.email import send_verification_email, send_password_reset_email
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +76,38 @@ async def _send_verification_email_task(user_id: str, email: str, full_name: str
         print(f"[EMAIL TASK] EXCEPTION for user {user_id}:", file=sys.stderr, flush=True)
         traceback.print_exc(file=sys.stderr)
         logger.exception("Background email task failed for user %s", user_id)
+    finally:
+        db.close()
+        print(f"[EMAIL TASK] Task finished for user {user_id}", file=sys.stderr, flush=True)
+
+
+async def _send_password_reset_email_task(user_id: str, email: str, full_name: str) -> None:
+    """Background task: opens its own DB session, creates the reset token,
+    commits it, then sends the email. Runs after the HTTP response has
+    already gone back to the caller — see forgot_password for why the
+    response itself is sent before this even starts."""
+    import sys
+    print(f"[EMAIL TASK] Starting password-reset email task for user {user_id} → {email}", file=sys.stderr, flush=True)
+    db = SessionLocal()
+    try:
+        from uuid import UUID
+        from app.models.user import User as UserModel
+        user = db.query(UserModel).filter(UserModel.id == UUID(user_id)).first()
+        if not user:
+            print(f"[EMAIL TASK] ERROR: user {user_id} not found in DB", file=sys.stderr, flush=True)
+            logger.error("Background password-reset email task: user %s not found", user_id)
+            return
+        # Only the newest reset link should ever be usable.
+        invalidate_user_password_reset_tokens(db, user.id)
+        raw_token = create_password_reset_token(db, user)
+        db.commit()
+        result = await send_password_reset_email(email, full_name, raw_token)
+        print(f"[EMAIL TASK] send_password_reset_email returned: {result}", file=sys.stderr, flush=True)
+    except Exception:
+        import traceback
+        print(f"[EMAIL TASK] EXCEPTION for user {user_id}:", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        logger.exception("Background password-reset email task failed for user %s", user_id)
     finally:
         db.close()
         print(f"[EMAIL TASK] Task finished for user {user_id}", file=sys.stderr, flush=True)
@@ -172,6 +210,14 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     _check_user_allowed_to_authenticate(user, db)
+    # Opportunistic upgrade: a successful login is the one moment we have the
+    # plaintext password in hand, so if this account's hash still uses the
+    # old, weaker iteration count, silently re-hash it at the current
+    # (stronger) count. No forced reset, no user-visible change — the hash
+    # just gets stronger the next time they happen to log in.
+    if needs_rehash(user.hashed_password):
+        user.hashed_password = await get_password_hash_async(credentials.password)
+        db.commit()
     access_token, refresh_token = create_tokens(user)
     return Token(access_token=access_token, refresh_token=refresh_token)
 
@@ -193,6 +239,11 @@ def refresh_token(request: RefreshTokenRequest, db: Session = Depends(get_db)):
     user = get_user_by_id(db, user_uuid)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    # Same staleness check as the access-token path (see get_current_user) —
+    # a refresh token minted before a password change must not be able to
+    # keep minting fresh access tokens forever.
+    if payload.get("tv", 0) != user.token_version:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
     _check_user_allowed_to_authenticate(user, db)
     access_token, new_refresh = create_tokens(user)
     return Token(access_token=access_token, refresh_token=new_refresh)
@@ -203,21 +254,29 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.post("/change-password", response_model=MessageResponse)
+@router.post(
+    "/change-password",
+    response_model=Token,
+    dependencies=[Depends(rate_limit("change-password", max_requests=5, window_seconds=3600))],
+)
 async def change_password(
     payload: PasswordChangeRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Change password for the currently authenticated user."""
+    """Change password for the currently authenticated user. Revokes every
+    access/refresh token issued before this point (see User.token_version)
+    and returns a fresh pair so the caller's own session keeps working."""
     if not await verify_password_async(payload.current_password, current_user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Current password is incorrect",
         )
     current_user.hashed_password = await get_password_hash_async(payload.new_password)
+    current_user.token_version += 1
     db.commit()
-    return MessageResponse(message="Password updated successfully")
+    access_token, refresh_token = create_tokens(current_user)
+    return Token(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.get("/verify-email")
@@ -239,7 +298,11 @@ def verify_email(token: str = Query(...), db: Session = Depends(get_db)):
     )
 
 
-@router.post("/resend-verification", response_model=ResendVerificationResponse)
+@router.post(
+    "/resend-verification",
+    response_model=ResendVerificationResponse,
+    dependencies=[Depends(rate_limit("resend-verification", max_requests=3, window_seconds=3600))],
+)
 async def resend_verification(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
@@ -267,12 +330,61 @@ async def resend_verification(
     return ResendVerificationResponse(message="Verification email sent successfully")
 
 
+@router.post(
+    "/forgot-password",
+    response_model=MessageResponse,
+    dependencies=[Depends(rate_limit("forgot-password", max_requests=5, window_seconds=3600))],
+)
+async def forgot_password(
+    payload: PasswordResetRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+):
+    """Request a password reset link. Always returns the same generic message
+    whether or not the email is registered — revealing that would let anyone
+    probe which addresses have an account (user enumeration)."""
+    user = get_user_by_email(db, payload.email)
+    if user and user.is_active:
+        background_tasks.add_task(
+            _send_password_reset_email_task,
+            str(user.id),
+            user.email,
+            user.full_name,
+        )
+    return MessageResponse(
+        message="If an account exists for that email, a password reset link has been sent."
+    )
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(
+    payload: PasswordResetConfirmRequest,
+    db: Session = Depends(get_db),
+):
+    """Consume a password reset token and set a new password. Also bumps
+    token_version, revoking every token issued before the reset — the same
+    protection change_password gets, since a reset is just as much a
+    "the old credential/session should stop working now" event."""
+    user = verify_password_reset_token(db, payload.token)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reset link is invalid or has expired. Please request a new one.",
+        )
+    user.hashed_password = await get_password_hash_async(payload.new_password)
+    user.token_version += 1
+    invalidate_user_password_reset_tokens(db, user.id)
+    db.commit()
+    return MessageResponse(message="Password has been reset successfully. You can now log in.")
+
+
 @router.get("/config", tags=["config"])
 def get_config():
     return {
         "require_login_to_see_prices": settings.REQUIRE_LOGIN_TO_SEE_PRICES,
         "require_buyer_approval": settings.REQUIRE_BUYER_APPROVAL,
         "allow_cod_only": settings.ALLOW_CASH_ON_DELIVERY_ONLY,
+        "min_order_value_net": settings.MIN_ORDER_VALUE_NET,
     }
 
 

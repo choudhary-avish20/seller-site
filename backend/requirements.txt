@@ -10,7 +10,7 @@ psycopg2-binary==2.9.12  # PostgreSQL driver for Neon / any Postgres instance â€
                           # (references a removed CPython internal API); 2.9.10+ ships one.
 pydantic==2.10.6
 pydantic-settings==2.6.1
-python-jose[cryptography]==3.3.0
+PyJWT==2.9.0          # replaces python-jose, which has been unmaintained since 2021
 python-multipart==0.0.9
 email-validator==2.2.0
 fastapi-mail==1.4.2

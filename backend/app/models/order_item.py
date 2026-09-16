@@ -25,12 +25,18 @@ class OrderItem(UUIDPKMixin, TimestampMixin, Base):
     pack_size_snapshot: Mapped[int] = mapped_column(Integer, nullable=False)
     price_net_snapshot: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     price_gross_snapshot: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
-    # Stock management: where staff buys the goods (stall/counter) and cost price
+    # Sourcing snapshot: where staff bought the goods (stall/counter) and cost price
     cost_price_snapshot: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     stall_location_snapshot: Mapped[str | None] = mapped_column(String(255), nullable=True)
     counter_number_snapshot: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     pack_quantity: Mapped[int] = mapped_column(Integer, nullable=False)  # number of packs ordered
+
+    # Free-text note the buyer attached to THIS product while it was in their
+    # cart (e.g. a colour/size preference, a packing request) — distinct from
+    # Order.notes, which is the one overall delivery/shipping note for the
+    # whole order. Never touched by the app itself, purely buyer input.
+    buyer_note: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     order: Mapped["Order"] = relationship(back_populates="items")
     product: Mapped["Product"] = relationship(back_populates="order_items")

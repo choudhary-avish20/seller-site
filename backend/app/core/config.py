@@ -4,6 +4,25 @@ import sys
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Referenced both as the CORS_ORIGINS field default and, further down, to
+# detect a production deploy that never overrode it via env var.
+_DEFAULT_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:8000",
+    "http://localhost:8002",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8002",
+    "http://127.0.0.1:5173",
+    # "null" intentionally omitted — it allows file:// origins which is a security risk
+]
+_DEFAULT_FRONTEND_BASE_URL = "http://localhost:8000"
+
 
 class Settings(BaseSettings):
     """Central app configuration, populated from environment variables / .env."""
@@ -33,21 +52,7 @@ class Settings(BaseSettings):
     # Accepts a JSON array OR a comma-separated string, e.g.:
     #   CORS_ORIGINS=["https://example.com"]
     #   CORS_ORIGINS=https://example.com,https://other.com
-    CORS_ORIGINS: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:3002",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://localhost:8000",
-        "http://localhost:8002",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:3001",
-        "http://127.0.0.1:8000",
-        "http://127.0.0.1:8002",
-        "http://127.0.0.1:5173",
-        # "null" intentionally omitted — it allows file:// origins which is a security risk
-    ]
+    CORS_ORIGINS: list[str] = list(_DEFAULT_CORS_ORIGINS)
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
@@ -75,6 +80,7 @@ class Settings(BaseSettings):
     REQUIRE_LOGIN_TO_SEE_PRICES: bool = False  # if True, guests cannot see net/gross prices
     REQUIRE_BUYER_APPROVAL: bool = False  # if True, buyers need admin approval before buying
     ALLOW_CASH_ON_DELIVERY_ONLY: bool = True
+    MIN_ORDER_VALUE_NET: float = 500.0  # orders below this net cart subtotal (zł) are rejected
 
     # Email settings
     MAIL_USERNAME: str = ""  # SMTP username - if empty, use console backend for dev
@@ -92,12 +98,12 @@ class Settings(BaseSettings):
     # The verification link goes to /api/v1/auth/verify-email?token=... on the
     # backend, which consumes the token and then redirects the browser to the
     # frontend result page using FRONTEND_BASE_URL below.
-    BACKEND_BASE_URL: str = "http://localhost:8000"
+    BACKEND_BASE_URL: str = _DEFAULT_FRONTEND_BASE_URL
 
     # Frontend URL — used by the backend's /auth/verify-email redirect target.
     # Set to your frontend service URL in production, e.g.:
     #   FRONTEND_BASE_URL=https://seller-site-frontend.onrender.com
-    FRONTEND_BASE_URL: str = "http://localhost:8000"
+    FRONTEND_BASE_URL: str = _DEFAULT_FRONTEND_BASE_URL
 
     # Cloudflare R2 image storage
     # Leave all R2 vars empty in local dev — uploads will fall back to local disk.
@@ -169,3 +175,27 @@ if settings.ENV == "production":
             "Refusing to start with ENV=production due to " + str(len(_problems)) +
             " misconfiguration(s):\n- " + "\n- ".join(_problems)
         )
+
+    # Unlike SECRET_KEY/DEBUG above, a stale CORS_ORIGINS or FRONTEND_BASE_URL
+    # doesn't compromise security by itself (CORS_ORIGINS never included
+    # "null", and both still have a sane fallback value) — it just means CORS
+    # or outbound email links (verification, password reset) may be silently
+    # pointing at localhost in prod. That's a real bug worth catching, but
+    # not one worth refusing to boot over, so this warns instead of raising.
+    _warnings = []
+    if settings.FRONTEND_BASE_URL.rstrip("/") == _DEFAULT_FRONTEND_BASE_URL:
+        _warnings.append(
+            "FRONTEND_BASE_URL is still the localhost default — links in "
+            "outbound emails (verification, password reset) will point at "
+            "localhost instead of the real site. Set FRONTEND_BASE_URL to "
+            "your production URL."
+        )
+    if settings.CORS_ORIGINS == _DEFAULT_CORS_ORIGINS:
+        _warnings.append(
+            "CORS_ORIGINS is still the default localhost list — cross-origin "
+            "requests from your real production frontend domain (if it's on "
+            "a different origin than this API) will be rejected by the "
+            "browser. Set CORS_ORIGINS to your production frontend URL(s)."
+        )
+    for _w in _warnings:
+        print(f"[config] WARNING: {_w}", file=sys.stderr, flush=True)

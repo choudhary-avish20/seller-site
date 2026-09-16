@@ -39,8 +39,21 @@
   </div>
 </div></div>
 
-<div class="catnav"><div class="container">
-  <a href="index.html">Nowości</a><a href="index.html?filter=sale" data-i18n="sale">Wyprzedaż</a><a href="index.html?filter=bestseller" data-i18n="bestsellers">Bestsellery</a><a href="faq.html">FAQ</a><a href="shipping.html">Koszty wysyłki</a><a href="terms.html">Regulamin</a><a href="privacy.html">Prywatność</a><span id="myOrdersLink" style="display:none"><a href="orders.html">Moje zamówienia</a></span>
+<div id="catnavSlot"></div>
+
+<div class="promo-hero-section"><div class="container">
+  <a href="#grid" class="promo-hero" aria-label="Wólka Kosowska — największe centrum hurtowe w Polsce. Przejdź do oferty produktów.">
+    <span class="promo-hero__frame">
+      <img class="promo-hero__img" src="assets/promo-wolka-kosowska.jpg" alt="Hurtownia Wólka Kosowska — odzież, obuwie, torebki i tekstylia w cenach hurtowych" width="1983" height="793" fetchpriority="high" decoding="async">
+      <span class="promo-hero__scrim" aria-hidden="true"></span>
+    </span>
+    <span class="promo-hero__content">
+      <span class="promo-hero__eyebrow">Wólka Kosowska</span>
+      <span class="promo-hero__headline">Największe centrum hurtowe w Polsce</span>
+      <span class="promo-hero__sub">Odzież • Obuwie • Torebki • Tekstylia</span>
+    </span>
+    <span class="promo-hero__cta">Sprawdź ofertę<svg class="promo-hero__cta-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+  </a>
 </div></div>
 
 <div class="container layout">
@@ -94,7 +107,7 @@ async function loadCats(){
     return h;
   }
 
-  el.innerHTML = `<div class="cat-item" id="cat-all" onclick="selectCat(null,event,false)" style="font-style:italic;color:var(--accent);border-bottom:2px solid var(--accent)">
+  el.innerHTML = `<div class="cat-item" id="cat-all" onclick="selectCat(null,event,false)" style="font-style:italic;color:var(--cat-accent);border-bottom:2px solid var(--cat-accent)">
     <span>Wszystkie produkty</span>
   </div>` + (tree.map(n=>row(n)).join('') || '<div style="padding:8px;font-size:11px;color:#888">No categories — admin at /admin</div>');
 }
@@ -130,9 +143,9 @@ function selectCat(id, event, hasChildren){
   });
   const active = id ? document.getElementById('cat-'+id) : document.getElementById('cat-all');
   if(active){
-    active.style.background='var(--accent-soft)';
-    active.style.borderLeft='3px solid var(--accent)';
-    active.style.color='var(--accent)';
+    active.style.background='var(--cat-accent-soft)';
+    active.style.borderLeft='3px solid var(--cat-accent)';
+    active.style.color='var(--cat-accent)';
     active.style.fontWeight='bold';
   }
 
@@ -194,9 +207,9 @@ loadCats().then(()=>{
   // Highlight the requested category (from a product-page breadcrumb link), else "all"
   const target = urlCategoryId ? document.getElementById('cat-'+urlCategoryId) : document.getElementById('cat-all');
   if(target){
-    target.style.background='var(--accent-soft)';
-    target.style.borderLeft='3px solid var(--accent)';
-    target.style.color='var(--accent)';
+    target.style.background='var(--cat-accent-soft)';
+    target.style.borderLeft='3px solid var(--cat-accent)';
+    target.style.color='var(--cat-accent)';
     target.style.fontWeight='bold';
     if(urlCategoryId){ const heading=document.getElementById('catHeading'); if(heading) heading.textContent = catNamesById[urlCategoryId] || ''; }
   }

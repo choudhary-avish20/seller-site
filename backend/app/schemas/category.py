@@ -35,6 +35,7 @@ class CategoryUpdate(BaseModel):
 
 class CategoryResponse(CategoryBase):
     id: UUID
+    sort_order: int = 0
     created_at: datetime
     updated_at: datetime
 
@@ -52,6 +53,10 @@ class CategoryTreeNode(CategoryResponse):
 
 # needed for self-referencing
 CategoryTreeNode.model_rebuild()
+
+
+class CategoryMove(BaseModel):
+    direction: str = Field(..., pattern="^(up|down)$")
 
 
 class CategoryPathResponse(BaseModel):

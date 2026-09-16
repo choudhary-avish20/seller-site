@@ -105,6 +105,45 @@ Jeśli nie zakładałeś(-aś) konta, zignoruj tę wiadomość.</p>"""
             _html_wrap("Potwierdź swój adres e-mail", body_html),
         )
 
+    async def send_password_reset(
+        self,
+        to_email: EmailStr,
+        full_name: str,
+        reset_url: str,
+    ) -> bool:
+        subject = "Reset hasła — WolkaGo"
+
+        text_body = f"""Witaj {full_name},
+
+Otrzymaliśmy prośbę o zresetowanie hasła do Twojego konta WolkaGo.
+Kliknij poniższy link, aby ustawić nowe hasło:
+
+{reset_url}
+
+Link jest ważny przez 1 godzinę.
+
+Jeśli nie prosiłeś(-aś) o reset hasła, zignoruj tę wiadomość — Twoje hasło pozostanie bez zmian.
+
+Pozdrawiamy,
+Zespół WolkaGo"""
+
+        body_html = f"""
+<p>Witaj <strong>{full_name}</strong>,</p>
+<p>Otrzymaliśmy prośbę o zresetowanie hasła do Twojego konta WolkaGo. Kliknij przycisk poniżej, aby ustawić nowe hasło.</p>
+<div style="text-align:center;margin:28px 0">
+  <a href="{reset_url}"
+     style="background:#0099cc;color:#fff;padding:12px 28px;text-decoration:none;font-weight:bold;font-size:14px;display:inline-block">
+    Zresetuj hasło
+  </a>
+</div>
+<p style="font-size:12px;color:#666">Link jest ważny przez <strong>1 godzinę</strong>.<br>
+Jeśli nie prosiłeś(-aś) o reset hasła, zignoruj tę wiadomość — Twoje hasło pozostanie bez zmian.</p>"""
+
+        return await self._send(
+            to_email, subject, text_body,
+            _html_wrap("Reset hasła", body_html),
+        )
+
     async def send_order_confirmation(
         self,
         to_email: EmailStr,
@@ -432,7 +471,12 @@ Zespół WolkaGo"""
     ) -> bool:
         try:
             if self.use_console:
-                logger.info(
+                # logger.info alone is invisible unless the app configures logging
+                # (root logger defaults to WARNING), which would silently swallow
+                # every verification/reset link in dev — print to stderr too so the
+                # link is always visible in the server output, no logging config needed.
+                import sys
+                console_block = (
                     "\n================== EMAIL (TRYB KONSOLOWY) ==================\n"
                     f"Do     : {to_email}\n"
                     f"Temat  : {subject}\n"
@@ -440,6 +484,8 @@ Zespół WolkaGo"""
                     f"{text_body}\n"
                     "============================================================"
                 )
+                logger.info(console_block)
+                print(console_block, file=sys.stderr, flush=True)
                 return True
 
             message = MessageSchema(
@@ -475,6 +521,12 @@ async def send_verification_email(to_email: EmailStr, full_name: str, token: str
         f"/api/v1/auth/verify-email?token={token}"
     )
     return await email_service.send_verification_email(to_email, full_name, verification_url)
+
+
+async def send_password_reset_email(to_email: EmailStr, full_name: str, token: str) -> bool:
+    """Send password-reset link. Token is embedded in the frontend URL."""
+    reset_url = f"{settings.FRONTEND_BASE_URL}/reset-password.html?token={token}"
+    return await email_service.send_password_reset(to_email, full_name, reset_url)
 
 
 async def send_order_confirmation_email(to_email: EmailStr, full_name: str, order) -> bool:

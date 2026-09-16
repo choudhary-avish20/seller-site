@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, Numeric, String
+from sqlalchemy import ForeignKey, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -19,9 +19,8 @@ class ProductVariant(UUIDPKMixin, TimestampMixin, Base):
     option_name: Mapped[str] = mapped_column(String(64), nullable=False)
     option_value: Mapped[str] = mapped_column(String(64), nullable=False)
 
-    # Optional price/stock override; falls back to parent product values if null
+    # Optional price override; falls back to parent product value if null
     price_net_override: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
-    stock_quantity: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     product: Mapped["Product"] = relationship(back_populates="variants")
     order_items: Mapped[list["OrderItem"]] = relationship(back_populates="variant")

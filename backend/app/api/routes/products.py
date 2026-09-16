@@ -13,7 +13,7 @@ from app.models.order_item import OrderItem
 from app.api.dependencies import get_current_user
 from app.core.config import settings
 from app.db.session import get_db
-from app.models.product import Product, StockStatus
+from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.models.product_price_tier import ProductPriceTier
 from app.models.category import Category
@@ -25,7 +25,6 @@ from app.schemas.product import (
     ProductUpdate,
     ProductResponse,
     ProductListResponse,
-    StockToggleRequest,
     slugify,
 )
 
@@ -160,13 +159,13 @@ def _to_product_response(product: Product, db: Session, hide_prices: bool = Fals
         price_net=price_net,
         price_gross=price_gross,
         vat_rate=float(product.vat_rate),
-        stock_quantity=product.stock_quantity,
-        stock_status=product.stock_status,
         is_active=product.is_active,
         pack_increment=product.pack_increment,
         cost_price=float(product.cost_price) if product.cost_price is not None and is_staff else None,
-        stall_location=product.stall_location,
-        counter_number=product.counter_number,
+        # Where staff physically buy this item at the wholesale market — purely
+        # internal sourcing info, must never reach a buyer/guest response.
+        stall_location=product.stall_location if is_staff else None,
+        counter_number=product.counter_number if is_staff else None,
         is_bestseller=product.is_bestseller,
         is_popular=product.is_popular,
         is_on_sale=product.is_on_sale,
@@ -205,13 +204,13 @@ def _to_list_response(product: Product, db: Session, hide_prices: bool = False, 
         price_net=price_net,
         price_gross=price_gross,
         vat_rate=float(product.vat_rate),
-        stock_quantity=product.stock_quantity,
-        stock_status=product.stock_status,
         is_active=product.is_active,
         pack_increment=product.pack_increment,
         cost_price=float(product.cost_price) if product.cost_price is not None and is_staff else None,
-        stall_location=product.stall_location,
-        counter_number=product.counter_number,
+        # Where staff physically buy this item at the wholesale market — purely
+        # internal sourcing info, must never reach a buyer/guest response.
+        stall_location=product.stall_location if is_staff else None,
+        counter_number=product.counter_number if is_staff else None,
         is_bestseller=product.is_bestseller,
         is_popular=product.is_popular,
         is_on_sale=product.is_on_sale,
@@ -423,8 +422,6 @@ def create_product(
         price_net=round(float(payload.price_net), 2),
         price_gross=price_gross,
         vat_rate=round(float(payload.vat_rate), 2),
-        stock_quantity=payload.stock_quantity,
-        stock_status=payload.stock_status,
         is_active=payload.is_active,
         pack_increment=payload.pack_increment,
         cost_price=round(float(payload.cost_price),2) if payload.cost_price is not None else None,
@@ -446,7 +443,6 @@ def create_product(
             option_name=v.option_name,
             option_value=v.option_value,
             price_net_override=round(float(v.price_net_override), 2) if v.price_net_override is not None else None,
-            stock_quantity=v.stock_quantity,
         )
         db.add(variant)
     for t in payload.price_tiers:
@@ -512,10 +508,6 @@ def update_product(
             prod.price_gross = _compute_gross(net, vat, None)
     elif payload.price_gross is not None:
         prod.price_gross = round(float(payload.price_gross), 2)
-    if payload.stock_quantity is not None:
-        prod.stock_quantity = payload.stock_quantity
-    if payload.stock_status is not None:
-        prod.stock_status = payload.stock_status
     if payload.is_active is not None:
         prod.is_active = payload.is_active
     if payload.is_bestseller is not None:
@@ -541,7 +533,6 @@ def update_product(
                 option_name=v.option_name,
                 option_value=v.option_value,
                 price_net_override=round(float(v.price_net_override), 2) if v.price_net_override is not None else None,
-                stock_quantity=v.stock_quantity,
             )
             db.add(variant)
     if payload.price_tiers is not None:
@@ -580,26 +571,6 @@ def delete_product(
     db.delete(prod)
     db.commit()
     return None
-
-
-@router.patch("/{product_id}/stock", response_model=ProductResponse)
-def toggle_stock(
-    product_id: UUID,
-    payload: StockToggleRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    _require_admin(current_user)
-    prod = db.query(Product).filter(Product.id == product_id).first()
-    if not prod:
-        raise HTTPException(status_code=404, detail="Product not found")
-    if payload.stock_status is not None:
-        prod.stock_status = payload.stock_status
-    if payload.stock_quantity is not None:
-        prod.stock_quantity = payload.stock_quantity
-    db.commit()
-    db.refresh(prod)
-    return _to_product_response(prod, db, is_staff=True)
 
 
 @router.get("/{product_id}/pending-orders", tags=["products"])

@@ -1,27 +1,66 @@
 import asyncio
 import hashlib
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from uuid import UUID
 
-from jose import jwt, JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.models.user import User, UserRole, BuyerStatus
 from app.models.email_verification_token import EmailVerificationToken
+from app.models.password_reset_token import PasswordResetToken
+
+# Current target iteration count for new/rehashed passwords. Hashes store their
+# own iteration count (see format below), so this can be raised again later
+# without invalidating existing accounts — verify_password always reads the
+# count that was actually used to create the hash it's checking against.
+PBKDF2_ITERATIONS = 600_000
+# Iteration count implied by the legacy 2-part hash format (salt$hash) used
+# before this constant existed — never change this; it describes hashes
+# already stored in the database, not new ones.
+_LEGACY_ITERATIONS = 100_000
+
+
+def _parse_hash(hashed_password: str) -> tuple[int, bytes, str]:
+    """Returns (iterations, salt_bytes, hash_hex). Supports both the legacy
+    2-part "salt$hash" format (implicitly 100k iterations) and the current
+    3-part "iterations$salt$hash" format, so already-issued password hashes
+    keep verifying correctly after PBKDF2_ITERATIONS is raised."""
+    parts = hashed_password.split("$")
+    if len(parts) == 2:
+        salt, hash_val = parts
+        return _LEGACY_ITERATIONS, bytes.fromhex(salt), hash_val
+    iterations, salt, hash_val = parts
+    return int(iterations), bytes.fromhex(salt), hash_val
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    salt, hash_val = hashed_password.split("$")
-    return hashlib.pbkdf2_hmac("sha256", plain_password.encode(), bytes.fromhex(salt), 100000).hex() == hash_val
+    iterations, salt, hash_val = _parse_hash(hashed_password)
+    computed = hashlib.pbkdf2_hmac("sha256", plain_password.encode(), salt, iterations).hex()
+    # Constant-time compare — a plain `==` short-circuits on the first
+    # mismatched byte, which leaks a timing signal about how much of a
+    # guessed hash was correct.
+    return hmac.compare_digest(computed, hash_val)
+
+
+def needs_rehash(hashed_password: str) -> bool:
+    """True when a stored hash was created with a weaker (legacy) iteration
+    count than the current target — used to opportunistically upgrade a
+    user's hash to PBKDF2_ITERATIONS the next time they successfully log in,
+    without ever requiring a forced password reset."""
+    iterations, _, _ = _parse_hash(hashed_password)
+    return iterations < PBKDF2_ITERATIONS
 
 
 def get_password_hash(password: str) -> str:
     salt = secrets.token_bytes(16)
-    hash_val = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000).hex()
-    return f"{salt.hex()}${hash_val}"
+    hash_val = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, PBKDF2_ITERATIONS).hex()
+    return f"{PBKDF2_ITERATIONS}${salt.hex()}${hash_val}"
 
 
 async def verify_password_async(plain_password: str, hashed_password: str) -> bool:
@@ -66,7 +105,10 @@ def decode_token(token: str) -> Optional[dict]:
 
 
 def create_tokens(user: User) -> tuple[str, str]:
-    token_data = {"sub": str(user.id), "role": user.role.value}
+    # "tv" (token_version) is checked against the user's current token_version
+    # on every request (see get_current_user / refresh) — bumping it on
+    # password change instantly revokes every token minted before that point.
+    token_data = {"sub": str(user.id), "role": user.role.value, "tv": user.token_version}
     access_token = create_access_token(token_data)
     refresh_token = create_refresh_token(token_data)
     return access_token, refresh_token
@@ -219,6 +261,67 @@ def invalidate_user_verification_tokens(db: Session, user_id: UUID) -> None:
     db.query(EmailVerificationToken).filter(
         EmailVerificationToken.user_id == user_id,
         EmailVerificationToken.used_at.is_(None)
+    ).update({"used_at": now})
+    db.flush()
+
+
+# ── Password reset (forgot password) ───────────────────────────────────────
+# Same hash-and-store-only-the-hash pattern as email verification tokens: the
+# raw token only ever exists in the outbound email and the requesting
+# browser's URL bar, never in the database, so a DB leak can't be used to
+# forge reset links.
+
+def create_password_reset_token(db: Session, user: User) -> str:
+    """Create a new password reset token for user and return the raw token."""
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+
+    reset_token = PasswordResetToken(
+        user_id=user.id,
+        token_hash=token_hash,
+        expires_at=expires_at,
+    )
+    db.add(reset_token)
+    db.flush()
+    return raw_token
+
+
+def verify_password_reset_token(db: Session, raw_token: str) -> Optional[User]:
+    """Return the user for a valid, unused, unexpired reset token, else None.
+    Does not consume the token — call invalidate_user_password_reset_tokens
+    once the new password has actually been set."""
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+
+    token = db.query(PasswordResetToken).filter(
+        PasswordResetToken.token_hash == token_hash,
+        PasswordResetToken.used_at.is_(None),
+    ).first()
+    if not token:
+        return None
+
+    now = datetime.now(timezone.utc)
+    token_expires = token.expires_at
+    if not token_expires.tzinfo:
+        token_expires = token_expires.replace(tzinfo=timezone.utc)
+    if token_expires < now:
+        return None
+
+    user = db.query(User).filter(User.id == token.user_id).first()
+    if not user:
+        return None
+
+    return user
+
+
+def invalidate_user_password_reset_tokens(db: Session, user_id: UUID) -> None:
+    """Mark all existing password reset tokens for a user as used — called
+    whenever a new one is issued, so only the most recently requested link
+    can ever be used, and again after a successful reset for good measure."""
+    now = datetime.now(timezone.utc)
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user_id,
+        PasswordResetToken.used_at.is_(None),
     ).update({"used_at": now})
     db.flush()
 

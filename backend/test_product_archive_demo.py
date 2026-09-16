@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'app'))
 
 from app.models.user import User, UserRole, BuyerStatus
-from app.models.product import Product, StockStatus
+from app.models.product import Product
 from app.models.category import Category
 from app.models.order import Order, OrderStatus, PaymentMethod
 from app.models.order_item import OrderItem
@@ -67,8 +67,6 @@ async def test_product_archive_notification_flow():
             price_net=89.99,
             price_gross=110.69,
             vat_rate=23.00,
-            stock_quantity=25,
-            stock_status=StockStatus.in_stock,
             is_active=True,  # Active product
             cost_price=65.00,
             stall_location="Hall C",
@@ -87,8 +85,6 @@ async def test_product_archive_notification_flow():
             price_net=45.99,
             price_gross=56.57,
             vat_rate=23.00,
-            stock_quantity=15,
-            stock_status=StockStatus.in_stock,
             is_active=True,  # Active product
             cost_price=32.00,
             stall_location="Hall C",

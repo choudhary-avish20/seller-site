@@ -1,6 +1,9 @@
-// Backend API URL. Points at the backend Render service so that:
-//   - app.js API calls hit the correct host regardless of which service serves this file
-//   - verify-email.html link hrefs resolve to the backend (not the static frontend host)
-// For local dev, override in the browser console:
-//   localStorage.setItem('API_URL', 'http://localhost:8000/api/v1')
-window.__API_URL__ = 'https://seller-site-2.onrender.com/api/v1';
+// Backend API URL. A single Render service serves both the API and this
+// static frontend (see the "Consolidate deployment on a single Render
+// service" commit), so app.js should always call its own origin —
+// localhost:8000 locally, seller-site-2.onrender.com in production. Leave
+// this empty so app.js's same-origin fallback handles both correctly.
+// Only set this if the frontend is ever served from a different host than
+// the backend again — e.g. for local dev pointed at a remote backend:
+//   localStorage.setItem('API_URL', 'https://seller-site-2.onrender.com/api/v1')
+window.__API_URL__ = '';

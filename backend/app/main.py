@@ -72,11 +72,25 @@ if not _settings.r2_configured:
     if uploads_dir.exists():
         app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
+# StaticFiles with no explicit Cache-Control lets browsers apply heuristic
+# caching (Chrome will serve a plain reload straight from disk cache without
+# even revalidating), so a deployed HTML/CSS/JS fix can silently stay
+# invisible to a returning visitor until they hard-refresh. Force
+# revalidation on every request instead — still cheap (a 304 off the ETag/
+# Last-Modified Starlette already sends when the file hasn't changed), but
+# a real code change is picked up on the very next normal reload.
+class NoCacheStaticFiles(StaticFiles):
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 # Frontend — plain HTML/CSS/JS (no frameworks) — matches centrumhurt screenshots, replaces Next.js+vanilla
 frontend_dir = Path(__file__).resolve().parents[2] / "frontend"
 if frontend_dir.exists():
     # Serve at / (homepage) and keep /vanilla alias for backward compat
-    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+    app.mount("/", NoCacheStaticFiles(directory=str(frontend_dir), html=True), name="frontend")
 else:
     vanilla_dir = Path(__file__).resolve().parents[2] / "vanilla"
     if vanilla_dir.exists():

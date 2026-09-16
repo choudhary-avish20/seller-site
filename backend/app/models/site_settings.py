@@ -25,3 +25,4 @@ class SiteSettings(UUIDPKMixin, TimestampMixin, Base):
     privacy_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     faq_content: Mapped[str | None] = mapped_column(Text, nullable=True)
     shipping_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cancellation_policy_content: Mapped[str | None] = mapped_column(Text, nullable=True)
