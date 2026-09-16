@@ -1,19 +1,33 @@
 # Deployment Guide
 
-## Stack
-- **Single service on Render**: the FastAPI backend serves the API *and* the
-  static frontend from the same origin (see `backend/app/main.py`'s
-  `StaticFiles` mount at `/`) — this is exactly what `./start.sh` does for
-  local dev, just running in production instead.
-- **Database**: SQLite (file on Render disk) — swap for Render Postgres for
-  persistence.
+## Quick VPS Deployment (OVH / Ubuntu / Debian)
 
-There is no separate frontend deployment. If you previously created a second
-Render static site for the frontend, delete it — it's not wired to anything
-and will serve a stale, unconfigured copy of the frontend that can't reach
-the API.
+A ready-to-use script [deploy.sh](file:///Users/avishchoudhary/Documents/side-questes/seller-site/deploy.sh) is provided to automate everything on a VPS (Nginx reverse proxy, systemd daemon, virtualenv, firewall, database migrations, and admin account setup).
+
+### 1. Transfer code to your VPS
+From your local machine:
+```bash
+rsync -avz --exclude 'venv' --exclude 'node_modules' --exclude '__pycache__' --exclude '.git' \
+  ./ root@<YOUR_VPS_IP>:/var/www/seller-site/
+```
+*(Or `git clone <repo>` directly onto the server into `/var/www/seller-site`)*
+
+### 2. Run the automated installer
+On your VPS:
+```bash
+cd /var/www/seller-site
+sudo ./deploy.sh setup
+```
+The site will immediately be live at `http://<YOUR_VPS_IP>`.
+
+### Handy VPS Management Commands
+- `sudo ./deploy.sh status` — Check systemd and Nginx service status
+- `sudo ./deploy.sh logs` — View live application logs
+- `sudo ./deploy.sh update` — Pull new changes, migrate database, and restart
+- `sudo ./deploy.sh domain yourdomain.com` — Attach a custom domain + free Let's Encrypt SSL
 
 ---
+
 
 ## Deploy to Render
 
