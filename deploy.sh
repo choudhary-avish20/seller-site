@@ -85,6 +85,9 @@ cmd_setup() {
     log_info "Installing Python backend requirements..."
     "$BACKEND_DIR/venv/bin/pip" install -r "$BACKEND_DIR/requirements.txt"
 
+    # Ensure uploads directory exists on disk
+    mkdir -p "$BACKEND_DIR/uploads/products"
+
     # 4. Create .env if not present
     if [[ ! -f "$BACKEND_DIR/.env" ]]; then
         log_info "Generating $BACKEND_DIR/.env configuration..."
