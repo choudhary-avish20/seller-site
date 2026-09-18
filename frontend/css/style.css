@@ -170,13 +170,12 @@ button,input,select,textarea{font-family:inherit}
 }
 
 /* ── Homepage promo hero ─────────────────────────────────────────────────
-   Desktop: the JPG's own headline/tagline stay legible, so we crop out only
-   its baked-in bottom info strip (object-position pins the crop to the top)
-   and add our own CTA pill over a soft scrim — no duplicated text.
-   Mobile: the wide JPG can't shrink to a narrow card without going
-   illegible, so we crop in tight on the two models (object-position shifts
-   right) and lay real HTML eyebrow/headline/sub/CTA over a bottom gradient
-   instead of relying on the poster's tiny baked text. ────────────────────*/
+   The banner JPG carries its own headline/tagline, so we never duplicate
+   text in HTML — just overlay a CTA pill. Desktop crops out only the JPG's
+   baked-in bottom info strip (object-position pins the crop to the top).
+   Mobile shows the same full banner at its native aspect ratio (no crop/
+   zoom) so the whole graphic — building, headline and models — stays
+   visible, just scaled down. ─────────────────────────────────────────────*/
 .promo-hero-section{padding:20px 0 0}
 .promo-hero{position:relative;display:block;isolation:isolate;border-radius:20px;color:#fff;outline-offset:4px}
 .promo-hero__frame{display:block;position:relative;height:clamp(260px,29vw,400px);border-radius:20px;overflow:hidden;border:1px solid rgba(33,29,26,.08);box-shadow:var(--shadow-sm);transition:box-shadow var(--t-base)}
@@ -198,17 +197,12 @@ button,input,select,textarea{font-family:inherit}
 }
 @media(max-width:760px){
   .promo-hero-section{padding:16px 0 0}
-  .promo-hero__frame{aspect-ratio:4/5;height:auto;max-height:460px;border-radius:16px}
-  .promo-hero__img{object-position:100% 0%;transform:scale(1.32);transform-origin:100% 0%}
-  .promo-hero__scrim{opacity:1;background:linear-gradient(180deg,rgba(12,10,8,.22) 0%,rgba(12,10,8,.12) 22%,rgba(12,10,8,.4) 55%,rgba(12,10,8,.88) 100%)}
-  .promo-hero__content{display:flex;flex-direction:column;gap:5px;position:absolute;left:20px;right:20px;bottom:70px;z-index:1}
-  .promo-hero__eyebrow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#f0c9a8}
-  .promo-hero__headline{font-size:19px;font-weight:800;line-height:1.25;text-shadow:0 1px 6px rgba(0,0,0,.25)}
-  .promo-hero__sub{font-size:12px;font-weight:500;color:#e9e4de}
-  .promo-hero__cta{left:20px;right:auto;bottom:20px;padding:11px 16px;font-size:13px}
+  .promo-hero__frame{aspect-ratio:1983/793;height:auto;max-height:none;border-radius:16px}
+  .promo-hero__img{object-position:50% 50%;transform:none}
+  .promo-hero__cta{right:12px;bottom:12px;padding:9px 14px;font-size:12.5px}
 }
 @media(max-width:390px){
-  .promo-hero__headline{font-size:17px}
+  .promo-hero__cta{padding:8px 12px;font-size:11.5px}
 }
 
 /* ── Account dropdown ────────────────────────────────────────────────── */
