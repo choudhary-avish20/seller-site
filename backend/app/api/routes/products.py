@@ -36,12 +36,20 @@ def _require_admin(user: User):
         raise HTTPException(status_code=403, detail="Only the store owner can manage products")
 
 
-def _ensure_product_slug_unique(db: Session, slug: str, exclude_id: Optional[UUID] = None):
-    q = db.query(Product).filter(Product.slug == slug)
-    if exclude_id:
-        q = q.filter(Product.id != exclude_id)
-    if q.first():
-        raise HTTPException(status_code=400, detail=f"Product slug '{slug}' already exists")
+def _unique_product_slug(db: Session, base_slug: str, exclude_id: Optional[UUID] = None) -> str:
+    # Products may share (or nearly share) a name on purpose — slugs still need
+    # to be unique for URL routing, so disambiguate with a numeric suffix
+    # instead of blocking creation of the second product.
+    slug = base_slug
+    n = 2
+    while True:
+        q = db.query(Product).filter(Product.slug == slug)
+        if exclude_id:
+            q = q.filter(Product.id != exclude_id)
+        if not q.first():
+            return slug
+        slug = f"{base_slug}-{n}"
+        n += 1
 
 
 def _compute_gross(price_net: float, vat_rate: float, price_gross: Optional[float]) -> float:
@@ -407,7 +415,7 @@ def create_product(
     slug = payload.slug.strip() if payload.slug else slugify(payload.name)
     if not slug:
         slug = slugify(payload.name)
-    _ensure_product_slug_unique(db, slug)
+    slug = _unique_product_slug(db, slug)
     price_gross = _compute_gross(payload.price_net, payload.vat_rate, payload.price_gross)
     images_json = _serialize_images(payload.images or [])
     _validate_tiers(payload.price_tiers)
@@ -473,8 +481,7 @@ def update_product(
         prod.name = payload.name.strip()
     if payload.slug is not None:
         new_slug = payload.slug.strip() or slugify(prod.name)
-        _ensure_product_slug_unique(db, new_slug, exclude_id=prod.id)
-        prod.slug = new_slug
+        prod.slug = _unique_product_slug(db, new_slug, exclude_id=prod.id)
     if payload.description is not None:
         prod.description = payload.description.strip() if payload.description else None
     if payload.images is not None:

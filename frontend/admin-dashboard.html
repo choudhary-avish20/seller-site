@@ -178,6 +178,9 @@ tr:hover td{background:#fafafa}
 .bulk-status-err{color:var(--adm-danger)}
 .bulk-status-pending{color:#999}
 .bulk-req-missing{border-color:#fca5a5 !important;background:#fef2f2 !important}
+.bulk-id-cell{min-width:80px;font-size:11px}
+.bulk-product-id{cursor:pointer;background:#f1f5f9;border-radius:4px;padding:2px 5px;font-size:11px;color:var(--adm-text)}
+.bulk-product-id:hover{background:var(--adm-accent);color:#fff}
 
 /* ── Misc ── */
 .empty{text-align:center;padding:40px;color:var(--adm-muted);font-size:13px}
@@ -772,7 +775,7 @@ let bulkRowSeq = 0;
 let bulkSubmitting = false;
 
 function newBulkRow() {
-  const row = { _id: ++bulkRowSeq, _touched: false, status: 'idle', error: null,
+  const row = { _id: ++bulkRowSeq, _touched: false, status: 'idle', error: null, productId: null,
     imagePreview: null, imageUrl: null, imageUploading: false };
   BULK_COLS.forEach(c => { row[c.key] = ''; });
   return row;
@@ -819,8 +822,9 @@ function renderBulkImportView() {
       <table class="bulk-grid">
         <thead><tr>
           <th class="bulk-row-num">#</th>
-          <th>Zdjęcie<span class="req">*</span></th>
+          <th>Zdjęcie</th>
           ${BULK_COLS.map(c => `<th>${esc(c.label)}${c.required ? '<span class="req">*</span>' : ''}</th>`).join('')}
+          <th>ID produktu</th>
           <th>Status</th>
           <th></th>
         </tr></thead>
@@ -870,13 +874,22 @@ function renderBulkRowHtml(row, i) {
   else if (row.status === 'error') statusHtml = `<span class="bulk-status-err">✗ ${esc(row.error || 'Błąd')}</span>`;
   else statusHtml = `<span class="bulk-status-pending">—</span>`;
 
+  const idHtml = row.productId
+    ? `<code class="bulk-product-id" title="${esc(row.productId)} (kliknij, aby skopiować)" onclick="copyBulkProductId('${esc(row.productId)}')">${esc(row.productId.slice(0, 8))}</code>`
+    : `<span class="bulk-status-pending">—</span>`;
+
   return `<tr class="${rowClass}" data-row-id="${row._id}">
     <td class="bulk-row-num">${i + 1}</td>
     <td class="bulk-img-cell">${imgCell}</td>
     ${cells}
+    <td class="bulk-id-cell">${idHtml}</td>
     <td class="bulk-status-cell">${statusHtml}</td>
     <td><button class="bulk-rm-row" onclick="removeBulkRow(${row._id})" title="Usuń wiersz">✕</button></td>
   </tr>`;
+}
+
+function copyBulkProductId(id) {
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(id).catch(() => {});
 }
 
 function updateBulkCell(id, key, value) {
@@ -988,7 +1001,6 @@ function validateBulkRow(row, flatCats) {
   const priceNet = parseFloat(row.price_net);
   if (!row.price_net || isNaN(priceNet) || priceNet <= 0) errors.push('brak/nieprawidłowa cena netto');
   if (row.imageUploading) errors.push('zdjęcie wciąż się wgrywa — poczekaj chwilę');
-  else if (!row.imageUrl) errors.push('brak zdjęcia');
   return { errors, category, priceNet };
 }
 
@@ -1042,7 +1054,7 @@ async function submitBulkRows() {
         name: row.name.trim(),
         category_id: category.id,
         description: row.description.trim() || null,
-        images: [row.imageUrl],
+        images: row.imageUrl ? [row.imageUrl] : [],
         price_net: priceNet,
         vat_rate: row.vat_rate ? parseFloat(row.vat_rate) : 23,
         pack_size: row.pack_size ? parseInt(row.pack_size, 10) : 1,
@@ -1052,7 +1064,7 @@ async function submitBulkRows() {
       };
       try {
         const createdProd = await Api.createProduct(payload);
-        row.status = 'done'; row.error = null;
+        row.status = 'done'; row.error = null; row.productId = createdProd.id;
         created++;
         products.unshift(createdProd);
       } catch (err) {
