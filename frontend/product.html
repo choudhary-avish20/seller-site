@@ -57,7 +57,6 @@
 .pd-price-main.on-sale{color:var(--sale)}
 .pd-price-was{color:var(--muted);text-decoration:line-through;font-size:14px;margin-right:8px}
 .pd-price-sub{font-size:13px;color:var(--text-secondary);margin-top:4px}
-.pd-price-unit{font-size:12.5px;color:var(--text-secondary);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
 
 .pd-tier-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:12px}
 .pd-tier-table th{background:var(--surface-muted);padding:7px;text-align:left;font-weight:600;color:var(--text-secondary);border-bottom:1px solid var(--border)}
@@ -293,8 +292,6 @@ async function load(){
         <div><span class="pd-price-main">${Number(p.price_net).toFixed(2)} PLN</span> <span style="font-size:13px;color:var(--muted)">netto</span></div>
         <div class="pd-price-sub">${Number(p.price_gross).toFixed(2)} PLN brutto</div>
         `}
-        ${(()=>{ const effNet=(p.is_on_sale&&p.sale_price_net!=null)?p.sale_price_net:p.price_net; const effGross=(p.is_on_sale&&p.sale_price_gross!=null)?p.sale_price_gross:p.price_gross;
-          return `<div class="pd-price-unit">cena za ${p.pack_size===1?'parę':'szt.'}: <b>${(Number(effNet)/p.pack_size).toFixed(2)} PLN netto</b> · ${(Number(effGross)/p.pack_size).toFixed(2)} PLN brutto</div>`; })()}
         ${tierRows}
       </div>
       ${p.variants&&p.variants.length? `<div style="margin-bottom:12px;font-size:12px"><b>Kolory / Rozmiary:</b> ${p.variants.map(v=>`${esc(v.option_name)}: ${esc(v.option_value)} (${esc(v.sku)})`).join(', ')}</div>`:''}
