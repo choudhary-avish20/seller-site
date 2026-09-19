@@ -64,13 +64,13 @@ app.include_router(reviews.router, prefix=settings.API_V1_PREFIX)
 app.include_router(coupons.router, prefix=settings.API_V1_PREFIX)
 app.include_router(settings_routes.router, prefix=settings.API_V1_PREFIX)
 
-# Static for uploaded product images — only mounted in dev when R2 is not configured.
+# Static for uploaded product images — used when R2 is not configured (e.g. VPS disk or local dev).
 # In production with R2 active, images are served directly from Cloudflare's CDN.
 from app.core.config import settings as _settings
 if not _settings.r2_configured:
     uploads_dir = Path(__file__).resolve().parents[1] / "uploads"
-    if uploads_dir.exists():
-        app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(uploads_dir)), name="uploads")
 
 # StaticFiles with no explicit Cache-Control lets browsers apply heuristic
 # caching (Chrome will serve a plain reload straight from disk cache without
