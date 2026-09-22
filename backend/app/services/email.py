@@ -157,11 +157,13 @@ Jeśli nie prosiłeś(-aś) o reset hasła, zignoruj tę wiadomość — Twoje h
         rows_text = []
         rows_html = []
         for item in order.items:
-            line_net = float(item.price_net_snapshot) * item.pack_quantity
+            # price_net_snapshot is per PIECE — multiply by total pieces (packs × pack_size).
+            total_pieces = item.pack_quantity * item.pack_size_snapshot
+            line_net = float(item.price_net_snapshot) * total_pieces
             rows_text.append(
                 f"  • {item.product_name_snapshot} "
                 f"(pak {item.pack_size_snapshot} szt.) "
-                f"× {item.pack_quantity} = {line_net:.2f} zł netto"
+                f"× {item.pack_quantity} paczek ({total_pieces} szt.) = {line_net:.2f} zł netto"
             )
             rows_html.append(
                 f"<tr>"
@@ -275,11 +277,13 @@ Zespół WolkaGo"""
         rows_text = []
         rows_html = []
         for item in order.items:
-            line_net = float(item.price_net_snapshot) * item.pack_quantity
+            # price_net_snapshot is per PIECE — multiply by total pieces (packs × pack_size).
+            total_pieces = item.pack_quantity * item.pack_size_snapshot
+            line_net = float(item.price_net_snapshot) * total_pieces
             rows_text.append(
                 f"  • {item.product_name_snapshot} "
                 f"(pak {item.pack_size_snapshot} szt.) "
-                f"× {item.pack_quantity} = {line_net:.2f} zł netto"
+                f"× {item.pack_quantity} paczek ({total_pieces} szt.) = {line_net:.2f} zł netto"
             )
             rows_html.append(
                 f"<tr>"

@@ -178,7 +178,7 @@ button,input,select,textarea{font-family:inherit}
    visible, just scaled down. ─────────────────────────────────────────────*/
 .promo-hero-section{padding:20px 0 0}
 .promo-hero{position:relative;display:block;isolation:isolate;border-radius:20px;color:#fff;outline-offset:4px}
-.promo-hero__frame{display:block;position:relative;height:clamp(260px,29vw,400px);border-radius:20px;overflow:hidden;border:1px solid rgba(33,29,26,.08);box-shadow:var(--shadow-sm);transition:box-shadow var(--t-base)}
+.promo-hero__frame{display:block;position:relative;aspect-ratio:1983/793;height:auto;border-radius:20px;overflow:hidden;border:1px solid rgba(33,29,26,.08);box-shadow:var(--shadow-sm);transition:box-shadow var(--t-base)}
 .promo-hero__img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 0%;transition:transform 280ms ease}
 .promo-hero__scrim{position:absolute;inset:0;background:linear-gradient(0deg,rgba(20,16,12,.32) 0%,rgba(20,16,12,0) 30%);opacity:0;transition:opacity var(--t-base)}
 .promo-hero__content{display:none}
@@ -340,7 +340,7 @@ button,input,select,textarea{font-family:inherit}
 .card{background:var(--surface);position:relative;display:flex;flex-direction:column;border-radius:var(--radius-md);transition:box-shadow var(--t-base)}
 .card-media{position:relative}
 .card-img-wrap{display:block;position:relative;border-radius:var(--radius-md);overflow:hidden;background:var(--surface-muted);aspect-ratio:1/1}
-.card-img-wrap img{width:100%;height:100%;object-fit:cover;display:block;transition:transform var(--t-base), opacity var(--t-base)}
+.card-img-wrap img{width:100%;height:100%;object-fit:contain;display:block;transition:transform var(--t-base), opacity var(--t-base)}
 .card-img-wrap img.img-b{position:absolute;inset:0;opacity:0}
 .card:hover .card-img-wrap img{transform:scale(1.045)}
 /* The zoom above stays on the base (instant) transition. Only opacity gets

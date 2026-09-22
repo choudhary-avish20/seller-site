@@ -307,8 +307,8 @@ function renderSummary(items) {
           ${it.note ? `<div class="oi-note">📝 ${esc(it.note)}</div>` : ''}
         </div>
         <div class="oi-price">
-          <b>${(gross * it.packQuantity).toFixed(2)} zł</b><br>
-          <span style="color:#888">${(net * it.packQuantity).toFixed(2)} netto</span>
+          <b>${(gross * it.packQuantity * (it.product.pack_size||1)).toFixed(2)} zł</b><br>
+          <span style="color:#888">${(net * it.packQuantity * (it.product.pack_size||1)).toFixed(2)} netto</span>
         </div>
       </div>`;
   }).join('');

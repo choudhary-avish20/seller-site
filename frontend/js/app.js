@@ -218,7 +218,10 @@ const Cart={
     let net=0,gross=0;
     this.get().forEach(it=>{
       const {net:n,gross:g}=this.linePrice(it);
-      net+=n*it.packQuantity; gross+=g*it.packQuantity;
+      // price_net/price_gross are per PIECE — multiply by total pieces (packs × pack_size),
+      // not just pack count, to get the line total.
+      const pcs=it.packQuantity*(it.product.pack_size||1);
+      net+=n*pcs; gross+=g*pcs;
     });
     return {net,gross}
   },

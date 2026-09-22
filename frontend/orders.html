@@ -125,7 +125,7 @@ async function load(){
     const items = (o.items||[]).map(it=>`
       <div class="order-item">
         <span>${esc(it.product_name_snapshot)} × ${it.pack_quantity} paczek${it.buyer_note ? `<br><span style="font-size:11px;color:#7c3aed;font-style:italic">📝 ${esc(it.buyer_note)}</span>` : ''}</span>
-        <b>${(Number(it.price_gross_snapshot)*it.pack_quantity).toFixed(2)} zł</b>
+        <b>${(Number(it.price_gross_snapshot)*it.pack_quantity*it.pack_size_snapshot).toFixed(2)} zł</b>
       </div>`).join('');
     const canCancel = o.status === 'pending' || o.status === 'confirmed';
     return `

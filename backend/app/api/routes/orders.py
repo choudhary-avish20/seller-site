@@ -129,8 +129,9 @@ async def create_order(
                 price_net = float(variant.price_net_override)
                 price_gross = round(price_net * (1 + float(product.vat_rate) / 100), 2)
 
-        line_net = price_net * item.pack_quantity
-        line_gross = price_gross * item.pack_quantity
+        # price_net/price_gross are per PIECE — multiply by total pieces (packs × pack_size).
+        line_net = price_net * item.pack_quantity * product.pack_size
+        line_gross = price_gross * item.pack_quantity * product.pack_size
         total_net += line_net
         total_gross += line_gross
 
@@ -438,7 +439,7 @@ def print_order(
     <button onclick="window.print()" style="padding:8px 16px;background:#0f172a;color:#fff;border:0;border-radius:999px;cursor:pointer">Print</button>
     <h1>Order #{_e(str(order.id)[:8])} — {_e(order.status.value)}</h1>
     <div class="meta">Buyer: {_e(buyer.full_name if buyer else '')} ({_e(buyer.email if buyer else '')})<br>Company: {_e(company_name)} NIP: {_e(company_tax_id)}<br>Shipping: {_e(order.shipping_address)}<br>Recipient: {_e(order.recipient_name)} {_e(order.recipient_phone)} {_e(order.recipient_address)}<br>Payment: {_e(order.payment_method.value)} (COD only)<br>Date: {_e(order.created_at)}{f"<br><b>Order note:</b> {_e(order.notes)}" if order.notes else ""}</div>
-    <table><thead><tr><th>Product</th><th>Pack</th><th>Qty (packs)</th>{stall_col_header}{cost_col_header}<th>Sell net</th><th>Total net</th><th>Buyer note</th></tr></thead><tbody>
+    <table><thead><tr><th>Product</th><th>Pack</th><th>Qty (packs)</th>{stall_col_header}{cost_col_header}<th>Sell net / pc</th><th>Total net</th><th>Buyer note</th></tr></thead><tbody>
     """
     for it in items:
         cost_cell = f"<td>{_e(it.cost_price_snapshot) if it.cost_price_snapshot is not None else '-'}</td>" if is_staff else ""
@@ -448,7 +449,7 @@ def print_order(
             f"<td>{_e(it.pack_size_snapshot)}</td><td>{_e(it.pack_quantity)}</td>"
             f"{stall_cell}"
             f"{cost_cell}"
-            f"<td>{_e(it.price_net_snapshot)}</td><td>{_e(round(float(it.price_net_snapshot) * it.pack_quantity, 2))}</td>"
+            f"<td>{_e(it.price_net_snapshot)}</td><td>{_e(round(float(it.price_net_snapshot) * it.pack_quantity * it.pack_size_snapshot, 2))}</td>"
             f"<td>{_e(it.buyer_note) if it.buyer_note else '-'}</td></tr>"
         )
     footer_note = "Print for staff: buy goods at stall after order. Cost price shown for margin." if is_staff else "Print for staff: buy goods at stall after order."

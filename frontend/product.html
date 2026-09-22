@@ -265,7 +265,7 @@ async function load(){
     let tierRows='';
     if(p.price_tiers && p.price_tiers.length){
       tierRows = p.price_tiers.map(tr=>`<tr><td>${tr.min_quantity}-${tr.max_quantity||'∞'}</td><td>${Number(tr.price_net).toFixed(2)} PLN</td><td>${(Number(tr.price_net)*1.23).toFixed(2)} PLN</td></tr>`).join('');
-      tierRows = `<table class="pd-tier-table"><tr><th>Ilość (paczki)</th><th>netto</th><th>brutto</th></tr>${tierRows}</table>`;
+      tierRows = `<table class="pd-tier-table"><tr><th>Ilość (paczki)</th><th>netto / szt.</th><th>brutto / szt.</th></tr>${tierRows}</table>`;
     }
     const isGuest=!localStorage.getItem('access_token');
     // check config for hide prices
@@ -286,11 +286,13 @@ async function load(){
       <div class="pd-price-card">
         ${p.is_on_sale && p.sale_price_net!=null && p.discount_percent ? `<span class="pd-price-badge">-${p.discount_percent}%</span>` : ''}
         ${p.is_on_sale && p.sale_price_net!=null ? `
-        <div><span class="pd-price-was">${Number(p.price_net).toFixed(2)} PLN</span><span class="pd-price-main on-sale">${Number(p.sale_price_net).toFixed(2)} PLN</span> <span style="font-size:13px;color:var(--muted)">netto</span></div>
-        <div class="pd-price-sub"><s>${Number(p.price_gross).toFixed(2)} PLN</s> <b style="color:#c00">${Number(p.sale_price_gross).toFixed(2)} PLN</b> brutto</div>
+        <div><span class="pd-price-was">${Number(p.price_net).toFixed(2)} PLN</span><span class="pd-price-main on-sale">${Number(p.sale_price_net).toFixed(2)} PLN</span> <span style="font-size:13px;color:var(--muted)">netto / szt.</span></div>
+        <div class="pd-price-sub"><s>${Number(p.price_gross).toFixed(2)} PLN</s> <b style="color:#c00">${Number(p.sale_price_gross).toFixed(2)} PLN</b> brutto / szt.</div>
+        <div class="pd-price-sub">Razem za paczkę (${p.pack_size} szt.): <b>${(Number(p.sale_price_net)*p.pack_size).toFixed(2)} PLN</b> netto / <b>${(Number(p.sale_price_gross)*p.pack_size).toFixed(2)} PLN</b> brutto</div>
         ` : `
-        <div><span class="pd-price-main">${Number(p.price_net).toFixed(2)} PLN</span> <span style="font-size:13px;color:var(--muted)">netto</span></div>
-        <div class="pd-price-sub">${Number(p.price_gross).toFixed(2)} PLN brutto</div>
+        <div><span class="pd-price-main">${Number(p.price_net).toFixed(2)} PLN</span> <span style="font-size:13px;color:var(--muted)">netto / szt.</span></div>
+        <div class="pd-price-sub">${Number(p.price_gross).toFixed(2)} PLN brutto / szt.</div>
+        <div class="pd-price-sub">Razem za paczkę (${p.pack_size} szt.): <b>${(Number(p.price_net)*p.pack_size).toFixed(2)} PLN</b> netto / <b>${(Number(p.price_gross)*p.pack_size).toFixed(2)} PLN</b> brutto</div>
         `}
         ${tierRows}
       </div>
@@ -357,7 +359,7 @@ async function load(){
       // appears once the main purchase area scrolls out of view.
       const effNet=(p.is_on_sale&&p.sale_price_net!=null)?p.sale_price_net:p.price_net;
       document.getElementById('pdStickyName').textContent = p.name;
-      document.getElementById('pdStickyPrice').textContent = `${Number(effNet).toFixed(2)} PLN netto`;
+      document.getElementById('pdStickyPrice').textContent = `${Number(effNet).toFixed(2)} PLN netto / szt.`;
       const stickyBar = document.getElementById('pdStickyBar');
       new IntersectionObserver((entries)=>{
         const entry = entries[0];

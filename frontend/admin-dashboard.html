@@ -298,6 +298,7 @@ tr:hover td{background:#fafafa}
   <div class="modal">
     <div class="modal-head">
       <span id="modalTitle">Dodaj produkt</span>
+      <a id="modalViewInStore" href="#" target="_blank" rel="noopener" style="display:none;color:#059669;font-size:12px;font-weight:600;margin-left:10px">🛒 Zobacz w sklepie</a>
       <button onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body">
@@ -331,7 +332,7 @@ tr:hover td{background:#fafafa}
       <div class="f-section">Cena i opakowanie</div>
       <div class="f-cols">
         <div class="f-row">
-          <label>Cena netto (zł) <span class="req">*</span></label>
+          <label>Cena netto (zł) / szt. <span class="req">*</span></label>
           <input id="f_price_net" type="number" step="0.01" min="0" placeholder="0.00" oninput="updateSalePreview()">
         </div>
         <div class="f-row">
@@ -339,7 +340,7 @@ tr:hover td{background:#fafafa}
           <input id="f_vat" type="number" step="1" min="0" max="100" value="23">
         </div>
         <div class="f-row">
-          <label>Cena brutto (zł)</label>
+          <label>Cena brutto (zł) / szt.</label>
           <input id="f_price_gross" type="number" step="0.01" min="0" placeholder="auto">
           <div class="hint">Zostaw puste = netto × (1+VAT)</div>
         </div>
@@ -364,7 +365,7 @@ tr:hover td{background:#fafafa}
       <div class="f-section">Dane zakupu (wewnętrzne)</div>
       <div class="f-cols">
         <div class="f-row">
-          <label>Cena zakupu (zł)</label>
+          <label>Cena zakupu (zł) / szt.</label>
           <input id="f_cost" type="number" step="0.01" min="0" placeholder="dla personelu">
         </div>
         <div class="f-row">
@@ -396,7 +397,7 @@ tr:hover td{background:#fafafa}
       <div id="saleFields" style="display:none">
         <div class="f-cols">
           <div class="f-row">
-            <label>Cena promocyjna netto (zł)</label>
+            <label>Cena promocyjna netto (zł) / szt.</label>
             <input id="f_sale_price" type="number" step="0.01" min="0" placeholder="np. 16.50" oninput="onSalePriceInput()">
             <div class="hint">Cena "po" — musi być niższa niż cena regularna</div>
           </div>
@@ -410,7 +411,7 @@ tr:hover td{background:#fafafa}
       </div>
 
       <div class="f-section">Progi cenowe (opcjonalne)</div>
-      <div style="font-size:11px;color:#666;margin-bottom:8px">Ustaw różne ceny dla różnych ilości zamówień. Zostaw puste = jedna cena.</div>
+      <div style="font-size:11px;color:#666;margin-bottom:8px">Ustaw różne ceny za sztukę dla różnych ilości zamówionych paczek (np. od 10 paczek). Zostaw puste = jedna cena.</div>
       <div id="tiersList"></div>
       <button type="button" class="btn btn-ghost btn-sm" onclick="addTierRow()">+ Dodaj próg</button>
     </div>
@@ -736,7 +737,7 @@ async function renderProductsView() {
             <th style="width:50px"></th>
             <th>Nazwa</th>
             <th>Kategoria</th>
-            <th>Cena netto</th>
+            <th>Cena netto / szt.</th>
             <th>Status</th>
             <th>Akcje</th>
           </tr>
@@ -763,7 +764,7 @@ const BULK_COLS = [
   { key: 'categoryText',    label: 'Kategoria',        type: 'text',   required: true, list: 'bulkCatList' },
   { key: 'description',     label: 'Opis',             type: 'text' },
   { key: 'pack_size',       label: 'Szt. / paczka',    type: 'number', placeholder: '1' },
-  { key: 'price_net',       label: 'Cena netto',       type: 'number', required: true, step: '0.01' },
+  { key: 'price_net',       label: 'Cena netto / szt.', type: 'number', required: true, step: '0.01' },
   { key: 'vat_rate',        label: 'VAT %',            type: 'number', step: '0.01', placeholder: '23' },
   { key: 'cost_price',      label: 'Cena zakupu',      type: 'number', step: '0.01' },
   { key: 'stall_location',  label: 'Hala / stoisko',   type: 'text' },
@@ -1158,12 +1159,13 @@ function filterProducts() {
         </td>
         <td style="font-size:11px">${esc(p.category_name || '—')}</td>
         <td>${p.is_on_sale && p.sale_price_net!=null
-          ? `<span style="color:#999;text-decoration:line-through;font-size:11px">${fmtPrice(p.price_net)} zł</span><br><b style="color:#c00">${fmtPrice(p.sale_price_net)}</b> zł`
-          : `<b>${fmtPrice(p.price_net)}</b> zł`}<br><span style="font-size:10px;color:#888">${fmtPrice(p.price_gross)} zł brutto</span></td>
+          ? `<span style="color:#999;text-decoration:line-through;font-size:11px">${fmtPrice(p.price_net)} zł</span><br><b style="color:#c00">${fmtPrice(p.sale_price_net)}</b> zł / szt.`
+          : `<b>${fmtPrice(p.price_net)}</b> zł / szt.`}<br><span style="font-size:10px;color:#888">${fmtPrice(p.price_gross)} zł brutto / szt.</span></td>
         <td>${activeBadge}</td>
         <td>
           <div class="actions">
             <button class="btn btn-ghost btn-sm" onclick="openEditModal('${p.id}')">✏️ Edytuj</button>
+            <a class="btn btn-ghost btn-sm" href="product.html?slug=${encodeURIComponent(p.slug)}" target="_blank" rel="noopener" style="text-decoration:none">🛒 Zobacz w sklepie</a>
             <button class="btn btn-ghost btn-sm" onclick="confirmArchive('${p.id}',this.dataset.name,${p.is_active})" data-name="${esc(p.name)}">${archiveLabel}</button>
             <button class="btn btn-danger btn-sm" onclick="confirmDelete('${p.id}',this.dataset.name)" data-name="${esc(p.name)}">🗑 Usuń</button>
           </div>
@@ -1433,7 +1435,14 @@ async function renderOrdersView() {
   const main = document.getElementById('mainContent');
   main.innerHTML = '<div class="empty">Ładowanie zamówień…</div>';
   try {
-    orders = await Api.listOrders();
+    // products is only otherwise populated by visiting the Products tab —
+    // load it here too so the per-item "edit" / "Zobacz w sklepie" links
+    // still work when an admin opens Orders directly (e.g. refresh on #orders).
+    const needProducts = !products.length;
+    [orders] = await Promise.all([
+      Api.listOrders(),
+      needProducts ? Api.listProducts({ include_inactive: true }).then(p => { products = p; }) : Promise.resolve()
+    ]);
   } catch(e) {
     main.innerHTML = `<div class="alert alert-warn">Błąd: ${e.message}</div>`; return;
   }
@@ -1539,8 +1548,8 @@ function renderOrderRows() {
 
     // ── items breakdown for expanded panel ──────────────────────────────
     const itemRows = (o.items || []).map(it => {
-      const lineNet   = (parseFloat(it.price_net_snapshot)   * it.pack_quantity).toFixed(2);
-      const lineGross = (parseFloat(it.price_gross_snapshot) * it.pack_quantity).toFixed(2);
+      const lineNet   = (parseFloat(it.price_net_snapshot)   * it.pack_quantity * it.pack_size_snapshot).toFixed(2);
+      const lineGross = (parseFloat(it.price_gross_snapshot) * it.pack_quantity * it.pack_size_snapshot).toFixed(2);
 
       // Cross-reference live product state to surface warnings
       const liveProd = products.find(p => p.id === it.product_id);
@@ -1560,10 +1569,15 @@ function renderOrderRows() {
       const productNameHtml = liveProd
         ? `<a href="#" onclick="openEditModal('${liveProd.id}');return false" style="color:#0099cc;font-weight:bold">${esc(it.product_name_snapshot)}</a>`
         : esc(it.product_name_snapshot);
+      // Separate link to the live storefront page, so the admin can see exactly
+      // what the buyer ordered as it actually appears in the shop.
+      const storeLinkHtml = liveProd
+        ? `<a href="product.html?slug=${encodeURIComponent(liveProd.slug)}" target="_blank" rel="noopener" style="display:inline-block;margin-top:4px;padding:3px 9px;border:1px solid #059669;border-radius:5px;background:#ecfdf5;color:#059669;font-size:11px;font-weight:700;text-decoration:none;white-space:nowrap">🛒 Zobacz w sklepie</a>`
+        : '';
 
       return `
         <tr>
-          <td style="padding:5px 10px;border-bottom:1px solid #eee">${productNameHtml}${warnHtml}${noteHtml}</td>
+          <td style="padding:5px 10px;border-bottom:1px solid #eee">${productNameHtml}${storeLinkHtml ? `<br>${storeLinkHtml}` : ''}${warnHtml}${noteHtml}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;font-size:11px;color:${sourceLabel?'#333':'#bbb'}">${sourceLabel || '—'}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:center">${it.pack_size_snapshot}</td>
           <td style="padding:5px 10px;border-bottom:1px solid #eee;text-align:center">${it.pack_quantity}</td>
@@ -1664,9 +1678,9 @@ function renderOrderRows() {
                     <th style="padding:6px 10px;text-align:left;font-size:11px">Produkt</th>
                     <th style="padding:6px 10px;text-align:left;font-size:11px">Skąd kupić</th>
                     <th style="padding:6px 10px;text-align:center;font-size:11px">Pack</th>
-                    <th style="padding:6px 10px;text-align:center;font-size:11px">Szt. (paczek)</th>
-                    <th style="padding:6px 10px;text-align:right;font-size:11px">Cena netto</th>
-                    <th style="padding:6px 10px;text-align:right;font-size:11px">Cena brutto</th>
+                    <th style="padding:6px 10px;text-align:center;font-size:11px">Ilość (paczek)</th>
+                    <th style="padding:6px 10px;text-align:right;font-size:11px">Cena netto / szt.</th>
+                    <th style="padding:6px 10px;text-align:right;font-size:11px">Cena brutto / szt.</th>
                     <th style="padding:6px 10px;text-align:right;font-size:11px">Razem netto</th>
                     <th style="padding:6px 10px;text-align:right;font-size:11px;color:#aaa">Razem brutto</th>
                   </tr>
@@ -2130,6 +2144,7 @@ function openAddModal() {
   editingProductId = null;
   pendingImages = [];
   document.getElementById('modalTitle').textContent = 'Dodaj produkt';
+  document.getElementById('modalViewInStore').style.display = 'none';
   clearModalForm();
   populateCategorySelect();
   renderImgList();
@@ -2150,6 +2165,14 @@ async function openEditModal(id) {
     prod = products.find(p => p.id === id);
     if (!prod) prod = await Api.getProductBySlug(id); // shouldn't happen but safe
   } catch (e) { showModalErr('Nie można załadować produktu: ' + e.message); return; }
+
+  const viewInStoreLink = document.getElementById('modalViewInStore');
+  if (prod.slug) {
+    viewInStoreLink.href = `product.html?slug=${encodeURIComponent(prod.slug)}`;
+    viewInStoreLink.style.display = '';
+  } else {
+    viewInStoreLink.style.display = 'none';
+  }
 
   document.getElementById('f_name').value = prod.name || '';
   document.getElementById('f_slug').value = prod.slug || '';
@@ -2348,11 +2371,11 @@ function addTierRow(t = {}) {
   div.dataset.tier = idx;
   div.innerHTML = `
     <span style="min-width:30px;font-size:11px;color:#777">Od</span>
-    <input type="number" min="1" placeholder="min szt." value="${t.min_quantity ?? ''}" class="t-min">
+    <input type="number" min="1" placeholder="min paczek" value="${t.min_quantity ?? ''}" class="t-min">
     <span style="min-width:30px;font-size:11px;color:#777">Do</span>
     <input type="number" min="1" placeholder="max (puste=∞)" value="${t.max_quantity ?? ''}" class="t-max">
     <span style="min-width:50px;font-size:11px;color:#777">Cena</span>
-    <input type="number" step="0.01" min="0" placeholder="zł netto" value="${t.price_net ?? ''}" class="t-price">
+    <input type="number" step="0.01" min="0" placeholder="zł netto / szt." value="${t.price_net ?? ''}" class="t-price">
     <button class="rm-tier" onclick="this.parentElement.remove()" title="Usuń">✕</button>`;
   wrap.appendChild(div);
 }
